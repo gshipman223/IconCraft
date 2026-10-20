@@ -258,6 +258,9 @@ func (e *Engine) restoreFinderFromVault(ctx context.Context, app App) error {
 		return err
 	}
 	before := e.State.Records[idx].Before
+	if err := e.probeWritable(app); err != nil {
+		return err
+	}
 	if err := e.Native.Restore(ctx, app.Path, before); err != nil {
 		return err
 	}

@@ -169,7 +169,29 @@ func (m *Mac) Restore(ctx context.Context, path string, s core.Snapshot) error {
 	if s.Exists {
 		f, err := os.CreateTemp(path, ".iconcraft-restore-")
 		if err != nil {
-			return err
+			if !errors.Is(err, os.ErrPermission) {
+				return err
+			}
+			// App Management protection can refuse temp files inside the
+			// bundle while still allowing the icon file itself to be
+			// written. Fall back to a direct write rather than failing a
+			// rollback that would otherwise leave recovery blocked.
+			if werr := os.WriteFile(p, s.Data, 0644); werr != nil {
+				return werr
+			}
+			for k, v := range s.Attributes {
+				if aerr := setAttr(p, k, v); aerr != nil {
+					return fmt.Errorf("restore attribute %s: %w", k, aerr)
+				}
+			}
+			if cerr := os.Chmod(p, os.FileMode(s.Mode)); cerr != nil {
+				return cerr
+			}
+			f = nil
+		}
+		if f == nil {
+			// Direct write completed; skip the temp-file path below.
+			goto finderInfo
 		}
 		tmp := f.Name()
 		defer os.Remove(tmp)
@@ -200,6 +222,7 @@ func (m *Mac) Restore(ctx context.Context, path string, s core.Snapshot) error {
 			return err
 		}
 	}
+finderInfo:
 	current, err := attr(path, "com.apple.FinderInfo")
 	if err != nil {
 		return err

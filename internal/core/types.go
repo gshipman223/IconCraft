@@ -18,11 +18,15 @@ import (
 	"time"
 )
 
-const Version = "0.8.0"
+const Version = "0.8.1"
 
 // SupportURL is Gavin Shipman's verified PayPal business contribution link.
 const SupportURL = "https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA"
 const RepositoryURL = "https://github.com/gshipman223/IconCraft"
+
+// AppManagementURL opens System Settings at Privacy & Security → App
+// Management, where users can allow IconCraft to change other apps' icons.
+const AppManagementURL = "x-apple.systempreferences:com.apple.preference.security?Privacy_AppBundles"
 const MaxIconBytes = 16 << 20
 
 type App struct {

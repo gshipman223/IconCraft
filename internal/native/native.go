@@ -158,10 +158,24 @@ func (m *Mac) Choose(ctx context.Context, kind string) (string, error) {
 // OpenURL opens one of IconCraft's two fixed external links in the default
 // browser. Arbitrary URLs from the page are refused here and in bridge.js.
 func (m *Mac) OpenURL(ctx context.Context, url string) error {
-	if url != core.SupportURL && url != core.RepositoryURL {
+	if url != core.SupportURL && url != core.RepositoryURL && url != core.AppManagementURL {
 		return errors.New("external link is not on IconCraft's allowlist")
 	}
 	return m.call(ctx, map[string]string{"action": "openurl", "url": url}, nil)
+}
+
+// WriteProbe reports whether this process may create files inside the app
+// bundle. macOS "App Management" protection (com.apple.macl) refuses with
+// EPERM even when the user owns the app; probing first lets IconCraft fail
+// with guidance before journalling anything.
+func (m *Mac) WriteProbe(path string) error {
+	f, err := os.CreateTemp(path, ".iconcraft-write-check-")
+	if err != nil {
+		return err
+	}
+	name := f.Name()
+	_ = f.Close()
+	return os.Remove(name)
 }
 
 // BundleIconFile returns the bundle's CFBundleIconFile base name ("" when the

@@ -269,6 +269,51 @@ func (e *Engine) Scan(ctx context.Context) ([]App, []string, error) {
 		e.Apps[a.ID] = a
 		result = append(result, a)
 	}
+	// Auto-heal interrupted records whose change never actually landed
+	// (e.g. macOS refused the write): if the app's current icon metadata
+	// already matches the record's own pre-change backup — or the earliest
+	// live layer's backup, i.e. the app is verifiably back at its original
+	// icon — there is nothing to roll back, and leaving the record
+	// "rollback-required" would block the app (and the keeper) forever.
+	// Earlier "applied" layers stay live, so the keeper can re-skin.
+	snapByPath := map[string]Snapshot{}
+	healed := false
+	for i := range e.State.Records {
+		r := &e.State.Records[i]
+		if r.Status != "rollback-required" && r.Status != "prepared" {
+			continue
+		}
+		snap, ok := snapByPath[r.App.Path]
+		if !ok {
+			s, se := e.Native.Snapshot(r.App.Path)
+			if se != nil {
+				continue
+			}
+			snap, snapByPath[r.App.Path] = s, s
+		}
+		// No Icon file on either side means the visible icon is the
+		// bundle's own in both cases, even if a stale FinderInfo
+		// custom-icon bit survived a refused/removed change.
+		gone := func(s Snapshot) bool { return !s.Exists }
+		heal := snap.Equal(r.Before) || (gone(snap) && gone(r.Before))
+		if !heal {
+			for j := range e.State.Records {
+				earlier := &e.State.Records[j]
+				if earlier.App.ID == r.App.ID && isLive(earlier.Status) {
+					heal = snap.Equal(earlier.Before) || (gone(snap) && gone(earlier.Before))
+					break
+				}
+			}
+		}
+		if heal {
+			r.Status = "failed"
+			r.Error = "Recovered automatically: the app already matches its saved original icon, so there was nothing to roll back."
+			healed = true
+		}
+	}
+	if healed {
+		_ = e.save()
+	}
 	sort.Slice(result, func(i, j int) bool {
 		if (result[i].CraftID != "") != (result[j].CraftID != "") {
 			return result[i].CraftID != ""
@@ -385,6 +430,26 @@ func (e *Engine) CopyDonor(ctx context.Context, id string) (Asset, error) {
 	}
 	return e.ImportPNG(a.Name+" icon", "Extracted from installed application: "+a.BundleID, b)
 }
+
+type writeProber interface{ WriteProbe(string) error }
+
+// probeWritable fails early — before anything is journalled — when macOS
+// App Management protection (or plain permissions) will refuse writes
+// inside this app's bundle, with guidance instead of a half-finished change.
+func (e *Engine) probeWritable(a App) error {
+	p, ok := e.Native.(writeProber)
+	if !ok {
+		return nil
+	}
+	if err := p.WriteProbe(a.Path); err != nil {
+		if errors.Is(err, os.ErrPermission) {
+			return fmt.Errorf("macOS is blocking IconCraft from changing %s (App Management protection). Open System Settings → Privacy & Security → App Management, switch IconCraft on, then try again. Nothing was changed", a.Name)
+		}
+		return fmt.Errorf("could not write inside %s: %w", a.Name, err)
+	}
+	return nil
+}
+
 func (e *Engine) Apply(ctx context.Context, id, assetID string) (Record, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -396,6 +461,9 @@ func (e *Engine) Apply(ctx context.Context, id, assetID string) (Record, error) 
 		return Record{}, errors.New("system applications are read-only donors")
 	}
 	if err := SafeApp(a.Path); err != nil {
+		return Record{}, err
+	}
+	if err := e.probeWritable(a); err != nil {
 		return Record{}, err
 	}
 	p, err := e.assetPath(assetID)
@@ -441,13 +509,21 @@ func (e *Engine) Apply(ctx context.Context, id, assetID string) (Record, error) 
 			_ = e.save()
 			return e.State.Records[idx], errors.New(e.State.Records[idx].Error)
 		}
-		re := e.Native.Restore(context.Background(), a.Path, before)
-		if re == nil {
-			check, ce := e.Native.Snapshot(a.Path)
-			if ce != nil {
-				re = ce
-			} else if !check.Equal(before) {
-				re = errors.New("rollback verification did not match the original backup")
+		var re error
+		if snap, se := e.Native.Snapshot(a.Path); se == nil && snap.Equal(before) {
+			// The change was refused before anything was written (e.g.
+			// App Management) — the app is already exactly as it was, so
+			// attempting a rollback write would only fail pointlessly
+			// and wedge the record in "rollback-required".
+		} else {
+			re = e.Native.Restore(context.Background(), a.Path, before)
+			if re == nil {
+				check, ce := e.Native.Snapshot(a.Path)
+				if ce != nil {
+					re = ce
+				} else if !check.Equal(before) {
+					re = errors.New("rollback verification did not match the original backup")
+				}
 			}
 		}
 		status := "failed"
@@ -527,6 +603,9 @@ func (e *Engine) Restore(ctx context.Context, recordID string) (Record, error) {
 	}
 	if r.After != nil && !current.Equal(*r.After) {
 		return r, errors.New("the icon was changed outside IconCraft; restore stopped to preserve that change")
+	}
+	if err := e.probeWritable(r.App); err != nil {
+		return r, err
 	}
 	if err = e.Native.Restore(ctx, r.App.Path, r.Before); err != nil {
 		return r, err

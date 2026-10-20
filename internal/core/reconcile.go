@@ -82,9 +82,12 @@ func (e *Engine) Reconcile(ctx context.Context) (ReconcileResult, error) {
 			out.Skipped = append(out.Skipped, app.Name+": "+err.Error())
 			continue
 		}
-		if snap.Custom() {
+		if snap.Custom() && snap.Exists {
 			continue // skin still on (or user set another one — respect it)
 		}
+		// A custom-icon bit with no Icon file is stale residue of a
+		// refused/removed change (Finder shows the generic icon):
+		// fall through and re-apply so the skin actually returns.
 		if _, err := e.Apply(ctx, app.ID, r.AssetID); err != nil {
 			out.Skipped = append(out.Skipped, app.Name+": "+err.Error())
 			continue

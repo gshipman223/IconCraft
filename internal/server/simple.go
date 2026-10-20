@@ -135,6 +135,33 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 			respond(w, 200, map[string]any{"url": url, "opened": true})
 		}
 		return true
+	case "api/open-settings":
+		// Opens System Settings at App Management so the user can allow
+		// IconCraft to change protected apps' icons. Fixed target only.
+		var b struct {
+			Target string `json:"target"`
+		}
+		if err := readJSON(w, r, &b); err != nil {
+			fail(w, err)
+			return true
+		}
+		if b.Target != "appManagement" {
+			fail(w, errors.New("unknown settings target"))
+			return true
+		}
+		opener, ok := s.Engine.Native.(interface {
+			OpenURL(context.Context, string) error
+		})
+		if !ok {
+			respond(w, 200, map[string]any{"opened": false})
+			return true
+		}
+		if err := opener.OpenURL(ctx, core.AppManagementURL); err != nil {
+			fail(w, err)
+		} else {
+			respond(w, 200, map[string]any{"opened": true})
+		}
+		return true
 	case "api/theme":
 		var b struct {
 			Theme string `json:"theme"`

@@ -4,6 +4,29 @@ All notable changes to IconCraft. Versions are ad-hoc signed Universal
 (Apple Silicon + Intel) macOS builds; Developer ID signing/notarisation has
 not been performed.
 
+## [0.8.1] — 2026-10-21 · App Management permission handling
+Fixes the "operation not permitted / rollback failed" dead-end seen on
+protected app bundles (macOS App Management, com.apple.macl):
+- **Write probe first**: Apply/full-skin/restore now test writability
+  inside the bundle *before* journalling anything. If macOS will refuse,
+  you get one clear message and nothing is half-changed.
+- **No more wedged apps**: when a change is refused atomically, the
+  rollback write is skipped (there is nothing to roll back) instead of
+  failing and parking the app in "rollback-required" forever.
+- **Auto-heal**: scans close out stuck records when the app already
+  matches its saved original — including the stale FinderInfo
+  custom-icon bit with no icon file, which also no longer fools the
+  keeper into thinking a skin is still on. Live result: the two stuck
+  apps healed on launch and the keeper re-skinned them (iconsFixed=2).
+- **One-click fix**: permission errors now show an "Open App Management
+  settings" button that jumps to System Settings → Privacy & Security →
+  App Management (fixed allowlisted target, same pattern as support).
+- Restore's icon write falls back to a direct write when temp files
+  inside the bundle are refused.
+Verified in the real GUI via CUA driver: the exact Replace click that
+failed in the bug report now applies cleanly (new applied record, icon
+in place). Full suite green.
+
 ## [0.8.0] — 2026-10-21 · Originals Vault
 - **Originals Vault**: before IconCraft changes an app for the first time it
   now saves the original identity — folder/display name, internal

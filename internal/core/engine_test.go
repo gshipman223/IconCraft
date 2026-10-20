@@ -18,13 +18,17 @@ type fakeNative struct {
 	states           map[string]Snapshot
 	app              App
 	sets             int
+	restores         int
 	resigns          int
 	bundleNames      map[string]string
 	failSet          bool
 	failRestore      bool
+	probeErr         error
 	badSignature     bool
 	changeExecutable bool
 }
+
+func (n *fakeNative) WriteProbe(string) error { return n.probeErr }
 
 func (n *fakeNative) BundleIconFile(_ context.Context, _ string) (string, error) {
 	return "AppIcon.icns", nil
@@ -78,6 +82,7 @@ func (n *fakeNative) Set(_ context.Context, p, icon string) error {
 	return nil
 }
 func (n *fakeNative) Restore(_ context.Context, p string, s Snapshot) error {
+	n.restores++
 	if n.failRestore {
 		return errors.New("simulated restore failure")
 	}

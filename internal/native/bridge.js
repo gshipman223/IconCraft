@@ -132,7 +132,8 @@ function run(argv) {
         case 'openurl':
             // Defence in depth: Go also allowlists these two exact URLs.
             if (r.url !== 'https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA' &&
-                r.url !== 'https://github.com/gshipman223/IconCraft') {
+                r.url !== 'https://github.com/gshipman223/IconCraft' &&
+                r.url !== 'x-apple.systempreferences:com.apple.preference.security?Privacy_AppBundles') {
                 throw Error('External link is not on IconCraft\'s allowlist');
             }
             if (!w.openURL($.NSURL.URLWithString($(r.url)))) throw Error('macOS could not open the link in your browser');

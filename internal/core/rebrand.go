@@ -63,6 +63,9 @@ func (e *Engine) Rebrand(ctx context.Context, appID, assetID, name string) (Rebr
 	if err := SafeApp(a.Path); err != nil {
 		return RebrandRecord{}, err
 	}
+	if err := e.probeWritable(a); err != nil {
+		return RebrandRecord{}, err
+	}
 	if runner, ok := e.Native.(interface {
 		Running(context.Context, string) (bool, error)
 	}); ok {
@@ -228,6 +231,9 @@ func (e *Engine) RestoreRebrand(ctx context.Context, appID string) (RebrandRecor
 		if running {
 			return rec, errors.New("quit this application before restoring its original identity")
 		}
+	}
+	if err := e.probeWritable(a); err != nil {
+		return rec, err
 	}
 	current, err := Fingerprint(a)
 	if err != nil {
