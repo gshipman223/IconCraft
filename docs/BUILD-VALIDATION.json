@@ -1,5 +1,5 @@
 {
-  "version": "0.8.2",
+  "version": "0.9.0",
   "date": "2026-10-21",
   "environment": "real Mac, darwin/arm64, macOS 26 (Tahoe)",
   "goTests": "passed \u2014 119 tests across 5 packages (go test ./...), race detector clean, go vet clean",
@@ -14,5 +14,5 @@
   "signing": "ad-hoc performed (per-slice sign + lipo + bundle verify --deep --strict OK); Developer ID + notarization NOT PERFORMED",
   "install": "/Applications/IconCraft.app installed from this build and launched successfully",
   "iconSearch": "0.5.1: layered resolver (publisher pages + embedded assets, publisher CDN, App Store by ID, verified App Store search, saved original, installed product). Live proof: CADCraft -> genuine AutoCAD icon from Autodesk's App Store listing (track 393149734) after autodesk.com HTTP 403; knockoff listings rejected by seller+name+bundle triple-check.",
-  "notes": "Full suite green. v0.8.2 stops spurious 'couldn't open' dialogs: a SIGKILL/SIGTERM-killed native window (ErrWindowKilled) and relaunch-while-running (errAlreadyRunning, exit 0) are clean exits; real launch failures still dialog. Proven live via CUA + shell: killed window.js -> silent exit, no dialog process; second launch -> exit 0, single instance. Includes all 0.8.1 App Management fixes."
+  "notes": "Full suite green (incl. new keeper-intent and window-retention tests); native self-test passes. v0.9.0 adds a menu bar status item (Open, Keep Skins Applied live toggle, keeper status, App Management settings, Support, Quit) and desired-state healing of the keep-applied LaunchAgent (intent journalled; missing agent restored at launch and on periodic checks \u2014 proven live by deleting the plist and watching it restored + logged). JXA wrappers are function-scoped so the status item and window delegate no longer get collected (window close quits cleanly again). Verified via CUA + System Events AX: menu items live, toggle off/on drives launchctl + plist, keeper survives app quit by design."
 }

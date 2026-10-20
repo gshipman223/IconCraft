@@ -101,6 +101,9 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 		if err := agent.SetKeepAgent(b.Enabled); err != nil {
 			fail(w, err)
 		} else {
+			// Journal the intent: if anything later removes the agent
+			// externally, the running app restores it (desired-state).
+			_ = s.Engine.SetKeeperPreference(b.Enabled)
 			respond(w, 200, map[string]bool{"enabled": agent.KeepAgentEnabled()})
 		}
 		return true

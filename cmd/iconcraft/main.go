@@ -140,7 +140,9 @@ func run() (result error) {
 	// Keep skins applied even while the main app is open: apps/updaters that
 	// revert a Finder icon or folder name on launch get repaired in the
 	// background. When the app is closed, the LaunchAgent (--reapply) does it.
-	go keepAppliedLoop(ctx, e)
+	e.InitKeeperPreference(m.KeepAgentEnabled())
+	ensureKeeper(e, m)
+	go keepAppliedLoop(ctx, e, m)
 	s := server.New(e)
 	listener, err := s.Start()
 	if err != nil {
@@ -175,16 +177,34 @@ func run() (result error) {
 	return err
 }
 
+// ensureKeeper restores the keep-applied LaunchAgent when the user's
+// journalled intent is "on" but the agent has gone missing — cleaner
+// tools and other external actors sometimes remove launch agents, and
+// silently losing skin persistence would be far worse than quietly
+// putting it back. The toggle in the UI/menu always wins.
+func ensureKeeper(e *core.Engine, m *native.Mac) {
+	desired, set := e.KeeperPreference()
+	if !set || !desired || m.KeepAgentEnabled() {
+		return
+	}
+	if err := m.SetKeepAgent(true); err != nil {
+		log.Printf("keep-applied agent restore: %v", err)
+	} else {
+		log.Printf("keep-applied agent was missing although enabled; restored it")
+	}
+}
+
 // keepAppliedLoop periodically repairs skins reverted by app launches or
 // updaters while IconCraft itself is running. The first pass is delayed so
 // startup scanning settles; failures are logged, never surfaced as dialogs.
-func keepAppliedLoop(ctx context.Context, e *core.Engine) {
+func keepAppliedLoop(ctx context.Context, e *core.Engine, m *native.Mac) {
 	select {
 	case <-ctx.Done():
 		return
 	case <-time.After(20 * time.Second):
 	}
 	for {
+		ensureKeeper(e, m)
 		if _, _, err := e.Scan(ctx); err != nil {
 			log.Printf("keep-applied scan: %v", err)
 		} else if res, err := e.Reconcile(ctx); err != nil {

@@ -4,6 +4,23 @@ All notable changes to IconCraft. Versions are ad-hoc signed Universal
 (Apple Silicon + Intel) macOS builds; Developer ID signing/notarisation has
 not been performed.
 
+## [0.9.0] — 2026-10-21 · Menu bar control + keeper that heals itself
+- **Menu bar icon**: while IconCraft is open, its icon sits in the menu
+  bar with Open IconCraft, **Keep Skins Applied: On/Off** (live state),
+  a plain-English keeper status line, App Management Settings…,
+  Support, and Quit. (Your skins never needed the app running — they
+  are written to disk; only the repair keeper is background, via a
+  LaunchAgent that works with the app closed.)
+- **Keeper desired-state healing**: your on/off intent is journalled.
+  If anything removes the keep-applied agent (cleaner tools managing
+  launch agents do this), IconCraft quietly restores it at launch and
+  during its periodic checks — a deleted agent was observed live on
+  the maintainer's Mac and is now restored automatically (logged).
+- Fixed the menu bar item (and window-close handling) silently dying
+  after a while: JXA block-scoped wrappers were being collected by the
+  JS engine; they are now function-scoped. Closing the window quits
+  the app cleanly again.
+
 ## [0.8.2] — 2026-10-21 · No more "couldn't open" dialogs on close
 - Killing/force-closing the native window (or the app being replaced
   during an update) is now treated as a normal close: the process

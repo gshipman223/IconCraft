@@ -13,15 +13,15 @@
 
 <p align="center">
   <a href="https://github.com/gshipman223/IconCraft/releases"><img alt="Release" src="https://img.shields.io/github/v/release/gshipman223/IconCraft?display_name=tag&style=flat-square"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-0.8.2-blueviolet?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.9.0-blueviolet?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/macOS-12.3%2B%20%C2%B7%20Apple%20Silicon%20%2B%20Intel-black?style=flat-square&logo=apple">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green?style=flat-square">
   <a href="#-support-iconcraft"><img alt="Support via PayPal" src="https://img.shields.io/badge/support-PayPal-00457C?style=flat-square&logo=paypal"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.8.2-Installer.pkg"><img alt="Download IconCraft for macOS (installer)" src="https://img.shields.io/badge/⬇%20Download%20for%20macOS-Installer%20.pkg-7C3AED?style=for-the-badge"></a>
-  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.8.2.zip"><img alt="Download IconCraft ZIP" src="https://img.shields.io/badge/ZIP%20archive-4F46E5?style=for-the-badge"></a>
+  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.9.0-Installer.pkg"><img alt="Download IconCraft for macOS (installer)" src="https://img.shields.io/badge/⬇%20Download%20for%20macOS-Installer%20.pkg-7C3AED?style=for-the-badge"></a>
+  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.9.0.zip"><img alt="Download IconCraft ZIP" src="https://img.shields.io/badge/ZIP%20archive-4F46E5?style=for-the-badge"></a>
 </p>
 
 <p align="center">
@@ -64,6 +64,7 @@ No tabs, no accounts, no telemetry, no diagnostics maze. One screen:
 | **Exhaustive search** | Six layers of sources run in parallel before "Not found" is ever shown — with a plain-English report of what was checked (e.g. *"publisher site blocked (403); not on the App Store; not installed"*). |
 | **Clone-friendly** | Built for ArtCraft-style and vibe-coded alternatives (`ai.storyteller.*` and friends) with verified product equivalents — Photoshop, Illustrator, Premiere Pro, Lightroom, Acrobat, After Effects, InDesign, Figma, Word, Excel, PowerPoint, Pro Tools, AutoCAD… |
 | **Safe by design** | Original metadata is backed up *before* mutation, bundle identity + code signature verified, rollback on any failure, restore refuses to overwrite apps changed behind its back. |
+| **Menu bar control** | IconCraft's menu bar icon toggles the background keeper, jumps to App Management settings, and opens the app — while skins themselves live on disk and need no process at all. If anything removes the keeper agent, IconCraft restores it. |
 | **Originals Vault** | Before anything changes, your app's original name (folder + internal) and icon are saved under its stable bundle ID. Restore rebuilds from the vault — even after the app updates, moves, or is renamed again. |
 | **Full skin (running identity)** | Optionally write the name + icon *inside* a cloned/third-party app (re-signed, fully backed up and reversible) so it keeps your identity in the Dock/menu bar while running. Bundle ID and links never change. |
 | **Skins that stick** | Third-party apps/updaters love reverting Finder icons and names on launch. Turn on **Keep skins applied** and a tiny background agent re-applies yours automatically — nothing inside any app is ever edited. |
@@ -78,10 +79,10 @@ No tabs, no accounts, no telemetry, no diagnostics maze. One screen:
 Homebrew or VM needed.**
 
 **Option A — installer package (one click):** download
-[`IconCraft-Mac-0.8.2-Installer.pkg`](https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.8.2-Installer.pkg)
+[`IconCraft-Mac-0.9.0-Installer.pkg`](https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.9.0-Installer.pkg)
 and open it; it installs IconCraft to `/Applications`.
 
-**Option B — ZIP:** download `IconCraft-Mac-0.8.2.zip` from the
+**Option B — ZIP:** download `IconCraft-Mac-0.9.0.zip` from the
 [latest release](https://github.com/gshipman223/IconCraft/releases/latest),
 extract it, and run **Install IconCraft.command** next to `IconCraft.app`.
 The script verifies checksums, preserves your settings/backups, applies

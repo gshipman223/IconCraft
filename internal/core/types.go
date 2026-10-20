@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const Version = "0.8.2"
+const Version = "0.9.0"
 
 // SupportURL is Gavin Shipman's verified PayPal business contribution link.
 const SupportURL = "https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA"
@@ -129,17 +129,19 @@ type Original struct {
 	Checked string `json:"checked"`
 }
 type State struct {
-	Theme       string                   `json:"theme,omitempty"`
-	Renames     []RenameRecord           `json:"renames,omitempty"`
-	Schema      int                      `json:"schema"`
-	Originals   map[string]Original      `json:"originals,omitempty"`
-	Choices     map[string]string        `json:"choices,omitempty"`
-	Assets      map[string]Asset         `json:"assets"`
-	Records     []Record                 `json:"records"`
-	Rebrands    []RebrandRecord          `json:"rebrands,omitempty"`
-	Vault       map[string]SavedOriginal `json:"vault,omitempty"`
-	Preferences map[string]Preference    `json:"preferences"`
-	ExtraRoots  []string                 `json:"extraRoots"`
+	Theme         string                   `json:"theme,omitempty"`
+	Renames       []RenameRecord           `json:"renames,omitempty"`
+	Schema        int                      `json:"schema"`
+	Originals     map[string]Original      `json:"originals,omitempty"`
+	Choices       map[string]string        `json:"choices,omitempty"`
+	Assets        map[string]Asset         `json:"assets"`
+	Records       []Record                 `json:"records"`
+	Rebrands      []RebrandRecord          `json:"rebrands,omitempty"`
+	Vault         map[string]SavedOriginal `json:"vault,omitempty"`
+	KeeperDesired bool                     `json:"keeperDesired,omitempty"`
+	KeeperSet     bool                     `json:"keeperSet,omitempty"`
+	Preferences   map[string]Preference    `json:"preferences"`
+	ExtraRoots    []string                 `json:"extraRoots"`
 }
 type Native interface {
 	Inspect(context.Context, []string) ([]App, error)

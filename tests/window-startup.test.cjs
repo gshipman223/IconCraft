@@ -38,7 +38,13 @@ function simulate(options = {}) {
 
 test('Window opens without native appearance or script-message protocol support',()=>{
     const h=simulate();h.run();assert.ok(h.calls.includes('show'));assert.ok(h.calls.includes('event-loop'));
-    assert.deepEqual(h.calls.filter(x=>x.startsWith('register:')),['register:IconCraftWindowDelegate']);
+    assert.deepEqual(h.calls.filter(x=>x.startsWith('register:')),['register:IconCraftWindowDelegate','register:IconCraftStatusDelegate']);
+});
+test('Menu bar item failure cannot prevent main window from opening',()=>{
+    // The simulated bridge has no NSStatusBar, so the status-item block must
+    // fail soft: window still shows, event loop still starts.
+    const h=simulate();h.run();assert.ok(h.calls.includes('show'));assert.ok(h.calls.includes('event-loop'));
+    assert.ok(h.messages.some(s=>s.includes('menu bar item unavailable')));
 });
 test('Cosmetic Dock icon error cannot prevent main window from opening',()=>{
     const h=simulate({iconFailure:true});h.run();assert.ok(h.calls.includes('show'));assert.ok(h.messages.some(s=>s.includes('optional Dock artwork')));
