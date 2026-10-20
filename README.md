@@ -20,7 +20,16 @@
 </p>
 
 <p align="center">
-  <img src="docs/app-screenshot.png" width="860" alt="IconCraft showing real icons for installed apps and genuine Adobe, Figma and AutoCAD originals">
+  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.8.2-Installer.pkg"><img alt="Download IconCraft for macOS (installer)" src="https://img.shields.io/badge/⬇%20Download%20for%20macOS-Installer%20.pkg-7C3AED?style=for-the-badge"></a>
+  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.8.2.zip"><img alt="Download IconCraft ZIP" src="https://img.shields.io/badge/ZIP%20archive-4F46E5?style=for-the-badge"></a>
+</p>
+
+<p align="center">
+  <img src="docs/app-screenshot.png" width="860" alt="IconCraft main window: every installed app with its original icon, ready to skin, rename, full-skin or restore">
+</p>
+
+<p align="center">
+  <img src="docs/rename-vault.png" width="560" alt="Renaming an app: the Originals Vault shows the saved original name, and the Full skin section explains identity while the app is running">
 </p>
 
 ---
@@ -68,11 +77,17 @@ No tabs, no accounts, no telemetry, no diagnostics maze. One screen:
 **Requires macOS 12.3+ (Apple Silicon or Intel). No developer account, Xcode,
 Homebrew or VM needed.**
 
-1. Download `IconCraft-Mac-0.8.2.zip` from the [latest release](https://github.com/gshipman223/IconCraft/releases/latest).
-2. Extract it and run **Install IconCraft.command** next to `IconCraft.app`.
-   The installer verifies checksums, preserves your settings/backups, applies
-   a local ad-hoc signature, and only swaps in the new app after checking it runs.
-3. Open IconCraft. Done.
+**Option A — installer package (one click):** download
+[`IconCraft-Mac-0.8.2-Installer.pkg`](https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.8.2-Installer.pkg)
+and open it; it installs IconCraft to `/Applications`.
+
+**Option B — ZIP:** download `IconCraft-Mac-0.8.2.zip` from the
+[latest release](https://github.com/gshipman223/IconCraft/releases/latest),
+extract it, and run **Install IconCraft.command** next to `IconCraft.app`.
+The script verifies checksums, preserves your settings/backups, applies
+a local ad-hoc signature, and only swaps in the new app after checking it runs.
+
+Then open IconCraft. Done.
 
 > The app is ad-hoc signed, not Developer-ID signed/notarised (no paid Apple
 > certificate — this is a free open-source project). If macOS blocks a
@@ -89,11 +104,6 @@ Homebrew or VM needed.**
 4. Click the **pencil** to rename the app, use its original name, or restore it.
 5. Changed your mind? **Restore** (per app) or **Restore all** puts back the
    exact original icon and name.
-
-<p align="center">
-  <img src="docs/autocad-found.png" width="220" alt="The genuine AutoCAD icon IconCraft found via Autodesk's verified App Store listing">
-  <br><em>The genuine AutoCAD icon, found after autodesk.com blocked direct fetches — via Autodesk's verified App Store listing.</em>
-</p>
 
 ## 🔎 How the original-icon search works
 

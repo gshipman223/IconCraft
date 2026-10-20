@@ -87,6 +87,14 @@ with zipfile.ZipFile(appzip, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
     for f in sorted(stage.rglob('*')):
         if f.is_file():
             z.write(f, Path(stage.name) / f.relative_to(stage))
+# One-click installer package (same ad-hoc signed app, installs to
+# /Applications). Built on macOS hosts with pkgbuild.
+installerpkg = OUT / f'IconCraft-Mac-{VERSION}-Installer.pkg'
+if shutil.which('pkgbuild') and (BUILD / 'IconCraft.app').is_dir():
+    subprocess.run(['pkgbuild', '--component', str(BUILD / 'IconCraft.app'),
+                    '--install-location', '/Applications', str(installerpkg)], check=True)
+else:
+    installerpkg = None
 sourcezip = OUT / f'IconCraft-Mac-{VERSION}-Source.zip'
 with zipfile.ZipFile(sourcezip, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
     for f in sorted(ROOT.rglob('*')):
@@ -112,5 +120,6 @@ summary = {
 report = OUT / f'IconCraft-Mac-{VERSION}-Validation.json'
 report.write_text(json.dumps(summary, indent=2) + '\n')
 checksums = OUT / f'IconCraft-Mac-{VERSION}-SHA256SUMS.txt'
-checksums.write_text(''.join(hashlib.sha256(f.read_bytes()).hexdigest() + '  ' + f.name + '\n' for f in [appzip, sourcezip, report]))
-print(json.dumps({'packages': [str(appzip), str(sourcezip)], **summary}, indent=2))
+checksum_files = [f for f in [appzip, sourcezip, report, installerpkg] if f]
+checksums.write_text(''.join(hashlib.sha256(f.read_bytes()).hexdigest() + '  ' + f.name + '\n' for f in checksum_files))
+print(json.dumps({'packages': [str(f) for f in checksum_files], **summary}, indent=2))
