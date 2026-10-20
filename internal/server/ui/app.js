@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id);
-const model={apps:[],assets:{},originals:{},choices:{},records:[],renames:[],keepAlive:false};
+const model={apps:[],assets:{},originals:{},choices:{},records:[],renames:[],rebrands:{},keepAlive:false};
 const rows=new Map(), rowState=new Map(), selected=new Set();
 let scanning=false, busy=false, firstLoad=true, selectFuture=false, query='',theme='system',themeTouched=false;
 let generation=0,workerCount=0,queue=[],seen=new Set(),controllers=new Set(),pickerApp=null,renameApp=null;
@@ -26,7 +26,7 @@ function appIcon(a){return 'api/icon?app='+encodeURIComponent(a.id)+'&v='+encode
 function assetIcon(id){return id?'api/icon?asset='+encodeURIComponent(id):'';}
 function imageView(small=false){const wrap=node('span','icon-wrap'+(small?' small':''));const f=svg('grid');f.classList.add('fallback');const img=node('img','icon');img.alt='';/* NOT lazy: icons are display:none until load, and WebKit never fetches hidden lazy images — the load event that reveals them would never fire. Local thumbnails are cheap; load eagerly. */img.decoding='async';wrap.append(f,img);img.addEventListener('load',()=>wrap.classList.add('has-image'));img.addEventListener('error',()=>wrap.classList.remove('has-image'));return {wrap,img,src:''};}
 function setImage(view,src,alt){view.img.alt=alt;if(view.src===src)return;view.src=src;view.wrap.classList.remove('has-image');if(src)view.img.src=src;else view.img.removeAttribute('src');}
-function updateModel(data){model.apps=data.apps||model.apps;Object.assign(model.assets,data.assets||{});Object.assign(model.originals,data.originals||{});model.choices=data.choices||{};model.records=data.records||[];model.renames=data.renames||[];if(typeof data.keepAlive==='boolean')model.keepAlive=data.keepAlive;$('version').textContent=data.version||'0.6.0';const v2=$('version-2');if(v2)v2.textContent=data.version||'0.6.0';selected.forEach(id=>{if(!model.apps.some(a=>a.id===id))selected.delete(id);});}
+function updateModel(data){model.apps=data.apps||model.apps;Object.assign(model.assets,data.assets||{});Object.assign(model.originals,data.originals||{});model.choices=data.choices||{};model.records=data.records||[];model.renames=data.renames||[];if(typeof data.keepAlive==='boolean')model.keepAlive=data.keepAlive;model.rebrands=data.rebrands||{};$('version').textContent=data.version||'0.7.0';const v2=$('version-2');if(v2)v2.textContent=data.version||'0.7.0';selected.forEach(id=>{if(!model.apps.some(a=>a.id===id))selected.delete(id);});}
 async function session(){updateModel(await api('session'));render();}
 function makeRow(a){
  const currentApp=()=>model.apps.find(x=>x.id===a.id)||a;
@@ -44,7 +44,7 @@ function makeRow(a){
 function updateRow(a,v){
  const st=rs(a),id=chosen(a),custom=!!model.choices[a.bundleId],orig=model.originals[a.craftId];
  v.root.classList.toggle('selected',selected.has(a.id));v.check.checked=selected.has(a.id);v.check.disabled=busy||!ready(a);v.check.setAttribute('aria-label','Select '+a.name);
- v.name.textContent=a.name;v.name.title=a.path;v.sub.textContent=active(a)?(a.renamed?'Renamed'+(model.records.some(r=>r.appId===a.id&&live(r))?' · Icon changed':''):'Icon changed'):(a.version?'v'+a.version:'Installed');v.sub.classList.toggle('changed',active(a));
+ v.name.textContent=a.name;v.name.title=a.path;v.sub.textContent=(active(a)?(a.renamed?'Renamed'+(model.records.some(r=>r.appId===a.id&&live(r))?' · Icon changed':''):'Icon changed'):(a.version?'v'+a.version:'Installed'))+(model.rebrands[a.bundleId]?' · Full skin':'');v.sub.classList.toggle('changed',active(a));
  setImage(v.current,appIcon(a),a.name+' current icon');
  /* With no mapped/custom target yet, preview the app's own icon dimmed so
     every row shows real artwork instead of an empty placeholder. */
@@ -128,9 +128,16 @@ function drawPicker(){
 }
 async function pickChoice(action,update){if(busy)return;busy=true;$('picker').querySelectorAll('button').forEach(b=>b.disabled=true);render();try{const result=await action();if(!result.cancelled){update(result);$('picker').close();pickerApp=null;tell('Icon selected. Click Replace to apply.');}}catch(e){dialogError('picker-error',e.message);}finally{busy=false;$('picker').querySelectorAll('button').forEach(b=>b.disabled=false);render();}}
 $('browse').addEventListener('click',()=>{if(!pickerApp)return;const a=pickerApp;pickChoice(()=>api('custom',{appId:a.id}),r=>{model.assets[r.asset.id]=r.asset;model.choices[a.bundleId]=r.asset.id;});});
-function openRename(a){if(busy)return;renameApp=a;$('rename-for').textContent=a.name;$('name-input').value=a.name;$('name-original').disabled=!(model.originals[a.craftId]?.product||a.equivalent);$('name-restore').hidden=!a.renamed;dialogError('rename-error','');$('rename-dialog').showModal();$('name-input').focus();$('name-input').select();}
+function openRename(a){if(busy)return;renameApp=a;$('rename-for').textContent=a.name;$('name-input').value=a.name;$('name-original').disabled=!(model.originals[a.craftId]?.product||a.equivalent);$('name-restore').hidden=!a.renamed;dialogError('rename-error','');
+ const skinned=!!model.rebrands[a.bundleId];$('name-unskin').hidden=!skinned;$('fullskin-state').textContent=skinned?'Full skin applied (“'+model.rebrands[a.bundleId]+'”).':(chosen(a)?'Uses the icon currently chosen for this app.':'Choose an icon for this app first.');
+ const ib=$('name-internal');ib.dataset.armed='';ib.textContent='Apply full skin…';ib.disabled=!chosen(a);
+ $('rename-dialog').showModal();$('name-input').focus();$('name-input').select();}
 function closeRename(){if(!busy){$('rename-dialog').close();renameApp=null;}}
 async function saveName(restore=false){if(busy||!renameApp)return;const a=renameApp;busy=true;$('name-save').disabled=true;$('name-restore').disabled=true;render();try{const result=await api(restore?'restore-name':'rename',{appId:a.id,...(restore?{}:{name:$('name-input').value}),confirmed:true});await session();$('rename-dialog').close();renameApp=null;tell('App name changed to '+result.app.name+'.');}catch(e){dialogError('rename-error',e.message);}finally{busy=false;$('name-save').disabled=false;$('name-restore').disabled=false;render();}}
+$('name-internal').addEventListener('click',async()=>{if(busy||!renameApp)return;const a=renameApp,ib=$('name-internal');
+ if(!ib.dataset.armed){ib.dataset.armed='1';ib.textContent='Confirm: write inside “'+a.name+'” & re-sign';setTimeout(()=>{ib.dataset.armed='';ib.textContent='Apply full skin…';},5000);return;}
+ busy=true;ib.disabled=true;render();try{await api('rebrand',{appId:a.id,assetId:chosen(a),name:$('name-input').value,confirmed:true});await session();$('rename-dialog').close();renameApp=null;tell('Full skin applied to '+a.name+'. Its Dock, menu-bar and Launchpad identity now match — quit and relaunch it to see it.');}catch(e){dialogError('rename-error',e.message);}finally{busy=false;ib.disabled=false;ib.dataset.armed='';ib.textContent='Apply full skin…';render();}});
+$('name-unskin').addEventListener('click',async()=>{if(busy||!renameApp)return;const a=renameApp;busy=true;render();try{await api('restore-rebrand',{appId:a.id,confirmed:true});await session();$('rename-dialog').close();renameApp=null;tell('Internal original restored for '+a.name+'.');}catch(e){dialogError('rename-error',e.message);}finally{busy=false;render();}});
 $('name-original').addEventListener('click',()=>{if(renameApp)$('name-input').value=model.originals[renameApp.craftId]?.product||renameApp.equivalent.replace(' (suggested)','');});
 $('name-save').addEventListener('click',()=>saveName());$('name-restore').addEventListener('click',()=>saveName(true));$('name-input').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveName();}});
 $('rename-close').addEventListener('click',closeRename);$('rename-cancel').addEventListener('click',closeRename);$('picker-close').addEventListener('click',closePicker);$('picker-search').addEventListener('input',drawPicker);

@@ -4,6 +4,17 @@ All notable changes to IconCraft. Versions are ad-hoc signed Universal
 (Apple Silicon + Intel) macOS builds; Developer ID signing/notarisation has
 not been performed.
 
+## [0.7.0] — 2026-10-21 · Full skin (identity while running)
+- **Full skin** (pencil dialog): also writes the chosen name + icon *inside*
+  a third-party/clone app and ad-hoc re-signs it, so the identity shows in
+  the Dock, menu bar, app switcher and Launchpad while it runs — the one
+  place a Finder skin can't reach. Bundle ID/executable/links untouched;
+  byte-exact backup + Restore; refuses system/running/asset-catalog apps.
+  Trade-offs disclosed in-app: previous signature replaced; self-updaters
+  may overwrite it (keeper re-applies when the bundle reverts cleanly).
+  Proven live on a disposable clone copy: rebrand → launch → restore,
+  codesign verified at every step.
+
 ## [0.6.0] — 2026-10-21 · Skins that stick
 - **Keep skins applied**: third-party apps/updaters often revert their Finder
   icon or folder name on launch/update. A tiny background LaunchAgent

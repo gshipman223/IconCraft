@@ -91,6 +91,42 @@ func (e *Engine) Reconcile(ctx context.Context) (ReconcileResult, error) {
 		}
 		out.IconFixed++
 	}
+
+	// Full (internal) skins: an updater that reinstalls the bundle puts the
+	// original plist/icon back — recognisable because the fingerprint returns
+	// to the pre-skin value. Re-apply the same recorded name+icon. If the
+	// fingerprint is something else entirely, the app genuinely changed:
+	// don't force it, just report.
+	latestRebrand := map[string]RebrandRecord{}
+	for _, r := range state.Rebrands {
+		if r.Status == "applied" {
+			latestRebrand[r.BundleID] = r
+		}
+	}
+	for _, r := range latestRebrand {
+		out.Checked++
+		app, ok := e.appByBundle(r.BundleID)
+		if !ok {
+			continue
+		}
+		fp, err := Fingerprint(app)
+		if err != nil {
+			out.Skipped = append(out.Skipped, app.Name+" (full skin): "+err.Error())
+			continue
+		}
+		switch fp {
+		case r.AfterPrint:
+			// Full skin intact.
+		case r.BeforePrint:
+			if _, err := e.Rebrand(ctx, app.ID, r.AssetID, r.Name); err != nil {
+				out.Skipped = append(out.Skipped, app.Name+" (full skin): "+err.Error())
+			} else {
+				out.IconFixed++
+			}
+		default:
+			out.Skipped = append(out.Skipped, app.Name+" (full skin): app changed since skinning (update?); open IconCraft to review")
+		}
+	}
 	return out, nil
 }
 

@@ -163,6 +163,84 @@ func (m *Mac) OpenURL(ctx context.Context, url string) error {
 	}
 	return m.call(ctx, map[string]string{"action": "openurl", "url": url}, nil)
 }
+
+// BundleIconFile returns the bundle's CFBundleIconFile base name ("" when the
+// app uses an asset catalog instead — those can't take a replacement .icns).
+func (m *Mac) BundleIconFile(ctx context.Context, path string) (string, error) {
+	if runtime.GOOS != "darwin" {
+		return "", errors.New("bundle tools require macOS")
+	}
+	cctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(cctx, "/usr/bin/plutil", "-extract", "CFBundleIconFile", "raw", "-o", "-", "--", filepath.Join(path, "Contents/Info.plist")).Output()
+	if err != nil {
+		return "", nil // missing key is a normal outcome, not a failure
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// SetBundleName sets CFBundleName/CFBundleDisplayName inside the bundle.
+// Only used by the opt-in internal rebrand, with a journalled backup.
+func (m *Mac) SetBundleName(ctx context.Context, path, name string) error {
+	if runtime.GOOS != "darwin" {
+		return errors.New("bundle tools require macOS")
+	}
+	plist := filepath.Join(path, "Contents/Info.plist")
+	for _, key := range []string{"CFBundleName", "CFBundleDisplayName"} {
+		if err := plistBuddy(ctx, plist, "Set", key, name); err != nil {
+			if err := plistBuddy(ctx, plist, "Add", key, name); err != nil {
+				return fmt.Errorf("could not set %s: %w", key, err)
+			}
+		}
+	}
+	return nil
+}
+
+func plistBuddy(ctx context.Context, plist, verb, key, value string) error {
+	cctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	command := "Set :" + key + " " + value
+	if verb == "Add" {
+		command = "Add :" + key + " string " + value
+	}
+	cmd := exec.CommandContext(cctx, "/usr/libexec/PlistBuddy", "-c", command, plist)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// Resign ad-hoc re-signs a bundle whose contents IconCraft changed under a
+// journalled internal rebrand. This intentionally replaces any previous
+// signature; that trade-off is disclosed in the UI before the user opts in.
+//
+// codesign refuses to sign a bundle carrying Finder custom-icon detritus
+// (root Icon\r file + com.apple.FinderInfo), which a prior Finder skin —
+// ours or anyone's — leaves behind. That data is redundant once the bundle
+// icon itself is replaced, so it is removed first; if a Finder skin is
+// later restored, the keeper re-applies it from its own journal.
+func (m *Mac) Resign(ctx context.Context, path string) error {
+	if runtime.GOOS != "darwin" {
+		return errors.New("bundle tools require macOS")
+	}
+	_ = os.Remove(filepath.Join(path, "Icon\r"))
+	for _, attr := range []string{"com.apple.FinderInfo", "com.apple.ResourceFork"} {
+		xctx, xcancel := context.WithTimeout(ctx, 10*time.Second)
+		_ = exec.CommandContext(xctx, "/usr/bin/xattr", "-d", attr, path).Run()
+		xcancel()
+	}
+	cctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(cctx, "/usr/bin/codesign", "--force", "--deep", "--sign", "-", "--timestamp=none", path)
+	cmd.Env = append(os.Environ(), "LC_ALL=C")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("re-sign failed: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 func (m *Mac) Notify(ctx context.Context, path string) error {
 	return m.call(ctx, map[string]string{"action": "notify", "path": path}, nil)
 }

@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const Version = "0.6.0"
+const Version = "0.7.0"
 
 // SupportURL is Gavin Shipman's verified PayPal business contribution link.
 const SupportURL = "https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA"
@@ -78,6 +78,29 @@ type Preference struct {
 	CraftID  string `json:"craftId,omitempty"`
 	AssetID  string `json:"assetId"`
 }
+
+// RebrandRecord journals an opt-in *internal* rebrand: the display name and
+// bundle icon file inside a third-party app are replaced (and the bundle
+// ad-hoc re-signed) so the chosen identity also shows while the app runs
+// (Dock, menu bar, app switcher, Launchpad). Originals are backed up under
+// Dir/rebrands/<id>/ and RestoreRebrand puts them back byte-for-byte.
+// The bundle ID, executable and all links are never changed.
+type RebrandRecord struct {
+	ID             string `json:"id"`
+	BundleID       string `json:"bundleId"`
+	App            App    `json:"app"`
+	AssetID        string `json:"assetId"`
+	Name           string `json:"name"`
+	IconFile       string `json:"iconFile"`
+	IconExisted    bool   `json:"iconExisted"`
+	BeforePrint    string `json:"beforePrint"`
+	AfterPrint     string `json:"afterPrint"`
+	BeforeIconHash string `json:"beforeIconHash,omitempty"`
+	AfterIconHash  string `json:"afterIconHash,omitempty"`
+	Status         string `json:"status"` // prepared | applied | restored | failed | rollback-required
+	Created        string `json:"created"`
+}
+
 type Original struct {
 	AssetID string `json:"assetId"`
 	Product string `json:"product"`
@@ -92,6 +115,7 @@ type State struct {
 	Choices     map[string]string     `json:"choices,omitempty"`
 	Assets      map[string]Asset      `json:"assets"`
 	Records     []Record              `json:"records"`
+	Rebrands    []RebrandRecord       `json:"rebrands,omitempty"`
 	Preferences map[string]Preference `json:"preferences"`
 	ExtraRoots  []string              `json:"extraRoots"`
 }

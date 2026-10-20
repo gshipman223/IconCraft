@@ -18,11 +18,25 @@ type fakeNative struct {
 	states           map[string]Snapshot
 	app              App
 	sets             int
+	resigns          int
+	bundleNames      map[string]string
 	failSet          bool
 	failRestore      bool
 	badSignature     bool
 	changeExecutable bool
 }
+
+func (n *fakeNative) BundleIconFile(_ context.Context, _ string) (string, error) {
+	return "AppIcon.icns", nil
+}
+func (n *fakeNative) SetBundleName(_ context.Context, p, name string) error {
+	if n.bundleNames == nil {
+		n.bundleNames = map[string]string{}
+	}
+	n.bundleNames[p] = name
+	return nil
+}
+func (n *fakeNative) Resign(_ context.Context, _ string) error { n.resigns++; return nil }
 
 func cloneSnapshot(s Snapshot) Snapshot {
 	b, _ := json.Marshal(s)

@@ -48,6 +48,38 @@ func (s *Server) ticket(a core.App, c originals.Candidate) string {
 func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) bool {
 	ctx := r.Context()
 	switch p {
+	case "api/rebrand", "api/restore-rebrand":
+		// Opt-in internal ("full") skin: sets the name + icon inside a
+		// third-party app and re-signs it, so the identity shows while the
+		// app runs. Journalled and reversible via RestoreRebrand.
+		s.operationMu.Lock()
+		defer s.operationMu.Unlock()
+		var b struct {
+			AppID     string `json:"appId"`
+			AssetID   string `json:"assetId"`
+			Name      string `json:"name"`
+			Confirmed bool   `json:"confirmed"`
+		}
+		if err := readJSON(w, r, &b); err != nil {
+			fail(w, err)
+			return true
+		}
+		if !b.Confirmed {
+			fail(w, errors.New("explicit full-skin confirmation required"))
+			return true
+		}
+		var err error
+		if p == "api/rebrand" {
+			_, err = s.Engine.Rebrand(ctx, b.AppID, b.AssetID, b.Name)
+		} else {
+			_, err = s.Engine.RestoreRebrand(ctx, b.AppID)
+		}
+		if err != nil {
+			fail(w, err)
+		} else {
+			respond(w, 200, map[string]bool{"ok": true})
+		}
+		return true
 	case "api/keepalive":
 		// Toggles the background keep-applied LaunchAgent, which repairs
 		// icons/names that apps or updaters revert while IconCraft is closed.
@@ -367,6 +399,11 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 			fail(w, errors.New("explicit restore confirmation required"))
 			return true
 		}
+		// Undo a full (internal) skin first, if one is applied.
+		if _, err := s.Engine.RestoreRebrand(ctx, b.AppID); err != nil && !strings.Contains(err.Error(), "no full skin") {
+			fail(w, err)
+			return true
+		}
 		n, err := s.Engine.RestoreOriginal(ctx, b.AppID)
 		if err != nil {
 			fail(w, err)
@@ -406,6 +443,11 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 				failures = append(failures, fmt.Sprintf("%s: %v", rec.App.Name, err))
 			} else {
 				restored++
+			}
+		}
+		for _, a := range s.Engine.InstalledApps() {
+			if _, err := s.Engine.RestoreRebrand(ctx, a.ID); err != nil && !strings.Contains(err.Error(), "no full skin") {
+				failures = append(failures, fmt.Sprintf("%s (full skin): %v", a.Name, err))
 			}
 		}
 		for _, a := range s.Engine.InstalledApps() {
