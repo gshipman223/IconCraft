@@ -61,6 +61,67 @@ func (m *Mac) KeepAgentStatus() KeepAgentStatus {
 	return st
 }
 
+// Launch-at-login agent: opens the IconCraft GUI when the user logs in
+// (optionally straight into the menu bar). Kept separate from the
+// keep-applied agent — persistence of skins never depended on the GUI,
+// and this one never runs unless the user turns it on.
+const loginAgentLabel = "io.iconcraft.login"
+
+func (m *Mac) loginAgentPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, "Library/LaunchAgents", loginAgentLabel+".plist"), nil
+}
+
+func (m *Mac) LoginAgentEnabled() bool {
+	p, err := m.loginAgentPath()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(p)
+	return err == nil
+}
+
+func (m *Mac) SetLoginAgent(enabled, menuOnly bool) error {
+	p, err := m.loginAgentPath()
+	if err != nil {
+		return err
+	}
+	domain := fmt.Sprintf("gui/%d", os.Getuid())
+	if !enabled {
+		_ = exec.Command("/bin/launchctl", "bootout", domain+"/"+loginAgentLabel).Run()
+		if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	args := "<string>" + xmlEscape(exe) + "</string><string>--at-login</string>"
+	if menuOnly {
+		args += "<string>--menu-only</string>"
+	}
+	plist := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>%s</string>
+<key>ProgramArguments</key><array>%s</array>
+<key>RunAtLoad</key><true/>
+<key>ProcessType</key><string>Interactive</string>
+</dict></plist>
+`, loginAgentLabel, args)
+	if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
+		return err
+	}
+	// No bootstrap: the agent fires at next login. Loading it now would
+	// just bounce off the running instance's lock.
+	return os.WriteFile(p, []byte(plist), 0600)
+}
+
 func xmlEscape(s string) string {
 	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;", "'", "&apos;")
 	return r.Replace(s)

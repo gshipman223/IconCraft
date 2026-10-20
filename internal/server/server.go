@@ -169,7 +169,101 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if p, ok := s.Engine.Native.(interface{ KeepAgentEnabled() bool }); ok {
 			sess["keepAlive"] = p.KeepAgentEnabled()
 		}
+		sess["settings"] = s.Engine.Settings()
+		sess["loginAgent"] = false
+		if p, ok := s.Engine.Native.(interface{ LoginAgentEnabled() bool }); ok {
+			sess["loginAgent"] = p.LoginAgentEnabled()
+		}
 		respond(w, 200, sess)
+	case "api/settings":
+		var b struct {
+			Settings core.Settings `json:"settings"`
+		}
+		if err := readJSON(w, r, &b); err != nil {
+			fail(w, err)
+			return
+		}
+		saved, err := s.Engine.SaveSettings(b.Settings)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		out := map[string]any{"settings": saved, "loginAgent": saved.LaunchAtLogin, "version": core.Version}
+		if agent, ok := s.Engine.Native.(interface {
+			SetLoginAgent(bool, bool) error
+			LoginAgentEnabled() bool
+		}); ok {
+			if err := agent.SetLoginAgent(saved.LaunchAtLogin, saved.StartInMenuBar); err != nil {
+				out["warning"] = "Preference saved, but macOS could not update the launch-at-login item: " + err.Error()
+			}
+			out["loginAgent"] = agent.LoginAgentEnabled()
+		}
+		respond(w, 200, out)
+	case "api/update-check":
+		res, err := s.Engine.CheckForUpdate(ctx)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		respond(w, 200, res)
+	case "api/refresh-icon-cache":
+		refresher, ok := s.Engine.Native.(interface {
+			RefreshIconCache(context.Context, []string) error
+		})
+		if !ok {
+			fail(w, errors.New("icon cache refresh requires the macOS native layer"))
+			return
+		}
+		state := s.Engine.SnapshotState()
+		seen := map[string]bool{}
+		var paths []string
+		add := func(p string) {
+			if p != "" && !seen[p] {
+				seen[p] = true
+				paths = append(paths, p)
+			}
+		}
+		for _, rec := range state.Records {
+			if rec.Status == "applied" {
+				add(rec.App.Path)
+			}
+		}
+		for _, rec := range state.Rebrands {
+			if rec.Status == "applied" {
+				add(rec.App.Path)
+			}
+		}
+		if err := refresher.RefreshIconCache(ctx, paths); err != nil {
+			fail(w, err)
+			return
+		}
+		respond(w, 200, map[string]any{"refreshed": len(paths)})
+	case "api/open-data-folder":
+		opener, ok := s.Engine.Native.(interface {
+			OpenFolder(context.Context, string) error
+		})
+		if !ok {
+			fail(w, errors.New("opening folders requires the macOS native layer"))
+			return
+		}
+		if err := opener.OpenFolder(ctx, s.Engine.Dir); err != nil {
+			fail(w, err)
+			return
+		}
+		respond(w, 200, map[string]bool{"opened": true})
+	case "api/test-notification":
+		notifier, ok := s.Engine.Native.(interface {
+			NotifyUser(context.Context, string, string) error
+		})
+		if !ok {
+			fail(w, errors.New("notifications require the macOS native layer"))
+			return
+		}
+		if err := notifier.NotifyUser(ctx, "IconCraft notifications are on", "Skin repairs and items needing attention will arrive like this."); err != nil {
+			fail(w, err)
+			return
+		}
+		respond(w, 200, map[string]bool{"sent": true})
 	case "api/status":
 		rep, pending := s.report()
 		state := s.Engine.SnapshotState()

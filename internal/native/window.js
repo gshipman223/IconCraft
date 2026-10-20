@@ -41,7 +41,8 @@ function run(argv) {
             'toggleKeeper:':{types:['void',['id']],implementation:function(){ try { const r = httpJSON('POST', 'api/keepalive', {enabled: !keeperOn}); if (r && typeof r.enabled === 'boolean') keeperOn = r.enabled; } catch (e) {} refreshKeeper(); }},
             'openSettings:':{types:['void',['id']],implementation:function(){ $.NSWorkspace.sharedWorkspace.openURL($.NSURL.URLWithString($('x-apple.systempreferences:com.apple.preference.security?Privacy_AppBundles'))); }},
             'openSupport:':{types:['void',['id']],implementation:function(){ $.NSWorkspace.sharedWorkspace.openURL($.NSURL.URLWithString($('https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA'))); }},
-            'menuWillOpen:':{types:['void',['id']],implementation:function(){ refreshKeeper(); }}
+            'menuWillOpen:':{types:['void',['id']],implementation:function(){ refreshKeeper(); }},
+            'pollSettings:':{types:['void',['id']],implementation:function(){ refreshKeeper(); }}
         }});
         // Function-scoped (var, not block-scoped const): JXA may collect
         // block-scoped ObjC wrappers once the block exits, which would make
@@ -59,7 +60,18 @@ function run(argv) {
         statusMenu.addItemWithTitleActionKeyEquivalent($('Quit IconCraft'), 'terminate:', $('q'));
         statusMenu.setDelegate(statusDelegate);
         var refreshKeeper = function() {
-            try { const s = httpJSON('GET', 'api/session', null); if (s && typeof s.keepAlive === 'boolean') keeperOn = s.keepAlive; } catch (e) {}
+            try {
+                const s = httpJSON('GET', 'api/session', null);
+                if (s && typeof s.keepAlive === 'boolean') keeperOn = s.keepAlive;
+                // Visibility preferences apply live: Dock presence is the
+                // app activation policy, menu bar presence is the status
+                // item's visibility. The server guarantees at least one
+                // of the two is always on.
+                if (s && s.settings) {
+                    try { app.setActivationPolicy(s.settings.showDockIcon ? $.NSApplicationActivationPolicyRegular : $.NSApplicationActivationPolicyAccessory); } catch (e) {}
+                    try { statusItem.setVisible(!!s.settings.showMenuBarIcon); } catch (e) {}
+                }
+            } catch (e) {}
             keeperItem.setTitle($(keeperOn ? 'Keep Skins Applied: On' : 'Keep Skins Applied: Off'));
             keeperItem.setState(keeperOn ? 1 : 0);
             keeperState.setTitle($(keeperOn ? 'Background keeper: on — works with IconCraft closed' : 'Background keeper: off'));
@@ -74,6 +86,12 @@ function run(argv) {
         statusItem.setHighlightMode(true);
         statusItem.setMenu(statusMenu);
         refreshKeeper();
+        // Poll so Settings changes (Dock icon, menu bar icon) apply
+        // without restarting. var-retained like the other ObjC wrappers.
+        // The selector must be a plain JS string: JXA converts it to a SEL,
+        // while a bridged NSString ($('pollSettings:')) is not converted
+        // and the timer never fires.
+        var settingsTimer = $.NSTimer.scheduledTimerWithTimeIntervalTargetSelectorUserInfoRepeats(10, statusDelegate, 'pollSettings:', null, true);
     } catch (statusError) { console.log('IconCraft: menu bar item unavailable'); }
     stage = 'creating the window';
     const bounds=$.NSMakeRect(0,0,940,640);
@@ -100,8 +118,15 @@ function run(argv) {
         if(argv[1]){const icon=$.NSImage.alloc.initWithContentsOfFile($(argv[1]));if(icon && !icon.isNil()) app.setApplicationIconImage(icon);}
     } catch (iconError) { console.log('IconCraft: optional Dock artwork unavailable'); }
     stage = 'showing the window';
-    win.center;win.makeKeyAndOrderFront(null);app.activateIgnoringOtherApps(true);
-    console.log('IconCraft: native window created');
+    if (argv[2] === 'menu-only') {
+        // Launch-at-login in menu bar mode: the window exists but stays
+        // hidden until the user opens it from the menu bar item.
+        win.center;
+        console.log('IconCraft: started in menu bar');
+    } else {
+        win.center;win.makeKeyAndOrderFront(null);app.activateIgnoringOtherApps(true);
+        console.log('IconCraft: native window created');
+    }
     stage = 'running the window';
     app.run;
     } catch (error) {

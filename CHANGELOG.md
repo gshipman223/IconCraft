@@ -4,6 +4,27 @@ All notable changes to IconCraft. Versions are ad-hoc signed Universal
 (Apple Silicon + Intel) macOS builds; Developer ID signing/notarisation has
 not been performed.
 
+## [0.12.0] — 2026-10-21 · Basic settings: startup, visibility, notifications, updates
+
+- **Settings screen** (header → Settings) with the basics expected of a
+  menu-bar utility, all journalled and applied live where macOS allows:
+  - **Launch at login** via its own LaunchAgent (separate from the
+    keep-applied agent; skins never depended on the GUI).
+  - **Start in the menu bar only** — at login the window stays hidden
+    until opened from the menu bar item.
+  - **Show in the Dock** on/off (menu-bar-only mode) and **menu bar
+    icon** on/off, applied live through the window host. One guard:
+    both can never be off at once, and menu-bar start requires the
+    menu bar icon — IconCraft always leaves a way back in.
+  - **Notifications**: optional banners when the keeper re-applies a
+    reverted skin, and when a skin needs attention (throttled to at
+    most one every 6 hours), plus a Send test button.
+  - **Updates**: manual “Check now” against GitHub releases and an
+    optional weekly background check. IconCraft never downloads or
+    installs updates itself.
+  - **Maintenance**: refresh the Finder/Dock icon cache for skinned
+    apps, open the data folder, re-run Setup & Permissions.
+
 ## [0.11.0] — 2026-10-21 · Running (Dock) icons that stay skinned
 
 - **Fixed icons flipping back while an app is open**: some apps (the

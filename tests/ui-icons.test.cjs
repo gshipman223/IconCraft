@@ -34,6 +34,26 @@ test('first-run setup and permissions screen is present and reusable', () => {
   assert.match(fs.readFileSync(path.join(__dirname, '../internal/native/window.js'), 'utf8'), /Setup & Permissions…/);
 });
 
+test('settings dialog covers startup, visibility, notifications, updates, maintenance', () => {
+  const html = ui('index.html');
+  const js = ui('app.js');
+  const win = fs.readFileSync(path.join(__dirname, '../internal/native/window.js'), 'utf8');
+  assert.match(html, /id="settings-open"/);
+  assert.match(html, /id="settings-dialog"/);
+  for (const id of ['set-login', 'set-menustart', 'set-dock', 'set-menubar', 'set-notify-repaired', 'set-notify-attention', 'set-autoupdate', 'set-update-check', 'set-refresh-cache', 'set-open-data']) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(js, /api\('settings'/);
+  assert.match(js, /api\('update-check'/);
+  assert.match(js, /api\('refresh-icon-cache'/);
+  assert.match(js, /api\('test-notification'/);
+  // Window host applies visibility live and can start windowless.
+  assert.match(win, /setActivationPolicy/);
+  assert.match(win, /setVisible/);
+  assert.match(win, /menu-only/);
+  assert.match(win, /pollSettings/);
+});
+
 test('real logo, version and PayPal support bar are in the page', () => {
   const html = ui('index.html');
   assert.match(html, /<img class="brand" src="logo\.svg"/);

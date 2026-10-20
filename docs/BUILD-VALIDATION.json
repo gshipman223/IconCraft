@@ -1,26 +1,25 @@
 {
-  "version": "0.11.0",
+  "version": "0.12.0",
   "date": "2026-10-21",
   "environment": "real Mac, darwin/arm64, macOS 26 (Tahoe)",
-  "goTests": "passed — 155 tests across 5 packages (go test ./...), race detector clean, go vet clean",
-  "nodeTests": "passed — 38 bridge + window + UI regression tests",
-  "nativeSelfTest": "PASSED 26/26 checks on this Mac in an isolated temporary HOME",
-  "rootCause": "all ten storyteller clones are Rust/eframe apps: at launch they call setApplicationIconImage with artwork embedded in the executable, so the Dock flipped to the original clone icon while running no matter what the bundle .icns said. Verified by reading the running Dock tile (green chameleon) against the bundle icon (Figma logo).",
-  "runtimeIconFix": {
-    "method": "full skins scan the executable for PNG streams that pixel-match the app's original bundle icon and replace exactly those bytes (same total length, zero-padded; no other offset moves), then ad-hoc re-sign as before. Original bytes are stored with the full-skin backup (exec-patch-*.bin) and restored byte-exactly on unskin; restore round-trip is unit-tested including fingerprint equality.",
-    "detection": "conservative: only square embedded PNGs >=64px whose pixels match the original bundle icon are touched; a synthetic test proves unrelated embedded images are never patched, and a replacement that cannot fit its byte slot is never forced.",
-    "matchingFix": "icon comparison shrinks by progressive halving after a detailed engraving-style icon (Figma's chameleon) aliased under single-step point sampling (Go mean diff 14.0 vs 0.9 area-averaged) and was first reported unpatchable; regression-tested with synthetic detailed artwork.",
-    "verdictGuard": "re-checking an already-patched app keeps the 'patched' verdict (the embedded art no longer matches the original because it was replaced); inspection is versioned (ExecIconCheck) so improved matching re-checks old verdicts."
+  "goTests": "passed — 159 tests across 5 packages (go test ./...), race detector clean, go vet clean",
+  "nodeTests": "passed — 39 bridge + window + UI regression tests",
+  "nativeSelfTest": "PASSED 26/26 checks on this Mac in an isolated temporary HOME; scripts/smoke_host.py passed (interface served, duplicate instance refused, graceful shutdown)",
+  "feature": "Basic settings: Launch at login, Start in menu bar only, Show in Dock, Show menu bar icon, notification preferences (repaired / needs attention), automatic update checks with manual Check now, and maintenance actions (refresh icon cache, open data folder). Saving refuses to turn both the Dock icon and the menu bar icon off ('needs at least one way back in').",
+  "bugsFoundDuringValidation": {
+    "dockTimerNeverFired": "the window host's 10s settings poll passed its selector as a bridged NSString ($('pollSettings:')), which JXA does not convert to a SEL, so the NSTimer never fired and Dock/menu-bar changes only applied when the status menu opened. Fixed by passing the selector as a plain JS string; regression-proven live (below).",
+    "userNotificationDropped": "banners posted with NSUserNotification from the unbundled osascript window host are silently discarded by macOS 26 — nothing reached Notification Center. NotifyUser now posts via AppleScript 'display notification' from the Go process, which also works from the headless keeper where no window host exists."
   },
-  "squircleFix": "full-bleed publisher/App Store artwork fitted to the macOS grid is now also clipped to a superellipse (exponent 5) with antialiased edge — macOS does not round square artwork itself. Measured on migrated bundles: 512px rendition corner alpha 0, edge-midpoint alpha 255, bbox (50,50)-(462,462); embedded runtime icons likewise (256px corner alpha 0).",
   "liveVerification": {
-    "migration": "keeper migrated all 10 clones in place: every applied full-skin record now reads iconFit=2, runtimeIcon=patched (1 patch each), execIconCheck=3; no new records stacked for the migrations",
-    "protectedApps": "Adobe Acrobat (PdfCraft) and Adobe Premiere deferred until IconCraft was allowed in App Management for the current copy (user-approved), then patched; final keeper pass reported no skipped items",
-    "signatures": "codesign --verify --deep passed after patch/re-sign for Figma, PdfCraft and Adobe Premiere (and IconCraft itself)",
-    "dockProof": "Figma clone launched after migration: its running Dock tile shows the genuine Figma logo, rounded, at the same scale as neighbouring native icons (build/dock-final-0.11.0.png); before the fix the same tile showed the green chameleon original. App was quit afterwards.",
-    "honestFallback": "apps that set their own running icon without a replaceable embedded copy are labelled in the UI ('app controls its running icon') instead of silently flipping"
+    "settingsDialog": "opens from the header button and renders all rows; Launch at login + Start in menu bar saved successfully and wrote io.iconcraft.login.plist with arguments --at-login --menu-only (macOS also surfaced its 'App Background Activity' notice for the new login item)",
+    "dockVisibility": "with the fixed poll: saving Show in Dock = off via the API flipped LaunchServices type Foreground -> UIElement within one 10s poll with no menu interaction; saving it back on flipped UIElement -> Foreground the same way. Note: the Dock keeps a Recents tile named IconCraft with running=false even while hidden — LaunchServices type, not the Dock name list, is the ground truth.",
+    "notifications": "Settings -> Send test (api/test-notification) produced a visible banner and a Notification Center entry titled 'IconCraft' with the app icon ('IconCraft notifications are on')",
+    "updateCheck": "Check now queried the GitHub latest release (0.11.0), correctly reported no update for the newer installed 0.12.0, and cached lastUpdateCheck/latestVersion in the journal",
+    "maintenance": "Refresh icon cache re-registered all 10 skinned apps (refreshed=10); Open data folder opened Finder on ~/Library/Application Support/IconCraft",
+    "menuOnlyStart": "with the app quit, 'launchctl bootstrap gui/$UID io.iconcraft.login.plist' started IconCraft --at-login --menu-only: processes ran with zero windows; Open IconCraft from the status menu summoned the full window. Agent booted out afterwards and the app relaunched normally.",
+    "settingsLeftInPlace": "launchAtLogin=true, startInMenuBar=true, showDockIcon=true, showMenuBarIcon=true, notifyRepaired=false, notifyAttention=true, autoCheckUpdates=true"
   },
   "signing": "ad-hoc performed (per-slice sign + lipo + bundle verify); Developer ID + notarization NOT PERFORMED",
-  "install": "/Applications/IconCraft.app 0.11.0 (build 18) installed from this build, previous copies preserved under Application Support/IconCraft/previous-installations, launched successfully",
-  "notes": "v0.11.0 fixes running Dock icons for apps that override their icon at launch, and rounds fitted artwork to the macOS squircle. Full test/build/package pipeline passed."
+  "install": "/Applications/IconCraft.app 0.12.0 (build 19) installed from this build, previous copies preserved under Application Support/IconCraft/previous-installations, launched successfully",
+  "notes": "v0.12.0 adds the basic-settings pack requested by the user (startup, visibility, notifications, updates, maintenance). Full test/build/package pipeline passed."
 }

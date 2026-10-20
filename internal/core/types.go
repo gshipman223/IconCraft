@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const Version = "0.11.0"
+const Version = "0.12.0"
 
 // SetupVersion is bumped when the first-run permissions review needs to be
 // shown again (for example, when a release needs a new macOS permission).
@@ -186,6 +186,8 @@ type State struct {
 	SetupVersion  int                      `json:"setupVersion,omitempty"`
 	SetupDoneAt   string                   `json:"setupDoneAt,omitempty"`
 	AppAccess     PermissionCheck          `json:"appAccess,omitempty"`
+	Settings      Settings                 `json:"settings,omitempty"`
+	SettingsSet   bool                     `json:"settingsSet,omitempty"`
 	Preferences   map[string]Preference    `json:"preferences"`
 	ExtraRoots    []string                 `json:"extraRoots"`
 }

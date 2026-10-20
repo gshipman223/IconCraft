@@ -51,6 +51,8 @@ func run() (result error) {
 	report := flag.String("report", "", "Write native diagnostic report to this path")
 	headless := flag.Bool("headless", false, "Run the local backend without a native window (development)")
 	reapply := flag.Bool("reapply", false, "Repair reverted icons/names from the journal and exit (keep-applied agent)")
+	atLogin := flag.Bool("at-login", false, "Launched by the launch-at-login agent")
+	menuOnly := flag.Bool("menu-only", false, "Start in the menu bar without showing the window")
 	version := flag.Bool("version", false, "Print build version")
 	flag.Parse()
 	if *version {
@@ -142,7 +144,9 @@ func run() (result error) {
 	// background. When the app is closed, the LaunchAgent (--reapply) does it.
 	e.InitKeeperPreference(m.KeepAgentEnabled())
 	ensureKeeper(e, m)
+	ensureLoginAgent(e, m)
 	go keepAppliedLoop(ctx, e, m)
+	go autoUpdateCheck(ctx, e, m)
 	s := server.New(e)
 	listener, err := s.Start()
 	if err != nil {
@@ -157,7 +161,12 @@ func run() (result error) {
 	} else {
 		exe, _ := os.Executable()
 		icon := filepath.Clean(filepath.Join(filepath.Dir(exe), "../Resources/icon.icns"))
-		err = m.Window(ctx, s.URL, icon)
+		settings := e.Settings()
+		startInMenuBar := *menuOnly || (*atLogin && settings.StartInMenuBar)
+		if startInMenuBar {
+			log.Printf("starting in menu bar (no window until opened)")
+		}
+		err = m.Window(ctx, s.URL, icon, startInMenuBar)
 		if err != nil {
 			log.Printf("native window: %v", err)
 			if ctx.Err() != nil || errors.Is(err, native.ErrWindowKilled) {
@@ -194,6 +203,51 @@ func ensureKeeper(e *core.Engine, m *native.Mac) {
 	}
 }
 
+// ensureLoginAgent reconciles the launch-at-login LaunchAgent with the
+// saved preference, the same self-healing approach as the keeper: the
+// preference is the intent, the plist is just its current expression.
+func ensureLoginAgent(e *core.Engine, m *native.Mac) {
+	s := e.Settings()
+	if m.LoginAgentEnabled() == s.LaunchAtLogin {
+		if !s.LaunchAtLogin {
+			return
+		}
+		// Present and wanted: still rewrite so a changed
+		// start-in-menu-bar choice is reflected in the arguments.
+	}
+	if err := m.SetLoginAgent(s.LaunchAtLogin, s.StartInMenuBar); err != nil {
+		log.Printf("launch-at-login agent: %v", err)
+	}
+}
+
+// autoUpdateCheck checks GitHub for a newer release shortly after
+// startup when the user opted in and the last check is stale. It only
+// ever informs — updating stays a deliberate download by the user.
+func autoUpdateCheck(ctx context.Context, e *core.Engine, m *native.Mac) {
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(45 * time.Second):
+	}
+	s := e.Settings()
+	if !s.AutoCheckUpdates {
+		return
+	}
+	if s.LastUpdateCheck != "" {
+		if t, err := time.Parse(time.RFC3339, s.LastUpdateCheck); err == nil && time.Since(t) < 6*24*time.Hour {
+			return
+		}
+	}
+	res, err := e.CheckForUpdate(ctx)
+	if err != nil {
+		log.Printf("update check: %v", err)
+		return
+	}
+	if res.UpdateAvailable && s.NotifyAttention {
+		_ = m.NotifyUser(ctx, "IconCraft "+res.Latest+" is available", "You have "+res.Current+". Open IconCraft → Settings to get the new version.")
+	}
+}
+
 // keepAppliedLoop periodically repairs skins reverted by app launches or
 // updaters while IconCraft itself is running. The first pass is delayed so
 // startup scanning settles; failures are logged, never surfaced as dialogs.
@@ -203,14 +257,27 @@ func keepAppliedLoop(ctx context.Context, e *core.Engine, m *native.Mac) {
 		return
 	case <-time.After(20 * time.Second):
 	}
+	var lastAttention time.Time
 	for {
 		ensureKeeper(e, m)
+		ensureLoginAgent(e, m)
 		if _, _, err := e.Scan(ctx); err != nil {
 			log.Printf("keep-applied scan: %v", err)
 		} else if res, err := e.Reconcile(ctx); err != nil {
 			log.Printf("keep-applied reconcile: %v", err)
 		} else if res.IconFixed > 0 || res.NameFixed > 0 {
 			log.Printf("keep-applied repaired %d icon(s), %d name(s); skipped: %v", res.IconFixed, res.NameFixed, res.Skipped)
+			settings := e.Settings()
+			if settings.NotifyRepaired {
+				_ = m.NotifyUser(ctx, "IconCraft re-applied your skins", fmt.Sprintf("%d icon(s) and %d name(s) had been reverted and are fixed.", res.IconFixed, res.NameFixed))
+			}
+		} else if len(res.Skipped) > 0 {
+			// At most one attention banner every 6 hours: a skipped
+			// app (often just a running one) must not nag.
+			if e.Settings().NotifyAttention && time.Since(lastAttention) > 6*time.Hour {
+				lastAttention = time.Now()
+				_ = m.NotifyUser(ctx, "Some skins need your attention", "Open IconCraft to review — an app may have updated or be running.")
+			}
 		}
 		select {
 		case <-ctx.Done():

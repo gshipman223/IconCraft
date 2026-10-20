@@ -290,6 +290,61 @@ func (m *Mac) Resign(ctx context.Context, path string) error {
 func (m *Mac) Notify(ctx context.Context, path string) error {
 	return m.call(ctx, map[string]string{"action": "notify", "path": path}, nil)
 }
+
+// NotifyUser posts a best-effort macOS notification banner.
+//
+// Delivered via AppleScript `display notification` from a short-lived
+// osascript process: banners posted with NSUserNotification from the
+// unbundled window-host process are silently discarded by macOS
+// (verified live on macOS 26 — nothing reaches Notification Center),
+// while `display notification` arrives titled "IconCraft" with the
+// app icon. Works from the headless keeper too, where no window host
+// exists. Subject to the user's Notification settings, as always.
+func (m *Mac) NotifyUser(ctx context.Context, title, body string) error {
+	if runtime.GOOS != "darwin" {
+		return errors.New("notifications require macOS")
+	}
+	escape := func(s string) string {
+		s = strings.ReplaceAll(s, "\\", "\\\\")
+		s = strings.ReplaceAll(s, "\"", "\\\"")
+		return strings.Join(strings.Fields(s), " ")
+	}
+	script := fmt.Sprintf("display notification \"%s\" with title \"%s\"", escape(body), escape(title))
+	cctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(cctx, "/usr/bin/osascript", "-e", script)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("notification failed: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// RefreshIconCache asks LaunchServices to re-register the given app
+// bundles and tells Finder their icons changed — the standard cure for
+// a stale Dock/Finder icon after files changed on disk.
+func (m *Mac) RefreshIconCache(ctx context.Context, paths []string) error {
+	if runtime.GOOS != "darwin" {
+		return errors.New("icon cache refresh requires macOS")
+	}
+	lsregister := "/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister"
+	for _, p := range paths {
+		cctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+		_ = exec.CommandContext(cctx, lsregister, "-f", p).Run()
+		cancel()
+		_ = m.Notify(ctx, p)
+	}
+	return nil
+}
+
+// OpenFolder reveals a folder in Finder.
+func (m *Mac) OpenFolder(ctx context.Context, path string) error {
+	if runtime.GOOS != "darwin" {
+		return errors.New("opening folders requires macOS")
+	}
+	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	return exec.CommandContext(cctx, "/usr/bin/open", path).Run()
+}
 func (m *Mac) Signature(ctx context.Context, path string) (string, error) {
 	if runtime.GOOS != "darwin" {
 		return "", errors.New("signature verification requires macOS")
@@ -311,11 +366,19 @@ func (m *Mac) Signature(ctx context.Context, path string) (string, error) {
 	}
 	return "", fmt.Errorf("codesign: %s", strings.TrimSpace(string(out)))
 }
-func (m *Mac) Window(ctx context.Context, url, icon string) error {
+
+// Window runs the native window host. In menuOnly mode the window is
+// created but not shown — the app lives in its menu bar item until the
+// user opens it (used for launch-at-login without a window popping up).
+func (m *Mac) Window(ctx context.Context, url, icon string, menuOnly bool) error {
 	if runtime.GOOS != "darwin" {
 		return errors.New("native window requires macOS")
 	}
-	cmd := exec.CommandContext(ctx, "/usr/bin/osascript", "-l", "JavaScript", filepath.Join(m.Dir, "window.js"), url, icon)
+	args := []string{"-l", "JavaScript", filepath.Join(m.Dir, "window.js"), url, icon}
+	if menuOnly {
+		args = append(args, "menu-only")
+	}
+	cmd := exec.CommandContext(ctx, "/usr/bin/osascript", args...)
 	cmd.Stdout = os.Stdout
 	return runWindowCommand(cmd, log.Writer())
 }
