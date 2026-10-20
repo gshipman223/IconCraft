@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/gshipman223/IconCraft/internal/core"
@@ -18,6 +19,12 @@ import (
 	"time"
 )
 
+// errAlreadyRunning means a healthy instance already holds the journal
+// lock. Relaunching (e.g. double-clicking while the agent-style app is
+// open on another Space) exits quietly — it is not a launch failure and
+// must never produce a "couldn't open" dialog.
+var errAlreadyRunning = errors.New("another IconCraft instance is still running")
+
 func main() { os.Exit(entry()) }
 
 // A LaunchServices launch has no visible terminal. Report failures instead of
@@ -30,6 +37,10 @@ func entry() (code int) {
 		}
 	}()
 	if err := run(); err != nil {
+		if errors.Is(err, errAlreadyRunning) {
+			fmt.Fprintln(os.Stderr, "IconCraft: already running; exiting quietly")
+			return 0
+		}
 		reportLaunchFailure(err)
 		return 1
 	}
@@ -86,7 +97,7 @@ func run() (result error) {
 			log.Printf("reapply deferred: another IconCraft instance is running")
 			return nil
 		}
-		return fmt.Errorf("another IconCraft instance is still running. Quit IconCraft (or end the IconCraft process in Activity Monitor if it has no window), then reopen it. Your icon backups have not been changed")
+		return errAlreadyRunning
 	}
 	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
 	m, err := native.New(dir)
@@ -147,6 +158,12 @@ func run() (result error) {
 		err = m.Window(ctx, s.URL, icon)
 		if err != nil {
 			log.Printf("native window: %v", err)
+			if ctx.Err() != nil || errors.Is(err, native.ErrWindowKilled) {
+				// Shutting down (signal received) or the window was
+				// force-closed/replaced: a normal close, never an
+				// error — and never the "couldn't open" dialog.
+				err = nil
+			}
 		}
 	}
 	// Finish active transactions before exit; interrupted operations retain a prepared recovery record.

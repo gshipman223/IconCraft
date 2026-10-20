@@ -2,11 +2,13 @@ package native
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -18,6 +20,11 @@ func TestWindowHelperProcess(t *testing.T) {
 	if mode == "fail" {
 		fmt.Fprintln(os.Stderr, "execution error: IconCraft could not open (creating the WebKit view): fixture-native-error")
 		os.Exit(1)
+	}
+	if mode == "kill" {
+		fmt.Fprintln(os.Stderr, "IconCraft: native window created")
+		_ = syscall.Kill(syscall.Getpid(), syscall.SIGKILL)
+		os.Exit(0)
 	}
 	fmt.Fprintln(os.Stderr, "IconCraft: native window created")
 	os.Exit(0)
@@ -37,6 +44,17 @@ func TestWindowFailureRetainsNativeErrorNotJustExitStatus(t *testing.T) {
 		t.Fatal("not logged")
 	}
 }
+func TestWindowKilledBySignalIsCleanCloseNotFailure(t *testing.T) {
+	var log bytes.Buffer
+	err := runWindowCommand(windowHelper("kill"), &log)
+	if !errors.Is(err, ErrWindowKilled) {
+		t.Fatalf("killed window should be ErrWindowKilled, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "native window failed") {
+		t.Fatalf("killed window misreported as failure: %v", err)
+	}
+}
+
 func TestWindowRunnerSuccessfulExit(t *testing.T) {
 	if err := runWindowCommand(windowHelper("ok"), io.Discard); err != nil {
 		t.Fatal(err)

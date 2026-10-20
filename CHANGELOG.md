@@ -4,6 +4,18 @@ All notable changes to IconCraft. Versions are ad-hoc signed Universal
 (Apple Silicon + Intel) macOS builds; Developer ID signing/notarisation has
 not been performed.
 
+## [0.8.2] — 2026-10-21 · No more "couldn't open" dialogs on close
+- Killing/force-closing the native window (or the app being replaced
+  during an update) is now treated as a normal close: the process
+  exits silently instead of reporting "native window failed: signal:
+  killed" with the "IconCraft couldn't open" dialog.
+- Relaunching while IconCraft is already running exits quietly with
+  code 0 instead of the same scary dialog (the app is agent-style and
+  may be open on another Space). Genuine launch failures still report.
+Regression-tested (SIGKILLed window helper) and proven live: window
+process killed → main exits silently, no dialog; second launch →
+exit 0, one instance.
+
 ## [0.8.1] — 2026-10-21 · App Management permission handling
 Fixes the "operation not permitted / rollback failed" dead-end seen on
 protected app bundles (macOS App Management, com.apple.macl):

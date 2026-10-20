@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="https://github.com/gshipman223/IconCraft/releases"><img alt="Release" src="https://img.shields.io/github/v/release/gshipman223/IconCraft?display_name=tag&style=flat-square"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-0.8.1-blueviolet?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.8.2-blueviolet?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/macOS-12.3%2B%20%C2%B7%20Apple%20Silicon%20%2B%20Intel-black?style=flat-square&logo=apple">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green?style=flat-square">
   <a href="#-support-iconcraft"><img alt="Support via PayPal" src="https://img.shields.io/badge/support-PayPal-00457C?style=flat-square&logo=paypal"></a>
@@ -68,7 +68,7 @@ No tabs, no accounts, no telemetry, no diagnostics maze. One screen:
 **Requires macOS 12.3+ (Apple Silicon or Intel). No developer account, Xcode,
 Homebrew or VM needed.**
 
-1. Download `IconCraft-Mac-0.8.1.zip` from the [latest release](https://github.com/gshipman223/IconCraft/releases/latest).
+1. Download `IconCraft-Mac-0.8.2.zip` from the [latest release](https://github.com/gshipman223/IconCraft/releases/latest).
 2. Extract it and run **Install IconCraft.command** next to `IconCraft.app`.
    The installer verifies checksums, preserves your settings/backups, applies
    a local ad-hoc signature, and only swaps in the new app after checking it runs.

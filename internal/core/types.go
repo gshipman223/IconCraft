@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const Version = "0.8.1"
+const Version = "0.8.2"
 
 // SupportURL is Gavin Shipman's verified PayPal business contribution link.
 const SupportURL = "https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA"

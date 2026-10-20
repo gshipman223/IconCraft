@@ -1,12 +1,20 @@
 package native
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
 	"regexp"
 	"strings"
+	"syscall"
 )
+
+// ErrWindowKilled marks the native window process dying from SIGKILL or
+// SIGTERM: the user force-quit it, the app is being replaced, or the
+// process tree is shutting down. That is an intentional close, not a
+// launch failure, and must never surface an error dialog.
+var ErrWindowKilled = errors.New("native window closed")
 
 // Keep diagnostic output bounded even if WebKit emits many messages. The same
 // text is also streamed into the private log. Session URLs are redacted from
@@ -40,6 +48,13 @@ func runWindowCommand(cmd *exec.Cmd, output io.Writer) error {
 	// callers only received "exit status 1", hiding the actual bridge error.
 	cmd.Stderr = io.MultiWriter(output, tail)
 	if err := cmd.Run(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			if ws, ok := exitErr.ProcessState.Sys().(syscall.WaitStatus); ok && ws.Signaled() &&
+				(ws.Signal() == syscall.SIGKILL || ws.Signal() == syscall.SIGTERM) {
+				return fmt.Errorf("%w (%v)", ErrWindowKilled, err)
+			}
+		}
 		detail := strings.TrimSpace(redactWindowError(string(tail.b)))
 		if detail != "" {
 			return fmt.Errorf("native window failed: %w\n%s", err, detail)
