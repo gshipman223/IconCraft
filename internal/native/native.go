@@ -28,6 +28,17 @@ type Mac struct {
 	slots chan struct{}
 }
 
+// KeepAgentStatus is the observable state of the optional background
+// keep-applied helper. Installed means its plist is present; Loaded means
+// launchd knows the job; Disabled means the user (or macOS) has switched
+// it off in Login Items / background-item management.
+type KeepAgentStatus struct {
+	Installed bool   `json:"installed"`
+	Loaded    bool   `json:"loaded"`
+	Disabled  bool   `json:"disabled"`
+	Error     string `json:"error,omitempty"`
+}
+
 func New(dir string) (*Mac, error) {
 	if err := os.MkdirAll(filepath.Join(dir, "runtime"), 0700); err != nil {
 		return nil, err

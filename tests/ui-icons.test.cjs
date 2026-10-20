@@ -20,6 +20,20 @@ test('icons are not lazy-loaded while hidden (WebKit would never fetch them)', (
   assert.match(ui('style.css'), /\.icon-wrap:not\(\.has-image\) \.icon\{display:none\}/);
 });
 
+test('first-run setup and permissions screen is present and reusable', () => {
+  const html = ui('index.html');
+  const js = ui('app.js');
+  assert.match(html, /id="setup-open"/);
+  assert.match(html, /id="setup-dialog"/);
+  assert.match(html, /id="setup-checks"/);
+  assert.match(html, /id="setup-finish"/);
+  assert.match(js, /api\('permissions'\)/);
+  assert.match(js, /api\('permissions\/check'/);
+  assert.match(js, /api\('setup\/complete'/);
+  assert.match(js, /location\.hash==='#setup'/);
+  assert.match(fs.readFileSync(path.join(__dirname, '../internal/native/window.js'), 'utf8'), /Setup & Permissions…/);
+});
+
 test('real logo, version and PayPal support bar are in the page', () => {
   const html = ui('index.html');
   assert.match(html, /<img class="brand" src="logo\.svg"/);

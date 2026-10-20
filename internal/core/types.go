@@ -18,7 +18,11 @@ import (
 	"time"
 )
 
-const Version = "0.9.0"
+const Version = "0.10.0"
+
+// SetupVersion is bumped when the first-run permissions review needs to be
+// shown again (for example, when a release needs a new macOS permission).
+const SetupVersion = 1
 
 // SupportURL is Gavin Shipman's verified PayPal business contribution link.
 const SupportURL = "https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA"
@@ -128,6 +132,21 @@ type Original struct {
 	Source  string `json:"source"`
 	Checked string `json:"checked"`
 }
+
+// PermissionCheck is the last user-run, app-specific App Management probe.
+// macOS does not publish one global "IconCraft may modify apps" answer that
+// an ad-hoc app can rely on, so IconCraft records what it actually tested:
+// whether creating/removing a harmless temporary file inside one chosen
+// installed app was allowed. Status is ready, blocked or unknown.
+type PermissionCheck struct {
+	AppID     string `json:"appId,omitempty"`
+	AppName   string `json:"appName,omitempty"`
+	Path      string `json:"path,omitempty"`
+	Status    string `json:"status"`
+	Detail    string `json:"detail,omitempty"`
+	CheckedAt string `json:"checkedAt,omitempty"`
+}
+
 type State struct {
 	Theme         string                   `json:"theme,omitempty"`
 	Renames       []RenameRecord           `json:"renames,omitempty"`
@@ -140,6 +159,9 @@ type State struct {
 	Vault         map[string]SavedOriginal `json:"vault,omitempty"`
 	KeeperDesired bool                     `json:"keeperDesired,omitempty"`
 	KeeperSet     bool                     `json:"keeperSet,omitempty"`
+	SetupVersion  int                      `json:"setupVersion,omitempty"`
+	SetupDoneAt   string                   `json:"setupDoneAt,omitempty"`
+	AppAccess     PermissionCheck          `json:"appAccess,omitempty"`
 	Preferences   map[string]Preference    `json:"preferences"`
 	ExtraRoots    []string                 `json:"extraRoots"`
 }

@@ -120,7 +120,7 @@ func (e *Engine) Session() map[string]any {
 	if theme == "" {
 		theme = "system"
 	}
-	return map[string]any{"version": Version, "supportUrl": SupportURL, "repositoryUrl": RepositoryURL, "apps": apps, "assets": assets, "originals": originals, "choices": choices, "records": records, "renames": renames, "rebrands": rebrands, "vault": vault, "theme": theme}
+	return map[string]any{"version": Version, "supportUrl": SupportURL, "repositoryUrl": RepositoryURL, "apps": apps, "assets": assets, "originals": originals, "choices": choices, "records": records, "renames": renames, "rebrands": rebrands, "vault": vault, "theme": theme, "setupRequired": e.State.SetupVersion < SetupVersion, "setupVersion": e.State.SetupVersion}
 }
 
 // Extended-attribute writes may change ctime without changing mtime on macOS.

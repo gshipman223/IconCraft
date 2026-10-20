@@ -34,6 +34,33 @@ func (m *Mac) KeepAgentEnabled() bool {
 	return err == nil
 }
 
+func parseKeepAgentDisabled(output string) bool {
+	for _, line := range strings.Split(output, "\n") {
+		if !strings.Contains(line, keepAgentLabel) {
+			continue
+		}
+		return strings.Contains(line, "=> true") || strings.Contains(line, "= true")
+	}
+	return false
+}
+
+// KeepAgentStatus observes the keeper without changing it. launchd's own
+// records distinguish an installed-but-not-loaded or user-disabled helper
+// from one that is ready, which a plist-existence check alone cannot do.
+func (m *Mac) KeepAgentStatus() KeepAgentStatus {
+	st := KeepAgentStatus{Installed: m.KeepAgentEnabled()}
+	domain := fmt.Sprintf("gui/%d", os.Getuid())
+	if out, err := exec.Command("/bin/launchctl", "print", domain+"/"+keepAgentLabel).CombinedOutput(); err == nil && strings.Contains(string(out), keepAgentLabel) {
+		st.Loaded = true
+	}
+	if out, err := exec.Command("/bin/launchctl", "print-disabled", domain).CombinedOutput(); err == nil {
+		st.Disabled = parseKeepAgentDisabled(string(out))
+	} else if st.Installed {
+		st.Error = "Could not read the macOS background-item state."
+	}
+	return st
+}
+
 func xmlEscape(s string) string {
 	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;", "'", "&apos;")
 	return r.Replace(s)

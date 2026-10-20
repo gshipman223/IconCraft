@@ -1,9 +1,10 @@
 'use strict';
 const $=id=>document.getElementById(id);
-const model={apps:[],assets:{},originals:{},choices:{},records:[],renames:[],rebrands:{},vault:{},keepAlive:false};
+const model={apps:[],assets:{},originals:{},choices:{},records:[],renames:[],rebrands:{},vault:{},keepAlive:false,setupRequired:false};
 const rows=new Map(), rowState=new Map(), selected=new Set();
 let scanning=false, busy=false, firstLoad=true, selectFuture=false, query='',theme='system',themeTouched=false;
 let generation=0,workerCount=0,queue=[],seen=new Set(),controllers=new Set(),pickerApp=null,renameApp=null;
+let setupData=null,setupChecking=false,setupOpening=false,setupWanted=false;
 const media=window.matchMedia('(prefers-color-scheme: dark)');
 const paths={grid:'M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3zM12 12h5v5h-5z',restore:'M4 7a6 6 0 111 8M1.5 3v5h5',edit:'m4 13-1 4 4-1L17 6l-3-3zM12 5l3 3',arrow:'M4 10h12m-4-4 4 4-4 4',refresh:'M16 7A6 6 0 004 5L2 7m0-4v4h4M4 13a6 6 0 0012 2l2-2m0 4v-4h-4'};
 function svg(key){const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('viewBox','0 0 20 20');s.setAttribute('aria-hidden','true');const p=document.createElementNS(s.namespaceURI,'path');p.setAttribute('d',paths[key]||paths.grid);s.append(p);return s;}
@@ -26,7 +27,7 @@ function appIcon(a){return 'api/icon?app='+encodeURIComponent(a.id)+'&v='+encode
 function assetIcon(id){return id?'api/icon?asset='+encodeURIComponent(id):'';}
 function imageView(small=false){const wrap=node('span','icon-wrap'+(small?' small':''));const f=svg('grid');f.classList.add('fallback');const img=node('img','icon');img.alt='';/* NOT lazy: icons are display:none until load, and WebKit never fetches hidden lazy images — the load event that reveals them would never fire. Local thumbnails are cheap; load eagerly. */img.decoding='async';wrap.append(f,img);img.addEventListener('load',()=>wrap.classList.add('has-image'));img.addEventListener('error',()=>wrap.classList.remove('has-image'));return {wrap,img,src:''};}
 function setImage(view,src,alt){view.img.alt=alt;if(view.src===src)return;view.src=src;view.wrap.classList.remove('has-image');if(src)view.img.src=src;else view.img.removeAttribute('src');}
-function updateModel(data){model.apps=data.apps||model.apps;Object.assign(model.assets,data.assets||{});Object.assign(model.originals,data.originals||{});model.choices=data.choices||{};model.records=data.records||[];model.renames=data.renames||[];if(typeof data.keepAlive==='boolean')model.keepAlive=data.keepAlive;model.rebrands=data.rebrands||{};model.vault=data.vault||{};$('version').textContent=data.version||'0.9.0';const v2=$('version-2');if(v2)v2.textContent=data.version||'0.9.0';selected.forEach(id=>{if(!model.apps.some(a=>a.id===id))selected.delete(id);});}
+function updateModel(data){model.apps=data.apps||model.apps;Object.assign(model.assets,data.assets||{});Object.assign(model.originals,data.originals||{});model.choices=data.choices||{};model.records=data.records||[];model.renames=data.renames||[];if(typeof data.keepAlive==='boolean')model.keepAlive=data.keepAlive;if(typeof data.setupRequired==='boolean')model.setupRequired=data.setupRequired;model.rebrands=data.rebrands||{};model.vault=data.vault||{};$('version').textContent=data.version||'0.10.0';const v2=$('version-2');if(v2)v2.textContent=data.version||'0.10.0';selected.forEach(id=>{if(!model.apps.some(a=>a.id===id))selected.delete(id);});}
 async function session(){updateModel(await api('session'));render();}
 function makeRow(a){
  const currentApp=()=>model.apps.find(x=>x.id===a.id)||a;
@@ -114,6 +115,62 @@ async function applyApps(list){
 async function restoreOne(a){if(busy)return;busy=true;rs(a).actionError='';render();try{const r=await api('restore-app',{appId:a.id,confirmed:true});rs(a).revision++;await session();tell(r.steps&&r.steps.length?('Restored '+a.name+': '+r.steps.join('; ')+'.'):('Restored '+a.name+'.'));}catch(e){rs(a).actionError=e.message;tell(e.message,true);}finally{busy=false;render();}}
 async function restoreAll(){if(busy)return;busy=true;render();try{const r=await api('restore-all',{confirmed:true});rowState.forEach(s=>{s.revision++;s.actionError='';});await session();tell(r.restored+' apps restored.'+(r.errors?.length?'\n'+r.errors.join('\n'):''),!!r.errors?.length);}catch(e){tell(e.message,true);}finally{busy=false;render();}}
 function dialogError(id,text){$(id).textContent=text;$(id).hidden=!text;}
+function setupMessage(text){const m=$('setup-message');m.textContent=text;m.hidden=!text;}
+function setupCheck(id){return setupData?.checks?.find(c=>c.id===id);}
+function setupActionButton(label,fn,primary=false){const b=node('button',primary?'primary':'secondary',label);b.disabled=setupChecking||busy;b.addEventListener('click',fn);return b;}
+function drawSetup(){
+ const checks=setupData?.checks||[],blocked=checks.filter(c=>c.state==='blocked').length,unchecked=checks.filter(c=>c.state==='unknown').length,ready=checks.filter(c=>c.state==='ready').length;
+ $('setup-summary').textContent=blocked?blocked+(blocked===1?' item needs':' items need')+' attention. Open the highlighted macOS setting, allow IconCraft, then run the checks again. You can still finish setup and return later.':unchecked?'Some permissions have not been tested yet. Run the checks, then allow anything macOS is blocking.':ready+' essential items are ready. Optional items are labelled clearly below.';
+ const list=$('setup-checks');list.replaceChildren();
+ for(const check of checks){
+  const row=node('section','setup-row'),copy=node('div'),side=node('div','setup-side'),pill=node('span','status-pill '+check.state,check.label),actions=node('div','setup-actions');
+  copy.append(node('h3','',check.title),node('p','',check.detail));
+  if(check.id==='appManagement'&&setupData?.appAccess?.checkedAt){const when=new Date(setupData.appAccess.checkedAt);if(!Number.isNaN(when.getTime()))copy.append(node('p','setup-meta','Last checked '+when.toLocaleString()+(setupData.appAccess.appName?' · Tested app: '+setupData.appAccess.appName:'')));}
+  if(check.id==='appManagement'){
+   actions.append(setupActionButton('Open App Management',openSetupAppManagement),setupActionButton(check.state==='unknown'?'Check now':'Check again',runSetupChecks,true));
+  }else if(check.id==='background'){
+   const on=!!setupData?.keeper?.desired;
+   actions.append(setupActionButton(on?'Turn keeper off':'Turn keeper on',toggleSetupKeeper,on&&check.state!=='ready'));
+  }
+  side.append(pill,actions);row.append(copy,side);list.append(row);
+ }
+ $('setup-check').disabled=setupChecking||busy;$('setup-check').textContent=setupChecking?'Checking…':'Run checks';
+ $('setup-close').disabled=setupChecking;
+ $('setup-later').disabled=setupChecking;$('setup-later').textContent=setupData?.setup?.completed?'Close':'Review later';
+ $('setup-finish').disabled=setupChecking;$('setup-finish').textContent=setupData?.setup?.completed?'Done':'Finish setup';
+ $('setup-subtitle').textContent=setupData?.setup?.completed?'Your saved setup is complete. Recheck permissions after an IconCraft or macOS update.':'Give IconCraft the access it needs, and see exactly what it does not ask for.';
+}
+async function openSetup(){
+ if(setupOpening||$('setup-dialog').open)return;setupOpening=true;dialogError('setup-error','');setupMessage('');
+ try{setupData=await api('permissions');drawSetup();$('setup-dialog').showModal();}
+ catch(e){tell('Could not load setup and permissions: '+e.message,true);}
+ finally{setupOpening=false;}
+}
+async function runSetupChecks(){
+ if(setupChecking)return;setupChecking=true;dialogError('setup-error','');setupMessage('');drawSetup();
+ try{setupData=await api('permissions/check',{});const access=setupCheck('appManagement');setupMessage(access?.state==='ready'?'Checks finished. App Management passed the live write test.':access?.state==='blocked'?'Checks finished. App Management is blocking IconCraft — open the setting below, switch IconCraft on, then check again.':'Checks finished. Review any item still marked as needing attention.');}
+ catch(e){dialogError('setup-error',e.message);}
+ finally{setupChecking=false;drawSetup();render();}
+}
+async function openSetupAppManagement(){
+ dialogError('setup-error','');try{await api('open-settings',{target:'appManagement'});setupMessage('System Settings opened at Privacy & Security → App Management. Switch IconCraft on, return here, then choose Check again.');}
+ catch(e){dialogError('setup-error',e.message);}
+}
+async function toggleSetupKeeper(){
+ if(setupChecking)return;const on=!setupData?.keeper?.desired;setupChecking=true;drawSetup();dialogError('setup-error','');
+ try{const r=await api('keepalive',{enabled:on});model.keepAlive=!!r.enabled;setupData=await api('permissions');setupMessage(on?'Keep skins applied is on. macOS has been asked to load the background helper; its live state is shown above.':'Keep skins applied is off. Existing icons and names remain in place; automatic repairs are paused.');}
+ catch(e){dialogError('setup-error',e.message);}
+ finally{setupChecking=false;drawSetup();render();}
+}
+async function finishSetup(){
+ if(setupChecking)return;
+ if(setupData?.setup?.completed){$('setup-dialog').close();return;}
+ setupChecking=true;drawSetup();dialogError('setup-error','');
+ try{await api('setup/complete',{confirmed:true});model.setupRequired=false;setupWanted=false;if(setupData?.setup)setupData.setup.completed=true;$('setup-dialog').close();tell('Setup complete. You can revisit permissions any time from Setup & permissions.');}
+ catch(e){dialogError('setup-error',e.message);}
+ finally{setupChecking=false;drawSetup();}
+}
+function closeSetup(){if(!setupChecking)$('setup-dialog').close();}
 function closePicker(){if(!busy){$('picker').close();pickerApp=null;}}
 function openPicker(a){if(busy)return;pickerApp=a;$('picker-for').textContent='For '+a.name;$('picker-search').value='';dialogError('picker-error','');drawPicker();$('picker').showModal();$('picker-search').focus();}
 function drawPicker(){
@@ -145,6 +202,9 @@ $('rename-close').addEventListener('click',closeRename);$('rename-cancel').addEv
 for(const id of ['picker','rename-dialog']){$(id).addEventListener('cancel',e=>{if(busy)e.preventDefault();});$(id).addEventListener('click',e=>{if(e.target===$(id)&&!busy){const r=$(id).getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$(id).close();}});}
 async function openSupport(target){try{const r=await api('support',{target});if(!r.opened&&r.url)window.open(r.url,'_blank');else if(r.opened)tell(target==='paypal'?'Opening PayPal in your browser — thank you for supporting IconCraft!':'Opening GitHub in your browser…');}catch(e){tell((target==='paypal'?'Support via PayPal: https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA':'GitHub: https://github.com/gshipman223/IconCraft'),true);}}
 $('keepalive').addEventListener('click',async()=>{if(busy)return;busy=true;render();try{const r=await api('keepalive',{enabled:!model.keepAlive});model.keepAlive=!!r.enabled;tell(model.keepAlive?'Keep-applied is on. If an app or updater reverts your icon or name, IconCraft will quietly re-apply it (checks at login, every few minutes, and when apps change). While an app is running, macOS shows its own Dock/menu identity — IconCraft never edits inside apps, so that part is the app’s, by design.':'Keep-applied is off. Icons and names stay as-is; nothing will re-apply them if an app reverts them.');}catch(e){tell(e.message,true);}finally{busy=false;render();}});
+$('setup-open').addEventListener('click',openSetup);$('setup-close').addEventListener('click',closeSetup);$('setup-later').addEventListener('click',closeSetup);$('setup-check').addEventListener('click',runSetupChecks);$('setup-finish').addEventListener('click',finishSetup);
+$('setup-dialog').addEventListener('cancel',e=>{if(setupChecking)e.preventDefault();});$('setup-dialog').addEventListener('click',e=>{if(e.target===$('setup-dialog')&&!setupChecking){const r=$('setup-dialog').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeSetup();}});
+window.addEventListener('hashchange',()=>{if(location.hash==='#setup')openSetup();});
 $('support-paypal').addEventListener('click',()=>openSupport('paypal'));
 $('support-github').addEventListener('click',()=>openSupport('github'));
 $('dismiss').addEventListener('click',()=>tell(''));$('notice-action').addEventListener('click',async()=>{try{await api('open-settings',{target:'appManagement'});tell('Opening System Settings → Privacy & Security → App Management. Switch IconCraft on, then try again.');}catch(e){tell(e.message,true);}});$('scan').addEventListener('click',refresh);$('search').addEventListener('input',()=>{query=$('search').value.trim().toLowerCase();selectFuture=false;render();});
@@ -152,4 +212,4 @@ $('select-all').addEventListener('change',()=>{selectFuture=$('select-all').chec
 $('replace').addEventListener('click',()=>applyApps(visible().filter(a=>selected.has(a.id))));$('restore-all').addEventListener('click',restoreAll);
 $('folder').addEventListener('click',async()=>{if(busy)return;busy=true;render();let added=false;try{const r=await api('root',{});added=!r.cancelled;}catch(e){tell(e.message,true);}finally{busy=false;render();}if(added)refresh();});
 document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('search').focus();}});
-(async()=>{applyTheme('system');try{const s=await api('session');updateModel(s);if(!themeTouched)applyTheme(s.theme||'system');render();}catch(e){tell(e.message,true);}await refresh();})();
+(async()=>{applyTheme('system');try{const s=await api('session');updateModel(s);setupWanted=!!s.setupRequired;if(!themeTouched)applyTheme(s.theme||'system');render();}catch(e){tell(e.message,true);}await refresh();if(setupWanted||location.hash==='#setup')await openSetup();})();

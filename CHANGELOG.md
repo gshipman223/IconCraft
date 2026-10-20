@@ -4,6 +4,35 @@ All notable changes to IconCraft. Versions are ad-hoc signed Universal
 (Apple Silicon + Intel) macOS builds; Developer ID signing/notarisation has
 not been performed.
 
+## [0.10.0] — 2026-10-21 · Setup & Permissions
+
+- **Installer finish step**: the one-click `.pkg` now opens with a Welcome
+  screen explaining the permissions step and ends with a Conclusion screen
+  telling the user to open IconCraft and complete **Finish setup**. The ZIP
+  installer and packaged READ ME give the same guidance.
+- **First-run Setup & Permissions screen**: after install/update, IconCraft
+  now presents a dedicated review with live status pills for opening the
+  app, local data/backups, app discovery, App Management, the optional
+  background keeper, and the permissions it deliberately does not request
+  (Full Disk Access, Accessibility, Screen Recording and Automation).
+- **Honest App Management status**: macOS does not expose a reliable global
+  grant readout to an ad-hoc app, so IconCraft does not fake one. **Run
+  checks** uses the same harmless create-and-remove bundle-writability
+  probe used before a real change. Success is shown as **Granted — tested**
+  for the tested app; refusal is shown as **Blocked**, with a one-click
+  button to System Settings → Privacy & Security → App Management and a
+  **Check again** action. The copy also warns that a future locally signed
+  update may be treated as a new app by macOS.
+- **Background status that distinguishes causes**: the keeper row now
+  separates on/loaded, off, installed-but-not-loaded, missing and
+  disabled-in-Login-Items states, with an in-place on/off button.
+- Setup is shown once per setup version, can be skipped with **Review
+  later**, and can be reopened from **Setup & permissions** in the header
+  or **Setup & Permissions…** in the menu bar icon.
+- Release packaging now also attaches the `.pkg` installer in CI, and the
+  ZIP installer reports the correct release version instead of an old
+  hard-coded one.
+
 ## [0.9.0] — 2026-10-21 · Menu bar control + keeper that heals itself
 - **Menu bar icon**: while IconCraft is open, its icon sits in the menu
   bar with Open IconCraft, **Keep Skins Applied: On/Off** (live state),

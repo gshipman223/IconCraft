@@ -29,7 +29,7 @@ fi
 if [[ ! -f "$SOURCE/Contents/MacOS/IconCraft" || -L "$SOURCE" ]]; then
     printf 'Keep this installer beside the extracted IconCraft.app.\n' >&2; exit 1
 fi
-printf 'IconCraft — installing the Mac app 0.4.1\n\n'
+printf 'IconCraft — installing the Mac app @VERSION@\n\n'
 ACTUAL="$(/usr/bin/shasum -a 256 "$SOURCE/Contents/MacOS/IconCraft" | /usr/bin/awk '{print $1}')"
 if [[ "$ACTUAL" != "@EXECUTABLE_SHA256@" ]]; then
     printf 'Executable checksum mismatch. Re-download the complete archive. Nothing was installed.\n' >&2; exit 1
@@ -67,7 +67,7 @@ if ! CHECK_VERSION="$("$STAGE/IconCraft.app/Contents/MacOS/IconCraft" --version 
     printf 'The previous application has not been replaced.\n' >&2
     exit 1
 fi
-if [[ "$CHECK_VERSION" != "0.4.1" ]]; then
+if [[ "$CHECK_VERSION" != "@VERSION@" ]]; then
     printf 'Unexpected application version: %s\n' "$CHECK_VERSION" >&2
     exit 1
 fi
@@ -83,7 +83,7 @@ fi
 COMMITTED=1
 printf '\nInstalled: %s\n' "$DEST"
 if [[ -n "$BACKUP" ]]; then printf 'Previous application saved at: %s\n' "$BACKUP"; fi
-printf '\nLaunching IconCraft 0.4.1. Startup errors now offer Show error; your existing icon backups are preserved.\n'
+printf '\nLaunching IconCraft @VERSION@. On first launch, Finish setup will walk you through permissions; your existing icon backups are preserved.\n'
 printf 'If macOS blocks this locally signed app, open System Settings > Privacy & Security > Open Anyway.\n'
 printf 'This installer does not disable Gatekeeper or remove quarantine attributes.\n'
 /usr/bin/open "$DEST"

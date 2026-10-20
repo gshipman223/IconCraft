@@ -1,18 +1,22 @@
 {
-  "version": "0.9.0",
+  "version": "0.10.0",
   "date": "2026-10-21",
   "environment": "real Mac, darwin/arm64, macOS 26 (Tahoe)",
-  "goTests": "passed \u2014 119 tests across 5 packages (go test ./...), race detector clean, go vet clean",
-  "nodeTests": "passed \u2014 36/36 bridge + UI regression tests",
-  "nativeSelfTest": "PASSED 27/27 checks on this Mac (signed fixture apply/restore round-trips, pre-existing custom icon round-trip, signature valid after restore, profile export/import)",
+  "goTests": "passed — 145 tests across 5 packages (go test ./...), race detector clean, go vet clean",
+  "nodeTests": "passed — 38 bridge + window + UI regression tests",
+  "nativeSelfTest": "PASSED 26/26 checks on this Mac in an isolated temporary HOME (signed fixture apply/restore round-trips, pre-existing custom icon round-trip, signature valid after restore, profile export/import)",
   "liveVerification": {
-    "appsScanned": 111,
-    "iconPNGsSampled": "30/30 valid 8-bit PNGs served (api/icon)",
-    "uiScreenshot": "running app shows real icons for every listed app + genuine Adobe/Figma originals; see session screenshots",
-    "paypal": "support endpoint allowlist-tested; link opens https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA"
+    "appsScanned": 112,
+    "setupFirstLaunch": "installed 0.10.0 opened Finish setup automatically because the upgraded state had no setup version",
+    "appManagementBlocked": "first live probe was correctly shown as Blocked on Adobe Acrobat (/Applications/PdfCraft.app) after the locally re-signed update",
+    "appManagementGrant": "Setup button opened System Settings → Privacy & Security → App Management; IconCraft.app was switched on, IconCraft was quit/relaunched, and Check again changed the row to Granted — tested",
+    "backgroundKeeper": "setup row showed Granted — on (desired, installed and loaded); state remained keeperDesired=true after completion",
+    "setupCompletion": "Finish setup persisted setupVersion=1 with a completion timestamp; reopening from Setup & permissions showed the completed state and retained the tested grant",
+    "installerPackage": "productbuild package expanded successfully; Distribution references Welcome and Conclusion resources, both explain the first-launch Setup & Permissions step, and payload Info.plist reports 0.10.0 (build 16)",
+    "uiScreenshot": "live screenshots captured for initial setup, blocked result, lower keeper/not-requested rows, granted result, finish controls, completed reopen, and the main window at v0.10.0"
   },
   "signing": "ad-hoc performed (per-slice sign + lipo + bundle verify --deep --strict OK); Developer ID + notarization NOT PERFORMED",
-  "install": "/Applications/IconCraft.app installed from this build and launched successfully",
-  "iconSearch": "0.5.1: layered resolver (publisher pages + embedded assets, publisher CDN, App Store by ID, verified App Store search, saved original, installed product). Live proof: CADCraft -> genuine AutoCAD icon from Autodesk's App Store listing (track 393149734) after autodesk.com HTTP 403; knockoff listings rejected by seller+name+bundle triple-check.",
-  "notes": "Full suite green (incl. new keeper-intent and window-retention tests); native self-test passes. v0.9.0 adds a menu bar status item (Open, Keep Skins Applied live toggle, keeper status, App Management settings, Support, Quit) and desired-state healing of the keep-applied LaunchAgent (intent journalled; missing agent restored at launch and on periodic checks \u2014 proven live by deleting the plist and watching it restored + logged). JXA wrappers are function-scoped so the status item and window delegate no longer get collected (window close quits cleanly again). Verified via CUA + System Events AX: menu items live, toggle off/on drives launchctl + plist, keeper survives app quit by design."
+  "install": "/Applications/IconCraft.app 0.10.0 installed from this build (previous 0.9.0 app preserved under Application Support/IconCraft/previous-installations) and launched successfully; App Management was re-granted to this exact copy and the keeper remained on",
+  "iconSearch": "layered resolver (publisher pages + embedded assets, publisher CDN, App Store by ID, verified App Store search, saved original, installed product); UI showed 112 apps and 10 ready at final screenshot",
+  "notes": "v0.10.0 adds installer Welcome/Conclusion guidance and a first-run Setup & Permissions screen. App Management is never called granted merely because Settings was opened: only the user-run harmless bundle-writability probe can produce Granted — tested. Background keeper status separates desired/installed/loaded/disabled states. Full test/build/package pipeline passed."
 }

@@ -80,6 +80,42 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 			respond(w, 200, map[string]bool{"ok": true})
 		}
 		return true
+	case "api/permissions/check":
+		// Explicit user-run checks. The App Management check follows the
+		// same harmless temporary-file probe used before a real change;
+		// merely opening System Settings is never reported as a grant.
+		var b struct {
+			AppID string `json:"appId,omitempty"`
+		}
+		if err := readJSON(w, r, &b); err != nil {
+			fail(w, err)
+			return true
+		}
+		payload, err := s.permissionsPayload(ctx, true, b.AppID)
+		if err != nil {
+			fail(w, err)
+		} else {
+			respond(w, 200, payload)
+		}
+		return true
+	case "api/setup/complete":
+		var b struct {
+			Confirmed bool `json:"confirmed"`
+		}
+		if err := readJSON(w, r, &b); err != nil {
+			fail(w, err)
+			return true
+		}
+		if !b.Confirmed {
+			fail(w, errors.New("setup completion confirmation required"))
+			return true
+		}
+		if err := s.Engine.CompleteSetup(); err != nil {
+			fail(w, err)
+		} else {
+			respond(w, 200, map[string]any{"completed": true, "setupRequired": false})
+		}
+		return true
 	case "api/keepalive":
 		// Toggles the background keep-applied LaunchAgent, which repairs
 		// icons/names that apps or updaters revert while IconCraft is closed.

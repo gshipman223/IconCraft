@@ -37,6 +37,7 @@ function run(argv) {
         };
         ObjC.registerSubclass({name:'IconCraftStatusDelegate',superclass:'NSObject',protocols:['NSMenuDelegate'],methods:{
             'openApp:':{types:['void',['id']],implementation:function(){ win.makeKeyAndOrderFront(null); app.activateIgnoringOtherApps(true); }},
+            'openSetup:':{types:['void',['id']],implementation:function(){ win.makeKeyAndOrderFront(null); app.activateIgnoringOtherApps(true); try { web.loadRequest($.NSURLRequest.requestWithURL($.NSURL.URLWithString($(base + '#setup')))); } catch (e) {} }},
             'toggleKeeper:':{types:['void',['id']],implementation:function(){ try { const r = httpJSON('POST', 'api/keepalive', {enabled: !keeperOn}); if (r && typeof r.enabled === 'boolean') keeperOn = r.enabled; } catch (e) {} refreshKeeper(); }},
             'openSettings:':{types:['void',['id']],implementation:function(){ $.NSWorkspace.sharedWorkspace.openURL($.NSURL.URLWithString($('x-apple.systempreferences:com.apple.preference.security?Privacy_AppBundles'))); }},
             'openSupport:':{types:['void',['id']],implementation:function(){ $.NSWorkspace.sharedWorkspace.openURL($.NSURL.URLWithString($('https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA'))); }},
@@ -48,6 +49,7 @@ function run(argv) {
         var statusDelegate = $.IconCraftStatusDelegate.alloc.init;
         var statusMenu = $.NSMenu.alloc.init;
         const openItem = statusMenu.addItemWithTitleActionKeyEquivalent($('Open IconCraft'), 'openApp:', $('')); openItem.setTarget(statusDelegate);
+        const setupItem = statusMenu.addItemWithTitleActionKeyEquivalent($('Setup & Permissions…'), 'openSetup:', $('')); setupItem.setTarget(statusDelegate);
         var keeperItem = statusMenu.addItemWithTitleActionKeyEquivalent($('Keep Skins Applied'), 'toggleKeeper:', $('')); keeperItem.setTarget(statusDelegate);
         var keeperState = $.NSMenuItem.alloc.initWithTitleActionKeyEquivalent($('Background keeper status'), null, $('')); keeperState.setEnabled(false); statusMenu.addItem(keeperState);
         statusMenu.addItem($.NSMenuItem.separatorItem);

@@ -150,7 +150,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	expected := "POST"
-	if p == "api/session" || p == "api/status" || p == "api/icon" || p == "api/profile" || p == "api/report" {
+	if p == "api/session" || p == "api/status" || p == "api/permissions" || p == "api/icon" || p == "api/profile" || p == "api/report" {
 		expected = "GET"
 	}
 	if r.Method != expected {
@@ -174,6 +174,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		rep, pending := s.report()
 		state := s.Engine.SnapshotState()
 		respond(w, 200, map[string]any{"version": core.Version, "assets": state.Assets, "records": summaries(state.Records), "extraRoots": state.ExtraRoots, "originals": state.Originals, "choices": state.Choices, "catalogue": s.Engine.Catalogue(), "report": rep, "testing": pending})
+	case "api/permissions":
+		payload, err := s.permissionsPayload(ctx, false, "")
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		respond(w, 200, payload)
 	case "api/scan":
 		apps, warnings, err := s.Engine.Scan(ctx)
 		if err != nil {
