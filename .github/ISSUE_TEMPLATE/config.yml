@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Support IconCraft
+    url: https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA
+    about: IconCraft is free & open source — contributions keep it that way.
+  - name: Security reports
+    url: https://github.com/gshipman223/IconCraft/security/advisories/new
+    about: Please report vulnerabilities privately, not in public issues.

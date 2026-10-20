@@ -1,0 +1,10 @@
+build/
+.DS_Store
+*.p12
+*.p8
+*.key
+.env
+__pycache__/
+
+# Release artefacts are attached to GitHub Releases, not committed
+*.zip

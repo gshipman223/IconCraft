@@ -1,0 +1,208 @@
+TAP version 13
+# Subtest: missing dictionary reproduces the old objectForKey crash and is now isolated
+ok 1 - missing dictionary reproduces the old objectForKey crash and is now isolated
+  ---
+  duration_ms: 11.1849
+  type: 'test'
+  ...
+# Subtest: wrapped valid metadata is unwrapped before field access
+ok 2 - wrapped valid metadata is unwrapped before field access
+  ---
+  duration_ms: 3.697578
+  type: 'test'
+  ...
+# Subtest: plain dictionary values do not require an Objective-C objectForKey method
+ok 3 - plain dictionary values do not require an Objective-C objectForKey method
+  ---
+  duration_ms: 1.006725
+  type: 'test'
+  ...
+# Subtest: a broken bundle does not discard valid applications before or after it
+ok 4 - a broken bundle does not discard valid applications before or after it
+  ---
+  duration_ms: 2.036648
+  type: 'test'
+  ...
+# Subtest: display name takes precedence and numeric version is retained
+ok 5 - display name takes precedence and numeric version is retained
+  ---
+  duration_ms: 1.053658
+  type: 'test'
+  ...
+# Subtest: missing names fall back to the app filename
+ok 6 - missing names fall back to the app filename
+  ---
+  duration_ms: 0.882502
+  type: 'test'
+  ...
+# Subtest: nested metadata is not coerced into text
+ok 7 - nested metadata is not coerced into text
+  ---
+  duration_ms: 4.22436
+  type: 'test'
+  ...
+# Subtest: non-dictionary plist returns a per-app warning
+ok 8 - non-dictionary plist returns a per-app warning
+  ---
+  duration_ms: 23.623632
+  type: 'test'
+  ...
+# Subtest: incomplete app metadata is skipped visibly
+ok 9 - incomplete app metadata is skipped visibly
+  ---
+  duration_ms: 17.401358
+  type: 'test'
+  ...
+# Subtest: native exceptions are isolated to the affected bundle
+ok 10 - native exceptions are isolated to the affected bundle
+  ---
+  duration_ms: 7.613169
+  type: 'test'
+  ...
+# Subtest: empty scan is successful and explicit
+ok 11 - empty scan is successful and explicit
+  ---
+  duration_ms: 13.422338
+  type: 'test'
+  ...
+# Subtest: icon export falls back when the plist is unavailable
+ok 12 - icon export falls back when the plist is unavailable
+  ---
+  duration_ms: 5.328009
+  type: 'test'
+  ...
+# Subtest: missing bundled icon uses NSWorkspace instead of messaging a nil object
+ok 13 - missing bundled icon uses NSWorkspace instead of messaging a nil object
+  ---
+  duration_ms: 1.04935
+  type: 'test'
+  ...
+# Subtest: real bundled artwork is preferred over the displayed icon
+ok 14 - real bundled artwork is preferred over the displayed icon
+  ---
+  duration_ms: 5.968556
+  type: 'test'
+  ...
+# Subtest: unsafe resource paths are not read
+ok 15 - unsafe resource paths are not read
+  ---
+  duration_ms: 3.253192
+  type: 'test'
+  ...
+# Subtest: invalid icon fails before NSWorkspace can change an application
+ok 16 - invalid icon fails before NSWorkspace can change an application
+  ---
+  duration_ms: 1.140921
+  type: 'test'
+  ...
+# Subtest: set reports an explicit permission refusal
+ok 17 - set reports an explicit permission refusal
+  ---
+  duration_ms: 2.26223
+  type: 'test'
+  ...
+# Subtest: successful set notifies only its target
+ok 18 - successful set notifies only its target
+  ---
+  duration_ms: 2.574477
+  type: 'test'
+  ...
+# Subtest: missing request file is detected before reading properties of nil
+ok 19 - missing request file is detected before reading properties of nil
+  ---
+  duration_ms: 2.022222
+  type: 'test'
+  ...
+# Subtest: missing bitmap representation produces a controlled error
+ok 20 - missing bitmap representation produces a controlled error
+  ---
+  duration_ms: 2.743579
+  type: 'test'
+  ...
+# Subtest: failed PNG conversion produces a controlled error
+ok 21 - failed PNG conversion produces a controlled error
+  ---
+  duration_ms: 3.81689
+  type: 'test'
+  ...
+# Subtest: missing workspace icon produces a controlled error
+ok 22 - missing workspace icon produces a controlled error
+  ---
+  duration_ms: 1.270573
+  type: 'test'
+  ...
+# Subtest: unsupported native actions cannot execute arbitrary commands
+ok 23 - unsupported native actions cannot execute arbitrary commands
+  ---
+  duration_ms: 1.405332
+  type: 'test'
+  ...
+# Subtest: embedded macOS window script parses before shipping
+ok 24 - embedded macOS window script parses before shipping
+  ---
+  duration_ms: 1.26478
+  type: 'test'
+  ...
+# Subtest: thumbnail batch isolates unreadable files and uses export fallback
+ok 25 - thumbnail batch isolates unreadable files and uses export fallback
+  ---
+  duration_ms: 7.672321
+  type: 'test'
+  ...
+# Subtest: missing images produce an empty preview batch, not a global error
+ok 26 - missing images produce an empty preview batch, not a global error
+  ---
+  duration_ms: 2.246341
+  type: 'test'
+  ...
+# Subtest: Window opens without native appearance or script-message protocol support
+ok 27 - Window opens without native appearance or script-message protocol support
+  ---
+  duration_ms: 5.780047
+  type: 'test'
+  ...
+# Subtest: Cosmetic Dock icon error cannot prevent main window from opening
+ok 28 - Cosmetic Dock icon error cannot prevent main window from opening
+  ---
+  duration_ms: 2.203683
+  type: 'test'
+  ...
+# Subtest: Native window creation failure identifies its startup stage
+ok 29 - Native window creation failure identifies its startup stage
+  ---
+  duration_ms: 5.202797
+  type: 'test'
+  ...
+# Subtest: WebKit creation failure identifies its startup stage
+ok 30 - WebKit creation failure identifies its startup stage
+  ---
+  duration_ms: 1.262311
+  type: 'test'
+  ...
+# Subtest: Framework import failure is caught inside the launcher
+ok 31 - Framework import failure is caught inside the launcher
+  ---
+  duration_ms: 3.605759
+  type: 'test'
+  ...
+# Subtest: Ready marker is emitted only after showing and activating window
+ok 32 - Ready marker is emitted only after showing and activating window
+  ---
+  duration_ms: 1.360282
+  type: 'test'
+  ...
+# Subtest: UI appearance no longer depends on a native script-message bridge
+ok 33 - UI appearance no longer depends on a native script-message bridge
+  ---
+  duration_ms: 1.290236
+  type: 'test'
+  ...
+1..33
+# tests 33
+# suites 0
+# pass 33
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 411.920467

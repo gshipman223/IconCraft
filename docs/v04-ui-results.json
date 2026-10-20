@@ -1,0 +1,118 @@
+{
+  "environment": "Linux Chromium; native operations, installed applications and artwork simulated. Not macOS acceptance or publisher availability testing.",
+  "passed": 28,
+  "checks": [
+    {
+      "name": "Cached apps and originals render before delayed native scan or network work finishes",
+      "passed": true
+    },
+    {
+      "name": "Icon actions remain enabled while originals refresh in the background",
+      "passed": true
+    },
+    {
+      "name": "Compact single page with no management tabs",
+      "passed": true
+    },
+    {
+      "name": "Default appearance follows dark macOS preference",
+      "passed": true
+    },
+    {
+      "name": "System mode tracks a live OS appearance change",
+      "passed": true
+    },
+    {
+      "name": "Manual dark override is saved and does not follow the OS until System is restored",
+      "passed": true
+    },
+    {
+      "name": "Light, Dark and System controls work without a settings page",
+      "passed": true
+    },
+    {
+      "name": "Async source updates preserve existing row and image DOM nodes",
+      "passed": true
+    },
+    {
+      "name": "Original SVG is converted to PNG rather than redrawn",
+      "passed": true
+    },
+    {
+      "name": "Unknown products never receive an invented vendor icon",
+      "passed": true
+    },
+    {
+      "name": "Scanning, source checks and previews never change installed apps",
+      "passed": true
+    },
+    {
+      "name": "App selection is a compact in-window icon grid, not a new native app window",
+      "passed": true
+    },
+    {
+      "name": "Donor selection copies the selected preview without opening the donor app",
+      "passed": true
+    },
+    {
+      "name": "Individual Replace applies exactly the selected custom asset",
+      "passed": true
+    },
+    {
+      "name": "Individual Restore works from the same row",
+      "passed": true
+    },
+    {
+      "name": "Original artwork can be selected again after using a custom icon",
+      "passed": true
+    },
+    {
+      "name": "Cancelling a file choice preserves the previous original icon",
+      "passed": true
+    },
+    {
+      "name": "Rename presets use the original application name",
+      "passed": true
+    },
+    {
+      "name": "Custom Unicode display names are accepted and shown in the row",
+      "passed": true
+    },
+    {
+      "name": "Rename errors stay in the small dialog and Restore name returns the original",
+      "passed": true
+    },
+    {
+      "name": "Filtered Select all and Replace affect only visible eligible rows",
+      "passed": true
+    },
+    {
+      "name": "Bulk replacement applies all eligible app selections",
+      "passed": true
+    },
+    {
+      "name": "Restore all remains a single main-screen action",
+      "passed": true
+    },
+    {
+      "name": "Exact replacement failure is visible in the affected row and message banner",
+      "passed": true
+    },
+    {
+      "name": "Network failure preserves usable saved originals without blocking controls",
+      "passed": true
+    },
+    {
+      "name": "App names are rendered as text, not executable markup",
+      "passed": true
+    },
+    {
+      "name": "Compact rows fit 720, 800, 940 and 1200px windows without horizontal scrolling",
+      "passed": true
+    },
+    {
+      "name": "No JavaScript runtime errors in all exercised workflows",
+      "passed": true
+    }
+  ]
+}

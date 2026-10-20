@@ -1,0 +1,7 @@
+ok  	github.com/gshipman223/IconCraft/cmd/iconcraft	1.043s
+ok  	github.com/gshipman223/IconCraft/internal/core	3.136s
+ok  	github.com/gshipman223/IconCraft/internal/native	2.244s
+ok  	github.com/gshipman223/IconCraft/internal/originals	1.781s
+ok  	github.com/gshipman223/IconCraft/internal/server	1.762s
+
+go vet: passed

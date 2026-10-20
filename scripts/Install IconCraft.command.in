@@ -1,0 +1,89 @@
+#!/bin/bash
+# IconCraft local-test installer. No administrator password or developer account.
+# Only this application's bundle is copied/signed; global security settings stay unchanged.
+set -euo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd -P)"
+SOURCE="$HERE/IconCraft.app"
+STAGE=""
+BACKUP=""
+DEST=""
+COMMITTED=0
+pause() { if [[ -t 0 ]]; then printf '\nPress Return to close this window.'; read -r _ || true; fi; }
+cleanup() {
+    status=$?
+    trap - EXIT
+    if [[ $status -ne 0 ]]; then
+        printf '\nInstallation did not complete. Existing icon settings and backups were not deleted.\n'
+        if [[ "$COMMITTED" -eq 0 && -n "$BACKUP" && -d "$BACKUP" && -n "$DEST" && ! -e "$DEST" ]]; then
+            /bin/mv "$BACKUP" "$DEST" || printf 'Previous application preserved at: %s\n' "$BACKUP"
+        fi
+    fi
+    if [[ -n "$STAGE" && -d "$STAGE" ]]; then /bin/rm -rf "$STAGE"; fi
+    pause
+    exit "$status"
+}
+trap cleanup EXIT
+if [[ "$(/usr/bin/uname -s)" != "Darwin" ]]; then
+    printf 'This installer is for macOS.\n' >&2; exit 1
+fi
+if [[ ! -f "$SOURCE/Contents/MacOS/IconCraft" || -L "$SOURCE" ]]; then
+    printf 'Keep this installer beside the extracted IconCraft.app.\n' >&2; exit 1
+fi
+printf 'IconCraft — installing the Mac app 0.4.1\n\n'
+ACTUAL="$(/usr/bin/shasum -a 256 "$SOURCE/Contents/MacOS/IconCraft" | /usr/bin/awk '{print $1}')"
+if [[ "$ACTUAL" != "@EXECUTABLE_SHA256@" ]]; then
+    printf 'Executable checksum mismatch. Re-download the complete archive. Nothing was installed.\n' >&2; exit 1
+fi
+# Check every bundle file before copying. Paths are fixed by the packager.
+(cd "$HERE" && /usr/bin/shasum -a 256 -c APP-SHA256SUMS.txt)
+if /usr/bin/pgrep -x IconCraft >/dev/null 2>&1; then
+    printf '\nQuit the running IconCraft application, then run this installer again.\n' >&2; exit 1
+fi
+APPDIR="/Applications"
+if [[ ! -d "$APPDIR" || ! -w "$APPDIR" ]]; then
+    APPDIR="$HOME/Applications"
+    /bin/mkdir -p "$APPDIR"
+fi
+DEST="$APPDIR/IconCraft.app"
+if [[ -L "$DEST" ]]; then
+    printf 'Refusing to replace a symbolic link: %s\n' "$DEST" >&2; exit 1
+fi
+if [[ -e "$DEST" ]]; then
+    ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$DEST/Contents/Info.plist" 2>/dev/null || true)"
+    if [[ "$ID" != "io.iconcraft.mac" ]]; then
+        printf 'A different app already occupies %s. It has not been replaced.\n' "$DEST" >&2; exit 1
+    fi
+fi
+STAGE="$(/usr/bin/mktemp -d "$APPDIR/.iconcraft-install.XXXXXX")"
+/usr/bin/ditto "$SOURCE" "$STAGE/IconCraft.app"
+/bin/chmod 755 "$STAGE/IconCraft.app/Contents/MacOS/IconCraft"
+printf '\nPreparing this copy locally. No Developer ID or Apple account is used.\n'
+# Ad-hoc signing is local integrity metadata, not Developer ID signing or notarization.
+/usr/bin/codesign --force --sign - --timestamp=none "$STAGE/IconCraft.app"
+/usr/bin/codesign --verify --deep --strict "$STAGE/IconCraft.app"
+printf '\nChecking that this Mac can execute the new binary…\n'
+if ! CHECK_VERSION="$("$STAGE/IconCraft.app/Contents/MacOS/IconCraft" --version 2>&1)"; then
+    printf 'macOS could not execute the new app: %s\n' "$CHECK_VERSION" >&2
+    printf 'The previous application has not been replaced.\n' >&2
+    exit 1
+fi
+if [[ "$CHECK_VERSION" != "0.4.1" ]]; then
+    printf 'Unexpected application version: %s\n' "$CHECK_VERSION" >&2
+    exit 1
+fi
+if [[ -e "$DEST" ]]; then
+    BACKROOT="$HOME/Library/Application Support/IconCraft/previous-installations"
+    /bin/mkdir -p "$BACKROOT"
+    /bin/chmod 700 "$BACKROOT"
+    BACKDIR="$(/usr/bin/mktemp -d "$BACKROOT/$(/bin/date +%Y%m%d-%H%M%S).XXXXXX")"
+    BACKUP="$BACKDIR/IconCraft.app"
+    /bin/mv "$DEST" "$BACKUP"
+fi
+/bin/mv "$STAGE/IconCraft.app" "$DEST"
+COMMITTED=1
+printf '\nInstalled: %s\n' "$DEST"
+if [[ -n "$BACKUP" ]]; then printf 'Previous application saved at: %s\n' "$BACKUP"; fi
+printf '\nLaunching IconCraft 0.4.1. Startup errors now offer Show error; your existing icon backups are preserved.\n'
+printf 'If macOS blocks this locally signed app, open System Settings > Privacy & Security > Open Anyway.\n'
+printf 'This installer does not disable Gatekeeper or remove quarantine attributes.\n'
+/usr/bin/open "$DEST"

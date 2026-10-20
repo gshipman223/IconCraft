@@ -1,0 +1,33 @@
+name: macOS validation
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node --test tests/*.test.cjs
+      - run: go test -race -count=1 ./...
+      - run: go vet ./...
+      - run: python3 scripts/build_macos.py
+      - name: Native fixture checks (disposable fixtures only)
+        run: build/IconCraft.app/Contents/MacOS/IconCraft --self-test --report build/native-checks.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-validation-evidence
+          path: build/native-checks.json
+          if-no-files-found: warn
+# Native CI fixture results do not replace interactive Finder/Dock/Gatekeeper acceptance.

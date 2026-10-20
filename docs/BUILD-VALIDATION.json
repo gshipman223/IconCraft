@@ -1,0 +1,17 @@
+{
+  "version": "0.5.1",
+  "date": "2026-10-21",
+  "environment": "real Mac, darwin/arm64, macOS 26 (Tahoe)",
+  "goTests": "passed \u2014 119 tests across 5 packages (go test ./...), race detector clean, go vet clean",
+  "nodeTests": "passed \u2014 36/36 bridge + UI regression tests",
+  "nativeSelfTest": "PASSED 27/27 checks on this Mac (signed fixture apply/restore round-trips, pre-existing custom icon round-trip, signature valid after restore, profile export/import)",
+  "liveVerification": {
+    "appsScanned": 111,
+    "iconPNGsSampled": "30/30 valid 8-bit PNGs served (api/icon)",
+    "uiScreenshot": "running app shows real icons for every listed app + genuine Adobe/Figma originals; see session screenshots",
+    "paypal": "support endpoint allowlist-tested; link opens https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA"
+  },
+  "signing": "ad-hoc performed (per-slice sign + lipo + bundle verify --deep --strict OK); Developer ID + notarization NOT PERFORMED",
+  "install": "/Applications/IconCraft.app installed from this build and launched successfully",
+  "iconSearch": "0.5.1: layered resolver (publisher pages + embedded assets, publisher CDN, App Store by ID, verified App Store search, saved original, installed product). Live proof: CADCraft -> genuine AutoCAD icon from Autodesk's App Store listing (track 393149734) after autodesk.com HTTP 403; knockoff listings rejected by seller+name+bundle triple-check."
+}

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="IconCraft logo">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7C3AED"/><stop offset=".52" stop-color="#4F46E5"/><stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#67E8F9"/><stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="1008" height="1008" rx="225" fill="url(#bg)"/>
+  <ellipse cx="205" cy="-102" rx="512" ry="461" fill="#FFFFFF" opacity=".14"/>
+  <g fill="#FFFFFF" fill-opacity=".18" stroke="#FFFFFF" stroke-opacity=".35" stroke-width="3">
+    <rect x="272" y="290" width="218" height="218" rx="52"/>
+    <rect x="272" y="552" width="218" height="218" rx="52"/>
+    <rect x="534" y="552" width="218" height="218" rx="52"/>
+  </g>
+  <g transform="rotate(10 669 371)">
+    <rect x="560" y="260" width="218" height="218" rx="52" fill="url(#tile)"/>
+    <g fill="#FFFFFF"><circle cx="630" cy="330" r="26"/><circle cx="708" cy="330" r="26"/><circle cx="630" cy="408" r="26"/><circle cx="708" cy="408" r="26"/></g>
+  </g>
+  <path d="M865 93l14 48 48 14-48 14-14 48-14-48-48-14 48-14z" fill="#FFF"/>
+  <path d="M922 245l7 24 24 7-24 7-7 24-7-24-24-7 24-7z" fill="#A5F3FC"/>
+</svg>

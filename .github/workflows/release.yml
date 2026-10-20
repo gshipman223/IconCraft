@@ -1,0 +1,33 @@
+name: Release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build, test and package (ad-hoc signed; not notarised)
+        run: |
+          bash build-current.sh
+          ./build/IconCraft.app/Contents/MacOS/IconCraft --self-test
+          python3 scripts/package_v05.py
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/packages/IconCraft-Mac-*.zip
+            build/packages/IconCraft-Mac-*-Validation.json
+            build/packages/IconCraft-Mac-*-SHA256SUMS.txt
+          body: |
+            Universal (Apple Silicon + Intel), macOS 12.3+. Ad-hoc signed — not Developer-ID signed/notarised.
+            Extract the app ZIP and run "Install IconCraft.command". See CHANGELOG.md for what's new.
+            Free & open source — support development: https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA
