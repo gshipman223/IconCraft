@@ -48,6 +48,30 @@ func (s *Server) ticket(a core.App, c originals.Candidate) string {
 func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) bool {
 	ctx := r.Context()
 	switch p {
+	case "api/keepalive":
+		// Toggles the background keep-applied LaunchAgent, which repairs
+		// icons/names that apps or updaters revert while IconCraft is closed.
+		var b struct {
+			Enabled bool `json:"enabled"`
+		}
+		if err := readJSON(w, r, &b); err != nil {
+			fail(w, err)
+			return true
+		}
+		agent, ok := s.Engine.Native.(interface {
+			SetKeepAgent(bool) error
+			KeepAgentEnabled() bool
+		})
+		if !ok {
+			fail(w, errors.New("keep-applied agent is unavailable on this system"))
+			return true
+		}
+		if err := agent.SetKeepAgent(b.Enabled); err != nil {
+			fail(w, err)
+		} else {
+			respond(w, 200, map[string]bool{"enabled": agent.KeepAgentEnabled()})
+		}
+		return true
 	case "api/support":
 		// Opens a fixed external link (PayPal contributions or the GitHub
 		// repo) in the user's real browser via the native bridge. The page

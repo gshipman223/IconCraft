@@ -4,6 +4,20 @@ All notable changes to IconCraft. Versions are ad-hoc signed Universal
 (Apple Silicon + Intel) macOS builds; Developer ID signing/notarisation has
 not been performed.
 
+## [0.6.0] — 2026-10-21 · Skins that stick
+- **Keep skins applied**: third-party apps/updaters often revert their Finder
+  icon or folder name on launch/update. A tiny background LaunchAgent
+  (`IconCraft --reapply`, at login + every 3 min + on /Applications changes)
+  and IconCraft itself (while open, every 3 min) now quietly re-apply your
+  chosen icons/names from the safety journal. Toggle in the footer.
+  Proven live: simulated revert on a renamed+skinned app → repaired
+  automatically (`iconFixed: 1`).
+- Honest scope note, also in the UI tooltip: while an app is *running*,
+  macOS shows that app's own Dock/menu identity from inside its bundle.
+  IconCraft never edits inside apps (that would break signing, updates and
+  links), so that part belongs to the app — everything Finder/Applications/
+  Dock-presented is kept applied.
+
 ## [0.5.1] — 2026-10-21 · Exhaustive original-icon search
 - Six-layer resolver: publisher pages (+ embedded JSON assets), publisher CDN,
   App Store by ID, **verified App Store search** (seller + name + bundle ID

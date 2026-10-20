@@ -6,7 +6,7 @@ import hashlib, json, os, plistlib, re, shutil, struct, subprocess, zipfile
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / 'build'
 OUT = Path(os.environ.get('ICONCRAFT_OUTPUT_DIR', str(BUILD / 'packages')))
-VERSION = '0.5.1'
+VERSION = '0.6.0'
 OUT.mkdir(parents=True, exist_ok=True)
 assert (BUILD / 'BUILD-COMPLETE').read_text().strip() == 'OK'
 manifest = json.loads((BUILD / 'build-manifest.json').read_text())
@@ -92,7 +92,7 @@ with zipfile.ZipFile(sourcezip, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z
     for f in sorted(ROOT.rglob('*')):
         # docs/*.png + *.jsonl are bulky test evidence (and may be cloud-only
         # OneDrive placeholders that stall on read); source stays code + text.
-        if f.is_dir() or 'build' in f.relative_to(ROOT).parts or f.suffix in ('.zip', '.png', '.jsonl') or f.name == '.DS_Store':
+        if f.is_dir() or 'build' in f.relative_to(ROOT).parts or '.git' in f.relative_to(ROOT).parts or f.suffix in ('.zip', '.png', '.jsonl') or f.name == '.DS_Store':
             continue
         z.write(f, Path(ROOT.name) / f.relative_to(ROOT))
 summary = {

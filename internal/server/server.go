@@ -164,7 +164,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	switch p {
 	case "api/session":
-		respond(w, 200, s.Engine.Session())
+		sess := s.Engine.Session()
+		sess["keepAlive"] = false
+		if p, ok := s.Engine.Native.(interface{ KeepAgentEnabled() bool }); ok {
+			sess["keepAlive"] = p.KeepAgentEnabled()
+		}
+		respond(w, 200, sess)
 	case "api/status":
 		rep, pending := s.report()
 		state := s.Engine.SnapshotState()

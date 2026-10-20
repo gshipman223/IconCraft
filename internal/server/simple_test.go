@@ -179,3 +179,15 @@ func TestLogoIsServed(t *testing.T) {
 		t.Fatal(w.Code, w.Header().Get("Content-Type"))
 	}
 }
+
+func TestKeepAliveEndpointFailsGracefullyWithoutAgentSupport(t *testing.T) {
+	s := testServer(t)
+	w := request(s, "POST", "/"+s.Token+"/api/keepalive", "", `{"enabled":true}`)
+	if w.Code != 400 || !strings.Contains(w.Body.String(), "unavailable") {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	w = request(s, "GET", "/"+s.Token+"/api/session", "", "")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"keepAlive":false`) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+}

@@ -39,6 +39,7 @@ func run() (result error) {
 	self := flag.Bool("self-test", false, "Run macOS-native checks using disposable fixtures only")
 	report := flag.String("report", "", "Write native diagnostic report to this path")
 	headless := flag.Bool("headless", false, "Run the local backend without a native window (development)")
+	reapply := flag.Bool("reapply", false, "Repair reverted icons/names from the journal and exit (keep-applied agent)")
 	version := flag.Bool("version", false, "Print build version")
 	flag.Parse()
 	if *version {
@@ -79,6 +80,12 @@ func run() (result error) {
 	}
 	defer lock.Close()
 	if err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		if *reapply {
+			// The running instance does its own periodic repair; the agent
+			// pass simply defers to it. Not an error, never a dialog.
+			log.Printf("reapply deferred: another IconCraft instance is running")
+			return nil
+		}
 		return fmt.Errorf("another IconCraft instance is still running. Quit IconCraft (or end the IconCraft process in Activity Monitor if it has no window), then reopen it. Your icon backups have not been changed")
 	}
 	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
@@ -106,6 +113,23 @@ func run() (result error) {
 	if err != nil {
 		return err
 	}
+	if *reapply {
+		if _, _, err := e.Scan(ctx); err != nil {
+			return err
+		}
+		res, err := e.Reconcile(ctx)
+		if err != nil {
+			return err
+		}
+		b, _ := json.Marshal(res)
+		fmt.Println(string(b))
+		log.Printf("reapply: checked=%d iconsFixed=%d namesFixed=%d skipped=%v", res.Checked, res.IconFixed, res.NameFixed, res.Skipped)
+		return nil
+	}
+	// Keep skins applied even while the main app is open: apps/updaters that
+	// revert a Finder icon or folder name on launch get repaired in the
+	// background. When the app is closed, the LaunchAgent (--reapply) does it.
+	go keepAppliedLoop(ctx, e)
 	s := server.New(e)
 	listener, err := s.Start()
 	if err != nil {
@@ -132,4 +156,29 @@ func run() (result error) {
 		err = se
 	}
 	return err
+}
+
+// keepAppliedLoop periodically repairs skins reverted by app launches or
+// updaters while IconCraft itself is running. The first pass is delayed so
+// startup scanning settles; failures are logged, never surfaced as dialogs.
+func keepAppliedLoop(ctx context.Context, e *core.Engine) {
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(20 * time.Second):
+	}
+	for {
+		if _, _, err := e.Scan(ctx); err != nil {
+			log.Printf("keep-applied scan: %v", err)
+		} else if res, err := e.Reconcile(ctx); err != nil {
+			log.Printf("keep-applied reconcile: %v", err)
+		} else if res.IconFixed > 0 || res.NameFixed > 0 {
+			log.Printf("keep-applied repaired %d icon(s), %d name(s); skipped: %v", res.IconFixed, res.NameFixed, res.Skipped)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(3 * time.Minute):
+		}
+	}
 }

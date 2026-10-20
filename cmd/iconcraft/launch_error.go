@@ -36,7 +36,7 @@ func writeLaunchError(dir string, err error) (string, error) {
 
 func commandLineMode(args []string) bool {
 	for _, arg := range args {
-		for _, name := range []string{"self-test", "headless", "version", "help", "h"} {
+		for _, name := range []string{"self-test", "headless", "reapply", "version", "help", "h"} {
 			s := strings.TrimLeft(arg, "-")
 			if strings.HasPrefix(arg, "-") && (s == name || strings.HasPrefix(s, name+"=")) {
 				return true

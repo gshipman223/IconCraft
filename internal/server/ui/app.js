@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id);
-const model={apps:[],assets:{},originals:{},choices:{},records:[],renames:[]};
+const model={apps:[],assets:{},originals:{},choices:{},records:[],renames:[],keepAlive:false};
 const rows=new Map(), rowState=new Map(), selected=new Set();
 let scanning=false, busy=false, firstLoad=true, selectFuture=false, query='',theme='system',themeTouched=false;
 let generation=0,workerCount=0,queue=[],seen=new Set(),controllers=new Set(),pickerApp=null,renameApp=null;
@@ -26,7 +26,7 @@ function appIcon(a){return 'api/icon?app='+encodeURIComponent(a.id)+'&v='+encode
 function assetIcon(id){return id?'api/icon?asset='+encodeURIComponent(id):'';}
 function imageView(small=false){const wrap=node('span','icon-wrap'+(small?' small':''));const f=svg('grid');f.classList.add('fallback');const img=node('img','icon');img.alt='';/* NOT lazy: icons are display:none until load, and WebKit never fetches hidden lazy images — the load event that reveals them would never fire. Local thumbnails are cheap; load eagerly. */img.decoding='async';wrap.append(f,img);img.addEventListener('load',()=>wrap.classList.add('has-image'));img.addEventListener('error',()=>wrap.classList.remove('has-image'));return {wrap,img,src:''};}
 function setImage(view,src,alt){view.img.alt=alt;if(view.src===src)return;view.src=src;view.wrap.classList.remove('has-image');if(src)view.img.src=src;else view.img.removeAttribute('src');}
-function updateModel(data){model.apps=data.apps||model.apps;Object.assign(model.assets,data.assets||{});Object.assign(model.originals,data.originals||{});model.choices=data.choices||{};model.records=data.records||[];model.renames=data.renames||[];$('version').textContent=data.version||'0.5.1';const v2=$('version-2');if(v2)v2.textContent=data.version||'0.5.1';selected.forEach(id=>{if(!model.apps.some(a=>a.id===id))selected.delete(id);});}
+function updateModel(data){model.apps=data.apps||model.apps;Object.assign(model.assets,data.assets||{});Object.assign(model.originals,data.originals||{});model.choices=data.choices||{};model.records=data.records||[];model.renames=data.renames||[];if(typeof data.keepAlive==='boolean')model.keepAlive=data.keepAlive;$('version').textContent=data.version||'0.6.0';const v2=$('version-2');if(v2)v2.textContent=data.version||'0.6.0';selected.forEach(id=>{if(!model.apps.some(a=>a.id===id))selected.delete(id);});}
 async function session(){updateModel(await api('session'));render();}
 function makeRow(a){
  const currentApp=()=>model.apps.find(x=>x.id===a.id)||a;
@@ -65,6 +65,7 @@ function render(){
  $('select-all').disabled=busy||eligible.length===0;$('select-all').checked=eligible.length>0&&count===eligible.length;$('select-all').indeterminate=count>0&&count<eligible.length;
  $('replace').disabled=busy||count===0;$('selection-count').textContent=count+' selected';$('restore-all').disabled=busy||!model.records.some(live)&&!model.apps.some(a=>a.renamed);
  $('scan').disabled=scanning||busy;$('scan').classList.toggle('refreshing',scanning);$('folder').disabled=busy||scanning;
+ $('keepalive').textContent='Keep skins applied: '+(model.keepAlive?'On':'Off');$('keepalive').classList.toggle('on',model.keepAlive);
  const checks=all.filter(a=>rs(a).checking).length;$('activity').classList.toggle('updating',checks>0||scanning);
  $('status').textContent=scanning?(all.length?all.length+' apps · scanning':'Scanning this Mac…'):checks?all.length+' apps · '+checks+' refreshing':all.length+' apps · '+all.filter(ready).length+' ready';
  $('loading').hidden=!firstLoad||all.length>0;$('empty').hidden=firstLoad||filtered.length>0;
@@ -135,6 +136,7 @@ $('name-save').addEventListener('click',()=>saveName());$('name-restore').addEve
 $('rename-close').addEventListener('click',closeRename);$('rename-cancel').addEventListener('click',closeRename);$('picker-close').addEventListener('click',closePicker);$('picker-search').addEventListener('input',drawPicker);
 for(const id of ['picker','rename-dialog']){$(id).addEventListener('cancel',e=>{if(busy)e.preventDefault();});$(id).addEventListener('click',e=>{if(e.target===$(id)&&!busy){const r=$(id).getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$(id).close();}});}
 async function openSupport(target){try{const r=await api('support',{target});if(!r.opened&&r.url)window.open(r.url,'_blank');else if(r.opened)tell(target==='paypal'?'Opening PayPal in your browser — thank you for supporting IconCraft!':'Opening GitHub in your browser…');}catch(e){tell((target==='paypal'?'Support via PayPal: https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA':'GitHub: https://github.com/gshipman223/IconCraft'),true);}}
+$('keepalive').addEventListener('click',async()=>{if(busy)return;busy=true;render();try{const r=await api('keepalive',{enabled:!model.keepAlive});model.keepAlive=!!r.enabled;tell(model.keepAlive?'Keep-applied is on. If an app or updater reverts your icon or name, IconCraft will quietly re-apply it (checks at login, every few minutes, and when apps change). While an app is running, macOS shows its own Dock/menu identity — IconCraft never edits inside apps, so that part is the app’s, by design.':'Keep-applied is off. Icons and names stay as-is; nothing will re-apply them if an app reverts them.');}catch(e){tell(e.message,true);}finally{busy=false;render();}});
 $('support-paypal').addEventListener('click',()=>openSupport('paypal'));
 $('support-github').addEventListener('click',()=>openSupport('github'));
 $('dismiss').addEventListener('click',()=>tell(''));$('scan').addEventListener('click',refresh);$('search').addEventListener('input',()=>{query=$('search').value.trim().toLowerCase();selectFuture=false;render();});
