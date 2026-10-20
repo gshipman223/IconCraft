@@ -470,6 +470,13 @@ func (e *Engine) Apply(ctx context.Context, id, assetID string) (Record, error) 
 	if err != nil {
 		return Record{}, err
 	}
+	// Hand macOS the artwork on its own icon grid: a full-bleed publisher
+	// icon otherwise renders ~20% larger than every native neighbour.
+	p, cleanupFit, err := fittedIconTemp(e.Dir, p)
+	if err != nil {
+		return Record{}, err
+	}
+	defer cleanupFit()
 	e.captureOriginalLocked(ctx, a) // save the original to the vault before first change
 	fp, err := Fingerprint(a)
 	if err != nil {
@@ -488,7 +495,7 @@ func (e *Engine) Apply(ctx context.Context, id, assetID string) (Record, error) 
 	if err != nil {
 		return Record{}, fmt.Errorf("could not back up icon metadata for %s: %w", a.Name, err)
 	}
-	r := Record{ID: newID(), App: a, Fingerprint: fp, AssetID: assetID, Created: now(), Status: "prepared", Before: before}
+	r := Record{ID: newID(), App: a, Fingerprint: fp, AssetID: assetID, Created: now(), Status: "prepared", IconFit: IconFitVersion, Before: before}
 	e.State.Records = append(e.State.Records, r)
 	idx := len(e.State.Records) - 1
 	if err = e.save(); err != nil {

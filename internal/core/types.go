@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const Version = "0.10.0"
+const Version = "0.10.1"
 
 // SetupVersion is bumped when the first-run permissions review needs to be
 // shown again (for example, when a release needs a new macOS permission).
@@ -78,6 +78,7 @@ type Record struct {
 	Created     string    `json:"created"`
 	Status      string    `json:"status"`
 	Error       string    `json:"error,omitempty"`
+	IconFit     int       `json:"iconFit,omitempty"` // macOS icon-grid version the applied artwork was fitted to
 	Before      Snapshot  `json:"before"`
 	After       *Snapshot `json:"after,omitempty"`
 }
@@ -106,7 +107,8 @@ type RebrandRecord struct {
 	AfterPrint     string `json:"afterPrint"`
 	BeforeIconHash string `json:"beforeIconHash,omitempty"`
 	AfterIconHash  string `json:"afterIconHash,omitempty"`
-	Status         string `json:"status"` // prepared | applied | restored | failed | rollback-required
+	Status         string `json:"status"`            // prepared | applied | restored | failed | rollback-required
+	IconFit        int    `json:"iconFit,omitempty"` // macOS icon-grid version the written .icns was fitted to
 	Created        string `json:"created"`
 }
 

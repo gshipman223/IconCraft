@@ -77,12 +77,32 @@ func (e *Engine) Reconcile(ctx context.Context) (ReconcileResult, error) {
 			out.Skipped = append(out.Skipped, r.App.Name+": not in inventory; rescan needed")
 			continue
 		}
+		// One-time icon-scale migration: skins applied before the macOS
+		// icon-grid fitting existed may be full-bleed publisher artwork,
+		// which renders larger than native icons. Refit only when the
+		// current icon is still exactly the one this record applied.
+		needsFit := false
+		if r.IconFit < IconFitVersion {
+			if needs, err := e.assetNeedsFit(r.AssetID); err == nil {
+				needsFit = needs
+				if !needs {
+					_ = e.markIconFit(r.ID, false)
+				}
+			}
+		}
 		snap, err := e.Native.Snapshot(app.Path)
 		if err != nil {
 			out.Skipped = append(out.Skipped, app.Name+": "+err.Error())
 			continue
 		}
 		if snap.Custom() && snap.Exists {
+			if needsFit {
+				if err := e.refitFinderRecord(ctx, app, r.ID); err == nil {
+					out.IconFixed++
+				} else {
+					out.Skipped = append(out.Skipped, app.Name+": icon resize deferred: "+err.Error())
+				}
+			}
 			continue // skin still on (or user set another one — respect it)
 		}
 		// A custom-icon bit with no Icon file is stale residue of a
@@ -119,7 +139,20 @@ func (e *Engine) Reconcile(ctx context.Context) (ReconcileResult, error) {
 		}
 		switch fp {
 		case r.AfterPrint:
-			// Full skin intact.
+			// Full skin intact — except for the one-time icon-scale
+			// migration: pre-grid .icns artwork fills the whole canvas
+			// and dwarfs native Dock/Finder neighbours.
+			if r.IconFit < IconFitVersion {
+				if needs, err := e.assetNeedsFit(r.AssetID); err == nil {
+					if !needs {
+						_ = e.markIconFit(r.ID, true)
+					} else if err := e.refitRebrandRecord(ctx, app, r.ID); err == nil {
+						out.IconFixed++
+					} else {
+						out.Skipped = append(out.Skipped, app.Name+" (full skin): icon resize deferred: "+err.Error())
+					}
+				}
+			}
 		case r.BeforePrint:
 			if _, err := e.Rebrand(ctx, app.ID, r.AssetID, r.Name); err != nil {
 				out.Skipped = append(out.Skipped, app.Name+" (full skin): "+err.Error())

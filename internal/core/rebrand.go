@@ -128,7 +128,7 @@ func (e *Engine) Rebrand(ctx context.Context, appID, assetID, name string) (Rebr
 		v.InternalName = originalName
 		e.State.Vault[a.BundleID] = v
 	}
-	rec := RebrandRecord{ID: newID(), BundleID: a.BundleID, App: a, AssetID: assetID, Name: name, OriginalName: originalName, IconFile: iconRel, IconExisted: iconExisted, BeforePrint: before, Status: "prepared", Created: now()}
+	rec := RebrandRecord{ID: newID(), BundleID: a.BundleID, App: a, AssetID: assetID, Name: name, OriginalName: originalName, IconFile: iconRel, IconExisted: iconExisted, BeforePrint: before, Status: "prepared", IconFit: IconFitVersion, Created: now()}
 	if iconExisted {
 		rec.BeforeIconHash = hash(iconBytes)
 	}

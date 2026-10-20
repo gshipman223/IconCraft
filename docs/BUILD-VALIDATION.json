@@ -1,22 +1,27 @@
 {
-  "version": "0.10.0",
+  "version": "0.10.1",
   "date": "2026-10-21",
   "environment": "real Mac, darwin/arm64, macOS 26 (Tahoe)",
-  "goTests": "passed — 145 tests across 5 packages (go test ./...), race detector clean, go vet clean",
+  "goTests": "passed — 150 tests across 5 packages (go test ./...), race detector clean, go vet clean",
   "nodeTests": "passed — 38 bridge + window + UI regression tests",
   "nativeSelfTest": "PASSED 26/26 checks on this Mac in an isolated temporary HOME (signed fixture apply/restore round-trips, pre-existing custom icon round-trip, signature valid after restore, profile export/import)",
+  "iconScaleMeasurements": {
+    "before": "IconCraft logo and stored publisher/App Store replacement artwork filled 99–100% of the icon canvas; measured genuine macOS icons (e.g. Cursor) fill about 80%",
+    "target": "standard macOS icon grid: 824px visible body centred in a 1024px canvas",
+    "iconCraftInstalled": "installed icon.icns largest PNG rendition is 1024x1024 with alpha bbox (104,104)-(920,920)",
+    "migratedFullSkins": "PdfCraft.icns 512px rendition alpha bbox (50,54)-(462,458); FilmCraft.icns (50,50)-(462,462) — previously (0,6)-(512,506) and (0,0)-(512,512)",
+    "doubleShrinkGuard": "unit tests prove already-padded artwork passes through byte-identical / at its original scale; only near-full-bleed finished artwork is fitted"
+  },
   "liveVerification": {
     "appsScanned": 112,
-    "setupFirstLaunch": "installed 0.10.0 opened Finish setup automatically because the upgraded state had no setup version",
-    "appManagementBlocked": "first live probe was correctly shown as Blocked on Adobe Acrobat (/Applications/PdfCraft.app) after the locally re-signed update",
-    "appManagementGrant": "Setup button opened System Settings → Privacy & Security → App Management; IconCraft.app was switched on, IconCraft was quit/relaunched, and Check again changed the row to Granted — tested",
-    "backgroundKeeper": "setup row showed Granted — on (desired, installed and loaded); state remained keeperDesired=true after completion",
-    "setupCompletion": "Finish setup persisted setupVersion=1 with a completion timestamp; reopening from Setup & permissions showed the completed state and retained the tested grant",
-    "installerPackage": "productbuild package expanded successfully; Distribution references Welcome and Conclusion resources, both explain the first-launch Setup & Permissions step, and payload Info.plist reports 0.10.0 (build 16)",
-    "uiScreenshot": "live screenshots captured for initial setup, blocked result, lower keeper/not-requested rows, granted result, finish controls, completed reopen, and the main window at v0.10.0"
+    "migration": "after installing 0.10.1 the keep-applied pass refitted existing skins in place; every latest live Finder record and every applied full-skin record (10 clones) ended at iconFit=1",
+    "protectedApps": "Adobe Acrobat (/Applications/PdfCraft.app) and Adobe Premiere initially deferred because they carry com.apple.macl App Management protection and the locally re-signed 0.10.1 copy was not yet allowed; the setup probe honestly reported Blocked on Adobe Acrobat",
+    "appManagementRegrant": "IconCraft was switched on in System Settings → Privacy & Security → App Management and relaunched; Check again then reported Granted — tested, and the keeper repaired the final 2 icons with no skipped items",
+    "signatures": "codesign --verify --deep passed after refit/re-sign for the migrated clones checked (PdfCraft, Adobe Premiere, Figma, Adobe Photoshop, AutoCAD) and for IconCraft itself",
+    "dockProof": "a refitted clone (Figma) was launched once and captured in the Dock beside native apps at matching visual scale (build/dock-scale-0.10.1.png), then quit",
+    "backgroundKeeper": "keeper remained desired/on throughout; final reconcile log line: repaired 2 icon(s), 0 name(s), skipped: []"
   },
   "signing": "ad-hoc performed (per-slice sign + lipo + bundle verify --deep --strict OK); Developer ID + notarization NOT PERFORMED",
-  "install": "/Applications/IconCraft.app 0.10.0 installed from this build (previous 0.9.0 app preserved under Application Support/IconCraft/previous-installations) and launched successfully; App Management was re-granted to this exact copy and the keeper remained on",
-  "iconSearch": "layered resolver (publisher pages + embedded assets, publisher CDN, App Store by ID, verified App Store search, saved original, installed product); UI showed 112 apps and 10 ready at final screenshot",
-  "notes": "v0.10.0 adds installer Welcome/Conclusion guidance and a first-run Setup & Permissions screen. App Management is never called granted merely because Settings was opened: only the user-run harmless bundle-writability probe can produce Granted — tested. Background keeper status separates desired/installed/loaded/disabled states. Full test/build/package pipeline passed."
+  "install": "/Applications/IconCraft.app 0.10.1 (build 17) installed from this build, previous copies preserved under Application Support/IconCraft/previous-installations, launched successfully; because the copy is locally ad-hoc signed, App Management had to be re-allowed for this exact copy before protected bundles could be resized",
+  "notes": "v0.10.1 places IconCraft's own icon and full-bleed replacement artwork on the macOS icon grid at apply/full-skin time, migrates existing skins in place through the keeper (full skins only while the app is not running and unchanged), never double-shrinks already-padded icons, and reports deferred resizes in the reconcile result instead of skipping them silently. Full test/build/package pipeline passed."
 }

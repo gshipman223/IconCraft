@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Generate IconCraft's logo: assets/logo.svg (source) + assets/icon.icns.
 
-Design: a full-bleed macOS squircle with an indigo->violet->cyan gradient.
+Design: a macOS squircle on the standard icon grid — an 824px body centred
+in the 1024px canvas, matching the visual scale of native app icons.
 Inside, a 2x2 grid of app-icon tiles; the top-right tile is lifted, rotated
 and glowing cyan — an icon being crafted/swapped — with a spark.
 Run: python3 scripts/make_logo.py   (requires Pillow)
@@ -90,7 +91,14 @@ def draw_master():
     rrect(md, [inset, inset, S - inset, S - inset], 225 * u, fill=255)
     out = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     out.paste(img, (0, 0), mask)
-    return out.resize((1024, 1024), Image.LANCZOS)
+    # Native macOS app icons do not bleed edge-to-edge: the visible body is
+    # 824px centred in a 1024px canvas (the rest is breathing room/shadow).
+    # Scale the finished artwork onto that grid so IconCraft sits at the
+    # same visual size as Finder/Dock neighbours.
+    framed = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    body = round(S * 824 / 1024)
+    framed.alpha_composite(out.resize((body, body), Image.LANCZOS), ((S - body) // 2, (S - body) // 2))
+    return framed.resize((1024, 1024), Image.LANCZOS)
 
 def main():
     master = draw_master()

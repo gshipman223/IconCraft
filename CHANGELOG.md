@@ -4,6 +4,27 @@ All notable changes to IconCraft. Versions are ad-hoc signed Universal
 (Apple Silicon + Intel) macOS builds; Developer ID signing/notarisation has
 not been performed.
 
+## [0.10.1] — 2026-10-21 · Icons at native macOS scale
+
+- **Fixed oversized icons**: IconCraft's own app icon and the replacement
+  icons it applies were using nearly the whole 1024px icon canvas, so they
+  rendered about 20% larger than native macOS app icons in the Dock,
+  Finder and Launchpad (measured: 99–100% canvas occupancy vs ~80% for
+  genuine icons such as Cursor).
+- IconCraft's logo is regenerated on the standard macOS icon grid — an
+  824px body centred in the 1024px canvas.
+- Finder skins and full (internal) skins now fit *full-bleed* artwork
+  (publisher/App Store icons that run edge-to-edge) onto that same grid
+  when applied. Artwork that already carries proper macOS padding — a
+  genuine app icon or a glyph on transparency — is passed through
+  untouched, never shrunk twice.
+- Existing skins are migrated in place by the keep-applied pass: the
+  journal record is updated, not stacked, and only when the current icon
+  is still exactly the one IconCraft applied. Full skins are re-fitted
+  and re-signed only while the app is not running.
+- Icon renditions are now resampled with bilinear interpolation instead
+  of nearest-neighbour.
+
 ## [0.10.0] — 2026-10-21 · Setup & Permissions
 
 - **Installer finish step**: the one-click `.pkg` now opens with a Welcome

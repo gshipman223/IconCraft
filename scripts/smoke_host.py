@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 binary = ROOT/'build/iconcraft-host'
 subprocess.run(['go','build','-o',str(binary),'./cmd/iconcraft'],cwd=ROOT,check=True)
-assert subprocess.check_output([str(binary),'--version'],text=True).strip()=='0.10.0'
+assert subprocess.check_output([str(binary),'--version'],text=True).strip()=='0.10.1'
 with tempfile.TemporaryDirectory(prefix='iconcraft-smoke-') as home:
     env=dict(os.environ,HOME=home)
     proc=subprocess.Popen([str(binary),'--headless'],env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
@@ -17,7 +17,7 @@ with tempfile.TemporaryDirectory(prefix='iconcraft-smoke-') as home:
         assert url.startswith('http://127.0.0.1:')
         with urllib.request.urlopen(url+'api/session',timeout=5) as response:
             session=json.load(response)
-            assert session['version']=='0.10.0'
+            assert session['version']=='0.10.1'
             assert session['setupRequired'] is True
         with urllib.request.urlopen(url,timeout=5) as response:
             assert b'IconCraft' in response.read()
