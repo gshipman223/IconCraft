@@ -4,6 +4,25 @@ All notable changes to IconCraft. Versions are ad-hoc signed Universal
 (Apple Silicon + Intel) macOS builds; Developer ID signing/notarisation has
 not been performed.
 
+## [0.8.0] — 2026-10-21 · Originals Vault
+- **Originals Vault**: before IconCraft changes an app for the first time it
+  now saves the original identity — folder/display name, internal
+  CFBundleName, and the original icon as a checksummed asset — keyed by the
+  app's stable bundle ID (never by path, which changes on rename/move).
+- **Restore rebuilds from the vault**: if an app updated, was replaced, or
+  moved since skinning (a new identifier), the strict journalled restore
+  still refuses to force old files onto a new version — but a confirmed
+  user Restore now falls back to the vault and applies the saved original
+  name + icon onto the app as it exists today. The old Info.plist is never
+  forced onto a changed app; only the version-independent name and icon.
+- Vault shown per-app ("Original saved" in the list; details in the rename
+  dialog). Safety fix: restores operate on the exact app selected, never
+  on another app that merely shares the bundle ID (clones do); the keeper's
+  bundle lookup now prefers the journalled path too. Proven live: skinned
+  clone → simulated update + folder move → vault restore rebuilt the
+  original name/icon/folder, signature valid, duplicate-bundle real app
+  verified untouched.
+
 ## [0.7.0] — 2026-10-21 · Full skin (identity while running)
 - **Full skin** (pencil dialog): also writes the chosen name + icon *inside*
   a third-party/clone app and ad-hoc re-signs it, so the identity shows in

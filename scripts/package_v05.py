@@ -6,7 +6,7 @@ import hashlib, json, os, plistlib, re, shutil, struct, subprocess, zipfile
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / 'build'
 OUT = Path(os.environ.get('ICONCRAFT_OUTPUT_DIR', str(BUILD / 'packages')))
-VERSION = '0.7.0'
+VERSION = '0.8.0'
 OUT.mkdir(parents=True, exist_ok=True)
 assert (BUILD / 'BUILD-COMPLETE').read_text().strip() == 'OK'
 manifest = json.loads((BUILD / 'build-manifest.json').read_text())

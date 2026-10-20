@@ -72,14 +72,20 @@ func (e *Engine) InstalledApps() []App {
 
 // RestoreOriginal unwinds ALL IconCraft changes for this app, not just one layer.
 // Each layer retains the original fingerprint/conflict and exact-metadata checks.
+// Records are matched by stable bundle ID as well as current app ID, so an app
+// that moved or was renamed since skinning still finds its layers.
 func (e *Engine) RestoreOriginal(ctx context.Context, appID string) (int, error) {
+	app, err := e.GetApp(appID)
+	if err != nil {
+		return 0, err
+	}
 	count := 0
 	for {
 		state := e.SnapshotState()
 		latest := ""
 		for i := len(state.Records) - 1; i >= 0; i-- {
 			r := state.Records[i]
-			if r.App.ID == appID && isLive(r.Status) {
+			if (r.App.ID == appID || (app.BundleID != "" && r.App.BundleID == app.BundleID)) && isLive(r.Status) {
 				latest = r.ID
 				break
 			}

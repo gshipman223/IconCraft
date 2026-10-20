@@ -72,7 +72,7 @@ func (e *Engine) Reconcile(ctx context.Context) (ReconcileResult, error) {
 	}
 	for _, r := range latest {
 		out.Checked++
-		app, ok := e.appByBundle(r.App.BundleID)
+		app, ok := e.appByBundle(r.App.BundleID, r.App.Path)
 		if !ok {
 			out.Skipped = append(out.Skipped, r.App.Name+": not in inventory; rescan needed")
 			continue
@@ -105,7 +105,7 @@ func (e *Engine) Reconcile(ctx context.Context) (ReconcileResult, error) {
 	}
 	for _, r := range latestRebrand {
 		out.Checked++
-		app, ok := e.appByBundle(r.BundleID)
+		app, ok := e.appByBundle(r.BundleID, r.App.Path)
 		if !ok {
 			continue
 		}
@@ -141,13 +141,27 @@ func (e *Engine) appByPath(path string) (App, bool) {
 	return App{}, false
 }
 
-func (e *Engine) appByBundle(bundleID string) (App, bool) {
+// appByBundle finds an app by bundle ID, preferring the journalled path:
+// cloned apps can share a bundle ID, and picking an arbitrary duplicate
+// could repair (or rename) the wrong app.
+func (e *Engine) appByBundle(bundleID string, preferPath ...string) (App, bool) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	var fallback *App
 	for _, a := range e.Apps {
-		if a.BundleID == bundleID {
+		if a.BundleID != bundleID {
+			continue
+		}
+		if len(preferPath) > 0 && preferPath[0] != "" && a.Path == preferPath[0] {
 			return a, true
 		}
+		if fallback == nil || a.Path < fallback.Path {
+			v := a
+			fallback = &v
+		}
+	}
+	if fallback != nil {
+		return *fallback, true
 	}
 	return App{}, false
 }

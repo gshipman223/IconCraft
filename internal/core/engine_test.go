@@ -37,6 +37,12 @@ func (n *fakeNative) SetBundleName(_ context.Context, p, name string) error {
 	return nil
 }
 func (n *fakeNative) Resign(_ context.Context, _ string) error { n.resigns++; return nil }
+func (n *fakeNative) BundleName(_ context.Context, p string) (string, error) {
+	if name, ok := n.bundleNames[p]; ok {
+		return name, nil
+	}
+	return n.app.Name, nil
+}
 
 func cloneSnapshot(s Snapshot) Snapshot {
 	b, _ := json.Marshal(s)

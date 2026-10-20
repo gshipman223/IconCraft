@@ -62,6 +62,9 @@ func Open(dir, home string, n Native) (*Engine, error) {
 	if e.State.Preferences == nil {
 		e.State.Preferences = map[string]Preference{}
 	}
+	if e.State.Vault == nil {
+		e.State.Vault = map[string]SavedOriginal{}
+	}
 	if b, err = ReadLimited(filepath.Join(dir, "catalogue.json"), 3<<20); err == nil {
 		var c Catalog
 		if json.Unmarshal(b, &c) == nil && len(c.Apps) > 0 {
@@ -252,6 +255,17 @@ func (e *Engine) Scan(ctx context.Context) ([]App, []string, error) {
 				break
 			}
 		}
+		if a.ActiveRecord == "" {
+			// The app moved or was replaced since the skin was applied, so its
+			// path-based ID changed. The bundle ID is stable: re-link by it.
+			for i := len(e.State.Records) - 1; i >= 0; i-- {
+				r := e.State.Records[i]
+				if r.App.BundleID == a.BundleID && a.BundleID != "" && isLive(r.Status) {
+					a.ActiveRecord = r.ID
+					break
+				}
+			}
+		}
 		e.Apps[a.ID] = a
 		result = append(result, a)
 	}
@@ -326,6 +340,11 @@ func (e *Engine) ImportPNG(name, source string, b []byte) (Asset, error) {
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	return e.importPNGBytesLocked(name, source, b)
+}
+
+// importPNGBytesLocked stores b as a checksummed asset; caller holds e.mu.
+func (e *Engine) importPNGBytesLocked(name, source string, b []byte) (Asset, error) {
 	id := hash(b)
 	a := Asset{ID: id, Name: name, Source: source, Created: now()}
 	if existing, ok := e.State.Assets[id]; ok {
@@ -383,6 +402,7 @@ func (e *Engine) Apply(ctx context.Context, id, assetID string) (Record, error) 
 	if err != nil {
 		return Record{}, err
 	}
+	e.captureOriginalLocked(ctx, a) // save the original to the vault before first change
 	fp, err := Fingerprint(a)
 	if err != nil {
 		return Record{}, err

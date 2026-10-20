@@ -179,6 +179,27 @@ func (m *Mac) BundleIconFile(ctx context.Context, path string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// BundleName returns the app's current internal display name
+// (CFBundleDisplayName, falling back to CFBundleName), "" when unset.
+// Used to save the original internal name in the vault before a full skin.
+func (m *Mac) BundleName(ctx context.Context, path string) (string, error) {
+	if runtime.GOOS != "darwin" {
+		return "", errors.New("bundle tools require macOS")
+	}
+	plist := filepath.Join(path, "Contents/Info.plist")
+	for _, key := range []string{"CFBundleDisplayName", "CFBundleName"} {
+		cctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+		out, err := exec.CommandContext(cctx, "/usr/bin/plutil", "-extract", key, "raw", "-o", "-", "--", plist).Output()
+		cancel()
+		if err == nil {
+			if s := strings.TrimSpace(string(out)); s != "" {
+				return s, nil
+			}
+		}
+	}
+	return "", nil
+}
+
 // SetBundleName sets CFBundleName/CFBundleDisplayName inside the bundle.
 // Only used by the opt-in internal rebrand, with a journalled backup.
 func (m *Mac) SetBundleName(ctx context.Context, path, name string) error {

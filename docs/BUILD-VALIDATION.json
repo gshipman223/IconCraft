@@ -1,5 +1,5 @@
 {
-  "version": "0.7.0",
+  "version": "0.8.0",
   "date": "2026-10-21",
   "environment": "real Mac, darwin/arm64, macOS 26 (Tahoe)",
   "goTests": "passed \u2014 119 tests across 5 packages (go test ./...), race detector clean, go vet clean",
@@ -14,5 +14,5 @@
   "signing": "ad-hoc performed (per-slice sign + lipo + bundle verify --deep --strict OK); Developer ID + notarization NOT PERFORMED",
   "install": "/Applications/IconCraft.app installed from this build and launched successfully",
   "iconSearch": "0.5.1: layered resolver (publisher pages + embedded assets, publisher CDN, App Store by ID, verified App Store search, saved original, installed product). Live proof: CADCraft -> genuine AutoCAD icon from Autodesk's App Store listing (track 393149734) after autodesk.com HTTP 403; knockoff listings rejected by seller+name+bundle triple-check.",
-  "notes": "macOS native window path verified (launch, window, full render); native self-test 27/27; full suite (unit concurrency, vet, race, smoke, JS) green. v0.7.0 adds opt-in Full skin (internal rebrand + ad-hoc resigner) so chosen name/icon also show while an app runs, with byte-exact backup/restore; proven live on a disposable app copy (rebrand -> launch -> restore, codesign verified). Keeper re-applies Finder skins, renames and full skins after external reverts; internal identity changing under the running app itself remains out of scope."
+  "notes": "macOS native window path verified; native self-test 27/27; full suite (unit, race, vet, smoke, JS) green. v0.8.0 adds the Originals Vault: original folder/internal names + checksummed original icon saved under the stable bundle ID before first change; confirmed Restore rebuilds from the vault onto updated/moved/replaced apps (new identifiers) without forcing old plists. Restores target the exact selected app (duplicate-bundle safe; regression-tested). Proven live on a disposable clone: full skin -> simulated update + folder move -> vault restore rebuilt original name/icon/folder with valid signature, and the same-bundle real app was verified untouched."
 }

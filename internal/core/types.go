@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const Version = "0.7.0"
+const Version = "0.8.0"
 
 // SupportURL is Gavin Shipman's verified PayPal business contribution link.
 const SupportURL = "https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA"
@@ -91,6 +91,7 @@ type RebrandRecord struct {
 	App            App    `json:"app"`
 	AssetID        string `json:"assetId"`
 	Name           string `json:"name"`
+	OriginalName   string `json:"originalName,omitempty"` // internal name before the skin (for restore onto updated apps)
 	IconFile       string `json:"iconFile"`
 	IconExisted    bool   `json:"iconExisted"`
 	BeforePrint    string `json:"beforePrint"`
@@ -101,6 +102,22 @@ type RebrandRecord struct {
 	Created        string `json:"created"`
 }
 
+// SavedOriginal is the Originals Vault entry for one app, keyed by its
+// stable bundle ID — never by path or app ID, both of which change when the
+// folder is renamed or the app is replaced. Before IconCraft first changes
+// an app it saves: the original folder/display name, the original internal
+// (CFBundleName) name, and the original icon as a checksummed asset. Restore
+// pulls from the vault, so the original can be rebuilt even onto an app
+// that has since moved, been renamed, or updated (a new identifier).
+type SavedOriginal struct {
+	BundleID     string `json:"bundleId"`
+	AppName      string `json:"appName"`                // original display name
+	FolderName   string `json:"folderName"`             // original .app folder name, without ".app"
+	InternalName string `json:"internalName,omitempty"` // original CFBundleName, when known
+	IconAssetID  string `json:"iconAssetId,omitempty"`  // checksummed PNG of the original icon
+	Captured     string `json:"captured"`
+}
+
 type Original struct {
 	AssetID string `json:"assetId"`
 	Product string `json:"product"`
@@ -108,16 +125,17 @@ type Original struct {
 	Checked string `json:"checked"`
 }
 type State struct {
-	Theme       string                `json:"theme,omitempty"`
-	Renames     []RenameRecord        `json:"renames,omitempty"`
-	Schema      int                   `json:"schema"`
-	Originals   map[string]Original   `json:"originals,omitempty"`
-	Choices     map[string]string     `json:"choices,omitempty"`
-	Assets      map[string]Asset      `json:"assets"`
-	Records     []Record              `json:"records"`
-	Rebrands    []RebrandRecord       `json:"rebrands,omitempty"`
-	Preferences map[string]Preference `json:"preferences"`
-	ExtraRoots  []string              `json:"extraRoots"`
+	Theme       string                   `json:"theme,omitempty"`
+	Renames     []RenameRecord           `json:"renames,omitempty"`
+	Schema      int                      `json:"schema"`
+	Originals   map[string]Original      `json:"originals,omitempty"`
+	Choices     map[string]string        `json:"choices,omitempty"`
+	Assets      map[string]Asset         `json:"assets"`
+	Records     []Record                 `json:"records"`
+	Rebrands    []RebrandRecord          `json:"rebrands,omitempty"`
+	Vault       map[string]SavedOriginal `json:"vault,omitempty"`
+	Preferences map[string]Preference    `json:"preferences"`
+	ExtraRoots  []string                 `json:"extraRoots"`
 }
 type Native interface {
 	Inspect(context.Context, []string) ([]App, error)

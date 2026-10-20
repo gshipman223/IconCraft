@@ -111,7 +111,21 @@ func (e *Engine) Rebrand(ctx context.Context, appID, assetID, name string) (Rebr
 	if err != nil {
 		return RebrandRecord{}, err
 	}
-	rec := RebrandRecord{ID: newID(), BundleID: a.BundleID, App: a, AssetID: assetID, Name: name, IconFile: iconRel, IconExisted: iconExisted, BeforePrint: before, Status: "prepared", Created: now()}
+	e.captureOriginalLocked(ctx, a) // save the original to the vault before first change
+	originalName := ""
+	if namer, ok := e.Native.(bundleNamer); ok {
+		if n, er := namer.BundleName(ctx, a.Path); er == nil {
+			originalName = n
+		}
+	}
+	if originalName == "" {
+		originalName = plistNameFromBytes(plistBytes)
+	}
+	if v, ok := e.State.Vault[a.BundleID]; ok && v.InternalName == "" && originalName != "" {
+		v.InternalName = originalName
+		e.State.Vault[a.BundleID] = v
+	}
+	rec := RebrandRecord{ID: newID(), BundleID: a.BundleID, App: a, AssetID: assetID, Name: name, OriginalName: originalName, IconFile: iconRel, IconExisted: iconExisted, BeforePrint: before, Status: "prepared", Created: now()}
 	if iconExisted {
 		rec.BeforeIconHash = hash(iconBytes)
 	}

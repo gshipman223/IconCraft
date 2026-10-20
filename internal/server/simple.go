@@ -399,21 +399,19 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 			fail(w, errors.New("explicit restore confirmation required"))
 			return true
 		}
-		// Undo a full (internal) skin first, if one is applied.
-		if _, err := s.Engine.RestoreRebrand(ctx, b.AppID); err != nil && !strings.Contains(err.Error(), "no full skin") {
+		// Vault restore: strict journalled undo first; if the app changed
+		// since skinning (update/move = new identifier), the saved original
+		// name and icon are rebuilt onto the current app by bundle ID.
+		rep, err := s.Engine.RestoreFromVault(ctx, b.AppID)
+		if err != nil && rep.Restored == 0 {
 			fail(w, err)
 			return true
 		}
-		n, err := s.Engine.RestoreOriginal(ctx, b.AppID)
+		out := map[string]any{"restored": rep.Restored, "steps": rep.Steps}
 		if err != nil {
-			fail(w, err)
-			return true
+			out["error"] = err.Error() // partial restore: report what did get rebuilt
 		}
-		if _, err = s.Engine.RestoreName(ctx, b.AppID); err != nil {
-			fail(w, err)
-			return true
-		}
-		respond(w, 200, map[string]any{"restored": n})
+		respond(w, 200, out)
 		return true
 	case "api/restore-all":
 		s.operationMu.Lock()
@@ -429,36 +427,15 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 			fail(w, errors.New("explicit restore confirmation required"))
 			return true
 		}
-		records := s.Engine.SnapshotState().Records
-		seen := map[string]bool{}
 		restored := 0
 		failures := []string{}
-		for i := len(records) - 1; i >= 0; i-- {
-			rec := records[i]
-			if seen[rec.App.ID] || (rec.Status != "applied" && rec.Status != "prepared" && rec.Status != "rollback-required") {
+		for _, a := range s.Engine.InstalledApps() {
+			rep, err := s.Engine.RestoreFromVault(ctx, a.ID)
+			if err != nil {
+				failures = append(failures, fmt.Sprintf("%s: %v", a.Name, err))
 				continue
 			}
-			seen[rec.App.ID] = true
-			if _, err := s.Engine.RestoreOriginal(ctx, rec.App.ID); err != nil {
-				failures = append(failures, fmt.Sprintf("%s: %v", rec.App.Name, err))
-			} else {
-				restored++
-			}
-		}
-		for _, a := range s.Engine.InstalledApps() {
-			if _, err := s.Engine.RestoreRebrand(ctx, a.ID); err != nil && !strings.Contains(err.Error(), "no full skin") {
-				failures = append(failures, fmt.Sprintf("%s (full skin): %v", a.Name, err))
-			}
-		}
-		for _, a := range s.Engine.InstalledApps() {
-			if !a.Renamed {
-				continue
-			}
-			if _, err := s.Engine.RestoreName(ctx, a.ID); err != nil {
-				failures = append(failures, a.Name+": "+err.Error())
-			} else if !seen[a.ID] {
-				restored++
-			}
+			restored += rep.Restored
 		}
 		respond(w, 200, map[string]any{"restored": restored, "errors": failures})
 		return true

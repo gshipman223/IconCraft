@@ -59,6 +59,7 @@ func (e *Engine) Rename(ctx context.Context, id, name string) (App, error) {
 	if err = SafeApp(a.Path); err != nil {
 		return a, err
 	}
+	e.captureOriginalLocked(ctx, a) // save the original to the vault before first change
 	dest := filepath.Join(filepath.Dir(a.Path), name+".app")
 	if dest == a.Path {
 		return a, nil
@@ -132,6 +133,12 @@ func (e *Engine) moveReferencesLocked(old, new App) {
 	for i := range e.State.Records {
 		r := &e.State.Records[i]
 		if r.App.ID == old.ID && r.App.BundleID == old.BundleID {
+			r.App = new
+		}
+	}
+	for i := range e.State.Rebrands {
+		r := &e.State.Rebrands[i]
+		if r.App.ID == old.ID && r.BundleID == old.BundleID {
 			r.App = new
 		}
 	}

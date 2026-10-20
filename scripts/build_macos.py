@@ -4,7 +4,7 @@ from pathlib import Path
 import hashlib, json, os, plistlib, shutil, struct, subprocess, zipfile
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'build'
-VERSION='0.7.0'
+VERSION='0.8.0'
 
 def run(args,**kw):subprocess.run(args,cwd=ROOT,check=True,**kw)
 def build():
@@ -45,7 +45,7 @@ def build():
         exe.write_bytes(fat);exe.chmod(0o755)
         for entry,piece in zip(entries,pieces):assert bytes(fat[entry[2]:entry[2]+entry[3]])==piece[2]
         fat=bytes(fat)
-    metadata={'CFBundleName':'IconCraft','CFBundleDisplayName':'IconCraft','CFBundleIdentifier':'io.iconcraft.mac','CFBundleExecutable':'IconCraft','CFBundleIconFile':'icon.icns','CFBundlePackageType':'APPL','CFBundleShortVersionString':'0.7.0','CFBundleVersion':'11','LSMinimumSystemVersion':'12.3','CFBundleSupportedPlatforms':['MacOSX'],'NSHighResolutionCapable':True,'LSUIElement':True,'NSAppTransportSecurity':{'NSAllowsLocalNetworking':True},'NSHumanReadableCopyright':'Copyright © 2026 Gavin Shipman and IconCraft contributors. MIT license.'}
+    metadata={'CFBundleName':'IconCraft','CFBundleDisplayName':'IconCraft','CFBundleIdentifier':'io.iconcraft.mac','CFBundleExecutable':'IconCraft','CFBundleIconFile':'icon.icns','CFBundlePackageType':'APPL','CFBundleShortVersionString':'0.8.0','CFBundleVersion':'12','LSMinimumSystemVersion':'12.3','CFBundleSupportedPlatforms':['MacOSX'],'NSHighResolutionCapable':True,'LSUIElement':True,'NSAppTransportSecurity':{'NSAllowsLocalNetworking':True},'NSHumanReadableCopyright':'Copyright © 2026 Gavin Shipman and IconCraft contributors. MIT license.'}
     (contents/'Info.plist').write_bytes(plistlib.dumps(metadata));(contents/'PkgInfo').write_bytes(b'APPL????')
     shutil.copy2(ROOT/'assets/icon.icns',contents/'Resources/icon.icns')
     shutil.copy2(ROOT/'assets/logo.svg',contents/'Resources/logo.svg')

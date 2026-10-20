@@ -112,11 +112,15 @@ func (e *Engine) Session() map[string]any {
 			rebrands[r.BundleID] = r.Name
 		}
 	}
+	vault := map[string]SavedOriginal{}
+	for k, v := range e.State.Vault {
+		vault[k] = v
+	}
 	theme := e.State.Theme
 	if theme == "" {
 		theme = "system"
 	}
-	return map[string]any{"version": Version, "supportUrl": SupportURL, "repositoryUrl": RepositoryURL, "apps": apps, "assets": assets, "originals": originals, "choices": choices, "records": records, "renames": renames, "rebrands": rebrands, "theme": theme}
+	return map[string]any{"version": Version, "supportUrl": SupportURL, "repositoryUrl": RepositoryURL, "apps": apps, "assets": assets, "originals": originals, "choices": choices, "records": records, "renames": renames, "rebrands": rebrands, "vault": vault, "theme": theme}
 }
 
 // Extended-attribute writes may change ctime without changing mtime on macOS.
