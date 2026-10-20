@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id);
-const model={apps:[],assets:{},originals:{},choices:{},records:[],renames:[],rebrands:{},vault:{},keepAlive:false,setupRequired:false};
+const model={apps:[],assets:{},originals:{},choices:{},records:[],renames:[],rebrands:{},rebrandRuntime:{},vault:{},keepAlive:false,setupRequired:false};
 const rows=new Map(), rowState=new Map(), selected=new Set();
 let scanning=false, busy=false, firstLoad=true, selectFuture=false, query='',theme='system',themeTouched=false;
 let generation=0,workerCount=0,queue=[],seen=new Set(),controllers=new Set(),pickerApp=null,renameApp=null;
@@ -27,7 +27,7 @@ function appIcon(a){return 'api/icon?app='+encodeURIComponent(a.id)+'&v='+encode
 function assetIcon(id){return id?'api/icon?asset='+encodeURIComponent(id):'';}
 function imageView(small=false){const wrap=node('span','icon-wrap'+(small?' small':''));const f=svg('grid');f.classList.add('fallback');const img=node('img','icon');img.alt='';/* NOT lazy: icons are display:none until load, and WebKit never fetches hidden lazy images — the load event that reveals them would never fire. Local thumbnails are cheap; load eagerly. */img.decoding='async';wrap.append(f,img);img.addEventListener('load',()=>wrap.classList.add('has-image'));img.addEventListener('error',()=>wrap.classList.remove('has-image'));return {wrap,img,src:''};}
 function setImage(view,src,alt){view.img.alt=alt;if(view.src===src)return;view.src=src;view.wrap.classList.remove('has-image');if(src)view.img.src=src;else view.img.removeAttribute('src');}
-function updateModel(data){model.apps=data.apps||model.apps;Object.assign(model.assets,data.assets||{});Object.assign(model.originals,data.originals||{});model.choices=data.choices||{};model.records=data.records||[];model.renames=data.renames||[];if(typeof data.keepAlive==='boolean')model.keepAlive=data.keepAlive;if(typeof data.setupRequired==='boolean')model.setupRequired=data.setupRequired;model.rebrands=data.rebrands||{};model.vault=data.vault||{};$('version').textContent=data.version||'0.10.1';const v2=$('version-2');if(v2)v2.textContent=data.version||'0.10.1';selected.forEach(id=>{if(!model.apps.some(a=>a.id===id))selected.delete(id);});}
+function updateModel(data){model.apps=data.apps||model.apps;Object.assign(model.assets,data.assets||{});Object.assign(model.originals,data.originals||{});model.choices=data.choices||{};model.records=data.records||[];model.renames=data.renames||[];if(typeof data.keepAlive==='boolean')model.keepAlive=data.keepAlive;if(typeof data.setupRequired==='boolean')model.setupRequired=data.setupRequired;model.rebrands=data.rebrands||{};model.rebrandRuntime=data.rebrandRuntime||{};model.vault=data.vault||{};$('version').textContent=data.version||'0.11.0';const v2=$('version-2');if(v2)v2.textContent=data.version||'0.11.0';selected.forEach(id=>{if(!model.apps.some(a=>a.id===id))selected.delete(id);});}
 async function session(){updateModel(await api('session'));render();}
 function makeRow(a){
  const currentApp=()=>model.apps.find(x=>x.id===a.id)||a;
@@ -45,7 +45,7 @@ function makeRow(a){
 function updateRow(a,v){
  const st=rs(a),id=chosen(a),custom=!!model.choices[a.bundleId],orig=model.originals[a.craftId];
  v.root.classList.toggle('selected',selected.has(a.id));v.check.checked=selected.has(a.id);v.check.disabled=busy||!ready(a);v.check.setAttribute('aria-label','Select '+a.name);
- v.name.textContent=a.name;v.name.title=a.path;v.sub.textContent=(active(a)?(a.renamed?'Renamed'+(model.records.some(r=>r.appId===a.id&&live(r))?' · Icon changed':''):'Icon changed'):(a.version?'v'+a.version:'Installed'))+(model.rebrands[a.bundleId]?' · Full skin':'')+(model.vault[a.bundleId]?' · Original saved':'');v.sub.classList.toggle('changed',active(a));
+ v.name.textContent=a.name;v.name.title=a.path;v.sub.textContent=(active(a)?(a.renamed?'Renamed'+(model.records.some(r=>r.appId===a.id&&live(r))?' · Icon changed':''):'Icon changed'):(a.version?'v'+a.version:'Installed'))+(model.rebrands[a.bundleId]?' · Full skin'+(model.rebrandRuntime[a.bundleId]==='own'?' (app controls its running icon)':''):'')+(model.vault[a.bundleId]?' · Original saved':'');v.sub.classList.toggle('changed',active(a));
  setImage(v.current,appIcon(a),a.name+' current icon');
  /* With no mapped/custom target yet, preview the app's own icon dimmed so
     every row shows real artwork instead of an empty placeholder. */
@@ -187,7 +187,7 @@ async function pickChoice(action,update){if(busy)return;busy=true;$('picker').qu
 $('browse').addEventListener('click',()=>{if(!pickerApp)return;const a=pickerApp;pickChoice(()=>api('custom',{appId:a.id}),r=>{model.assets[r.asset.id]=r.asset;model.choices[a.bundleId]=r.asset.id;});});
 function openRename(a){if(busy)return;renameApp=a;$('rename-for').textContent=a.name;$('name-input').value=a.name;$('name-original').disabled=!(model.originals[a.craftId]?.product||a.equivalent);$('name-restore').hidden=!a.renamed;dialogError('rename-error','');
  const sv=model.vault[a.bundleId];$('vault-state').textContent=sv?('Original saved in the vault: “'+sv.appName+'” (folder “'+sv.folderName+'.app”'+(sv.internalName?', internal name “'+sv.internalName+'”':'')+(sv.iconAssetId?', original icon backed up':'')+'). Restore rebuilds from this — even if the app updates, moves, or is renamed again.'):'No saved original yet — IconCraft saves the original name and icon to its vault before it changes anything.';
- const skinned=!!model.rebrands[a.bundleId];$('name-unskin').hidden=!skinned;$('fullskin-state').textContent=skinned?'Full skin applied (“'+model.rebrands[a.bundleId]+'”).':(chosen(a)?'Uses the icon currently chosen for this app.':'Choose an icon for this app first.');
+ const skinned=!!model.rebrands[a.bundleId];$('name-unskin').hidden=!skinned;$('fullskin-state').textContent=skinned?(model.rebrandRuntime[a.bundleId]==='own'?'Full skin applied (“'+model.rebrands[a.bundleId]+'”), but this app sets its own Dock icon while running and no replaceable copy was found inside it — its running icon cannot be changed safely.':'Full skin applied (“'+model.rebrands[a.bundleId]+'”), including the icon it shows while running.'):(chosen(a)?'Uses the icon currently chosen for this app.':'Choose an icon for this app first.');
  const ib=$('name-internal');ib.dataset.armed='';ib.textContent='Apply full skin…';ib.disabled=!chosen(a);
  $('rename-dialog').showModal();$('name-input').focus();$('name-input').select();}
 function closeRename(){if(!busy){$('rename-dialog').close();renameApp=null;}}

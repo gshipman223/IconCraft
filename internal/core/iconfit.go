@@ -17,7 +17,7 @@ import (
 
 // IconFitVersion marks icon records whose artwork has been placed on the
 // standard macOS icon grid. Older records are migrated once by Reconcile.
-const IconFitVersion = 1
+const IconFitVersion = 2 // v2: fitted artwork is also squircle-clipped
 
 const (
 	macOSIconCanvas = 1024
@@ -79,8 +79,10 @@ func needsMacOSFit(img image.Image) bool {
 
 // fitMacOSIcon places a full-bleed icon onto the native macOS icon grid:
 // the whole artwork is scaled (aspect preserved) into an 824px box centred
-// on a transparent 1024px canvas. Icons that are not full-bleed pass
-// through unchanged.
+// on a transparent 1024px canvas, and clipped to the macOS squircle —
+// publisher/App Store artwork is square, and macOS (unlike iOS) never
+// rounds app icons itself, so an unclipped square looks wrong in the
+// Dock. Icons that are not full-bleed pass through unchanged.
 func fitMacOSIcon(img image.Image) image.Image {
 	if !needsMacOSFit(img) {
 		return img
@@ -91,8 +93,58 @@ func fitMacOSIcon(img image.Image) image.Image {
 	dh := max(1, int(math.Round(float64(b.Dy())*scale)))
 	canvas := image.NewRGBA(image.Rect(0, 0, macOSIconCanvas, macOSIconCanvas))
 	scaled := resizeImage(img, dw, dh)
-	drawImageAt(canvas, scaled, (macOSIconCanvas-dw)/2, (macOSIconCanvas-dh)/2)
+	ox, oy := (macOSIconCanvas-dw)/2, (macOSIconCanvas-dh)/2
+	drawImageAt(canvas, scaled, ox, oy)
+	applySquircleMask(canvas, image.Rect(ox, oy, ox+dw, oy+dh))
 	return canvas
+}
+
+// applySquircleMask clips the given rectangle of a premultiplied RGBA
+// canvas to a superellipse (exponent 5, the usual approximation of
+// Apple's continuous corners), with a ~1px antialiased edge. Pixels
+// outside the shape become transparent; the shape spans the full rect
+// at edge midpoints, so the artwork's measured body size is unchanged.
+func applySquircleMask(canvas *image.RGBA, rect image.Rectangle) {
+	if rect.Empty() {
+		return
+	}
+	const n = 5.0
+	cx := float64(rect.Min.X+rect.Max.X) / 2
+	cy := float64(rect.Min.Y+rect.Max.Y) / 2
+	hx := float64(rect.Dx()) / 2
+	hy := float64(rect.Dy()) / 2
+	for y := rect.Min.Y; y < rect.Max.Y; y++ {
+		v := (float64(y) + 0.5 - cy) / hy
+		av := math.Abs(v)
+		powV := math.Pow(av, n)
+		dPowV := n * math.Pow(av, n-1) / hy // ∂f/∂y in per-pixel units
+		for x := rect.Min.X; x < rect.Max.X; x++ {
+			u := (float64(x) + 0.5 - cx) / hx
+			au := math.Abs(u)
+			f := math.Pow(au, n) + powV
+			if f <= 0.9 {
+				continue // comfortably inside
+			}
+			dPowU := n * math.Pow(au, n-1) / hx
+			grad := math.Hypot(dPowU, dPowV)
+			dist := 1.0 // outside by at least a pixel unless computed
+			if grad > 0 {
+				dist = (f - 1) / grad // signed distance in pixels (approx)
+			}
+			factor := 0.5 - dist
+			if factor >= 1 {
+				continue
+			}
+			i := canvas.PixOffset(x, y)
+			if factor <= 0 {
+				canvas.Pix[i], canvas.Pix[i+1], canvas.Pix[i+2], canvas.Pix[i+3] = 0, 0, 0, 0
+				continue
+			}
+			for c := 0; c < 4; c++ {
+				canvas.Pix[i+c] = uint8(float64(canvas.Pix[i+c]) * factor)
+			}
+		}
+	}
 }
 
 // fitIconPNG returns a macOS-grid PNG for a full-bleed source. The second
@@ -348,6 +400,221 @@ func (e *Engine) refitRebrandRecord(ctx context.Context, app App, recordID strin
 		_ = notifier.Notify(ctx, app.Path)
 	}
 	return nil
+}
+
+// patchRebrandRuntimeIcon is the one-time migration for full skins
+// applied before runtime-icon patching existed: if the app overrides
+// its Dock icon at launch from artwork embedded in the executable,
+// swap that embedded artwork for the skin's chosen icon, re-sign, and
+// journal the patch on the existing record (no new record is stacked).
+// Outcomes that need no binary change (no embedded match, or the app
+// never overrides its icon) are journalled too, so the keeper checks
+// each app once instead of rescanning executables on every pass.
+func (e *Engine) patchRebrandRuntimeIcon(ctx context.Context, app App, recordID string) (bool, error) {
+	t, err := e.tools()
+	if err != nil {
+		return false, err
+	}
+	e.scanMu.Lock()
+	defer e.scanMu.Unlock()
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	idx := -1
+	for i := range e.State.Rebrands {
+		if e.State.Rebrands[i].ID == recordID {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return false, errors.New("full-skin record not found")
+	}
+	rec := e.State.Rebrands[idx]
+	if rec.Status != "applied" || rec.App.Path != app.Path {
+		return false, errors.New("full-skin record is not the live skin for this app")
+	}
+	if runner, ok := e.Native.(interface {
+		Running(context.Context, string) (bool, error)
+	}); ok {
+		running, err := runner.Running(ctx, app.Path)
+		if err != nil {
+			return false, err
+		}
+		if running {
+			return false, errors.New("app is running; its running icon will be swapped after it quits")
+		}
+	}
+	if fp, err := Fingerprint(app); err != nil || fp != rec.AfterPrint {
+		return false, errors.New("app changed since the full skin was applied")
+	}
+	dir := e.rebrandDir(rec.ID)
+	markOnly := func(runtime string) (bool, error) {
+		e.State.Rebrands[idx].RuntimeIcon = runtime
+		e.State.Rebrands[idx].ExecIconCheck = ExecIconCheckVersion
+		if err := e.save(); err != nil {
+			e.State.Rebrands[idx].RuntimeIcon = rec.RuntimeIcon
+			e.State.Rebrands[idx].ExecIconCheck = rec.ExecIconCheck
+			return false, err
+		}
+		return false, nil
+	}
+	if !rec.IconExisted {
+		return markOnly("none")
+	}
+	backupIcon, err := ReadLimited(filepath.Join(dir, "icon.icns"), MaxIconBytes)
+	if err != nil {
+		return false, fmt.Errorf("full-skin icon backup is missing: %w", err)
+	}
+	origImg, err := icnsImage(backupIcon)
+	if err != nil {
+		return markOnly("none")
+	}
+	assetPath, err := e.assetPath(rec.AssetID)
+	if err != nil {
+		return false, err
+	}
+	assetImg, err := decodeAssetImage(assetPath)
+	if err != nil {
+		return false, err
+	}
+	exePath, exeBytes, err := readExecutable(app)
+	if err != nil {
+		return false, err
+	}
+	if len(rec.ExecPatches) > 0 {
+		// Already patched by an earlier build: the embedded artwork no
+		// longer matches the original icon *because we replaced it*, so
+		// a fresh scan would wrongly conclude the app is unpatchable.
+		// The fingerprint guard above proves the binary is untouched.
+		if rec.ExecIconCheck >= ExecIconCheckVersion {
+			return markOnly("patched")
+		}
+		// The artwork rendering improved since the patch (e.g. fitted
+		// icons gained their squircle clip): re-render the replacement
+		// into the same byte slots and re-sign.
+		if err := e.probeWritable(app); err != nil {
+			return false, err
+		}
+		replacements := make([][]byte, len(rec.ExecPatches))
+		for i, p := range rec.ExecPatches {
+			orig, err := os.ReadFile(filepath.Join(dir, fmt.Sprintf("exec-patch-%d.bin", i)))
+			if err != nil {
+				return false, fmt.Errorf("runtime-icon backup is missing: %w", err)
+			}
+			origImg, err := png.Decode(bytes.NewReader(orig))
+			if err != nil {
+				return false, err
+			}
+			for size := origImg.Bounds().Dx(); size >= 32; size /= 2 {
+				candidate, err := encodeIconPNG(assetImg, size)
+				if err == nil && len(candidate) <= p.Length {
+					replacements[i] = candidate
+					break
+				}
+			}
+			if replacements[i] == nil {
+				return false, errors.New("refreshed icon no longer fits its byte slot; keeping the current one")
+			}
+		}
+		priorExe := append([]byte(nil), exeBytes...)
+		refreshRollback := func(cause error) (bool, error) {
+			if info, err := os.Stat(exePath); err == nil {
+				_ = AtomicWrite(exePath, priorExe, info.Mode().Perm())
+			}
+			_ = t.Resign(ctx, app.Path)
+			return false, cause
+		}
+		refreshed := append([]byte(nil), exeBytes...)
+		for i, p := range rec.ExecPatches {
+			region := refreshed[p.Offset : p.Offset+int64(p.Length)]
+			for j := range region {
+				region[j] = 0
+			}
+			copy(region, replacements[i])
+		}
+		info, err := os.Stat(exePath)
+		if err != nil {
+			return false, err
+		}
+		if err := AtomicWrite(exePath, refreshed, info.Mode().Perm()); err != nil {
+			return false, fmt.Errorf("could not refresh the running icon inside the app: %w", err)
+		}
+		if err := t.Resign(ctx, app.Path); err != nil {
+			return refreshRollback(err)
+		}
+		if status, err := e.Native.Signature(ctx, app.Path); err != nil || status != "valid" {
+			return refreshRollback(errors.New("re-signed bundle did not verify after refreshing its running icon"))
+		}
+		after, err := Fingerprint(app)
+		if err != nil {
+			return refreshRollback(err)
+		}
+		e.State.Rebrands[idx].AfterPrint = after
+		e.State.Rebrands[idx].RuntimeIcon = "patched"
+		e.State.Rebrands[idx].ExecIconCheck = ExecIconCheckVersion
+		if err := e.save(); err != nil {
+			e.State.Rebrands[idx].AfterPrint = rec.AfterPrint
+			e.State.Rebrands[idx].RuntimeIcon = rec.RuntimeIcon
+			e.State.Rebrands[idx].ExecIconCheck = rec.ExecIconCheck
+			return refreshRollback(err)
+		}
+		if notifier, ok := e.Native.(interface {
+			Notify(context.Context, string) error
+		}); ok {
+			_ = notifier.Notify(ctx, app.Path)
+		}
+		return true, nil
+	}
+	patches, originals, replacements, setsOwn := planExecIconPatches(exeBytes, origImg, assetImg)
+	if len(patches) == 0 {
+		if setsOwn {
+			return markOnly("own")
+		}
+		return markOnly("none")
+	}
+	if err := e.probeWritable(app); err != nil {
+		return false, err
+	}
+	for i, orig := range originals {
+		if err := AtomicWrite(filepath.Join(dir, fmt.Sprintf("exec-patch-%d.bin", i)), orig, 0600); err != nil {
+			return false, fmt.Errorf("runtime-icon backup could not be written: %w", err)
+		}
+	}
+	rollback := func(cause error) (bool, error) {
+		_ = restoreExecIconPatches(exePath, patches, dir)
+		_ = t.Resign(ctx, app.Path)
+		return false, cause
+	}
+	if err := applyExecIconPatches(exePath, exeBytes, patches, replacements); err != nil {
+		return false, fmt.Errorf("could not swap the running icon inside the app: %w", err)
+	}
+	if err := t.Resign(ctx, app.Path); err != nil {
+		return rollback(err)
+	}
+	if status, err := e.Native.Signature(ctx, app.Path); err != nil || status != "valid" {
+		return rollback(errors.New("re-signed bundle did not verify after swapping its running icon"))
+	}
+	after, err := Fingerprint(app)
+	if err != nil {
+		return rollback(err)
+	}
+	e.State.Rebrands[idx].AfterPrint = after
+	e.State.Rebrands[idx].ExecPatches = patches
+	e.State.Rebrands[idx].RuntimeIcon = "patched"
+	e.State.Rebrands[idx].ExecIconCheck = ExecIconCheckVersion
+	if err := e.save(); err != nil {
+		e.State.Rebrands[idx].AfterPrint = rec.AfterPrint
+		e.State.Rebrands[idx].ExecPatches = rec.ExecPatches
+		e.State.Rebrands[idx].RuntimeIcon = rec.RuntimeIcon
+		e.State.Rebrands[idx].ExecIconCheck = rec.ExecIconCheck
+		return rollback(err)
+	}
+	if notifier, ok := e.Native.(interface {
+		Notify(context.Context, string) error
+	}); ok {
+		_ = notifier.Notify(ctx, app.Path)
+	}
+	return true, nil
 }
 
 func drawImageAt(dst *image.RGBA, src image.Image, offsetX, offsetY int) {

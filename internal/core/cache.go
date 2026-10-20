@@ -107,9 +107,13 @@ func (e *Engine) Session() map[string]any {
 		}
 	}
 	rebrands := map[string]string{} // inlined: Session already holds e.mu
+	rebrandRuntime := map[string]string{}
 	for _, r := range e.State.Rebrands {
 		if r.Status == "applied" {
 			rebrands[r.BundleID] = r.Name
+			if r.RuntimeIcon != "" {
+				rebrandRuntime[r.BundleID] = r.RuntimeIcon
+			}
 		}
 	}
 	vault := map[string]SavedOriginal{}
@@ -120,7 +124,7 @@ func (e *Engine) Session() map[string]any {
 	if theme == "" {
 		theme = "system"
 	}
-	return map[string]any{"version": Version, "supportUrl": SupportURL, "repositoryUrl": RepositoryURL, "apps": apps, "assets": assets, "originals": originals, "choices": choices, "records": records, "renames": renames, "rebrands": rebrands, "vault": vault, "theme": theme, "setupRequired": e.State.SetupVersion < SetupVersion, "setupVersion": e.State.SetupVersion}
+	return map[string]any{"version": Version, "supportUrl": SupportURL, "repositoryUrl": RepositoryURL, "apps": apps, "assets": assets, "originals": originals, "choices": choices, "records": records, "renames": renames, "rebrands": rebrands, "rebrandRuntime": rebrandRuntime, "vault": vault, "theme": theme, "setupRequired": e.State.SetupVersion < SetupVersion, "setupVersion": e.State.SetupVersion}
 }
 
 // Extended-attribute writes may change ctime without changing mtime on macOS.

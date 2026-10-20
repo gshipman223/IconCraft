@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const Version = "0.10.1"
+const Version = "0.11.0"
 
 // SetupVersion is bumped when the first-run permissions review needs to be
 // shown again (for example, when a release needs a new macOS permission).
@@ -109,7 +109,29 @@ type RebrandRecord struct {
 	AfterIconHash  string `json:"afterIconHash,omitempty"`
 	Status         string `json:"status"`            // prepared | applied | restored | failed | rollback-required
 	IconFit        int    `json:"iconFit,omitempty"` // macOS icon-grid version the written .icns was fitted to
-	Created        string `json:"created"`
+	// RuntimeIcon describes the icon the app presents *while running*:
+	// "patched" (an embedded runtime icon inside the executable was
+	// replaced with the chosen artwork), "own" (the app sets its own
+	// running icon and no replaceable embedded copy was found), "none"
+	// (the app uses its bundle icon when running), "" (not yet checked —
+	// the keeper checks once and records the outcome).
+	RuntimeIcon string          `json:"runtimeIcon,omitempty"`
+	ExecPatches []ExecIconPatch `json:"execPatches,omitempty"`
+	// ExecIconCheck is the version of the runtime-icon inspection that
+	// produced RuntimeIcon, so improved matching re-checks old verdicts.
+	ExecIconCheck int    `json:"execIconCheck,omitempty"`
+	Created       string `json:"created"`
+}
+
+// ExecIconPatch locates one PNG image embedded in an app's executable
+// that the app itself loads as its running (Dock/window) icon. The patch
+// replaces exactly those bytes (same total length, zero-padded), so no
+// file offsets move. The original bytes are backed up next to the
+// full-skin backup and restored byte-exactly on unskin.
+type ExecIconPatch struct {
+	Offset int64  `json:"offset"`
+	Length int    `json:"length"`
+	SHA256 string `json:"sha256"` // of the original embedded PNG bytes
 }
 
 // SavedOriginal is the Originals Vault entry for one app, keyed by its

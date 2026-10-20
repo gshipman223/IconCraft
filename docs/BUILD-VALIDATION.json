@@ -1,27 +1,26 @@
 {
-  "version": "0.10.1",
+  "version": "0.11.0",
   "date": "2026-10-21",
   "environment": "real Mac, darwin/arm64, macOS 26 (Tahoe)",
-  "goTests": "passed — 150 tests across 5 packages (go test ./...), race detector clean, go vet clean",
+  "goTests": "passed — 155 tests across 5 packages (go test ./...), race detector clean, go vet clean",
   "nodeTests": "passed — 38 bridge + window + UI regression tests",
-  "nativeSelfTest": "PASSED 26/26 checks on this Mac in an isolated temporary HOME (signed fixture apply/restore round-trips, pre-existing custom icon round-trip, signature valid after restore, profile export/import)",
-  "iconScaleMeasurements": {
-    "before": "IconCraft logo and stored publisher/App Store replacement artwork filled 99–100% of the icon canvas; measured genuine macOS icons (e.g. Cursor) fill about 80%",
-    "target": "standard macOS icon grid: 824px visible body centred in a 1024px canvas",
-    "iconCraftInstalled": "installed icon.icns largest PNG rendition is 1024x1024 with alpha bbox (104,104)-(920,920)",
-    "migratedFullSkins": "PdfCraft.icns 512px rendition alpha bbox (50,54)-(462,458); FilmCraft.icns (50,50)-(462,462) — previously (0,6)-(512,506) and (0,0)-(512,512)",
-    "doubleShrinkGuard": "unit tests prove already-padded artwork passes through byte-identical / at its original scale; only near-full-bleed finished artwork is fitted"
+  "nativeSelfTest": "PASSED 26/26 checks on this Mac in an isolated temporary HOME",
+  "rootCause": "all ten storyteller clones are Rust/eframe apps: at launch they call setApplicationIconImage with artwork embedded in the executable, so the Dock flipped to the original clone icon while running no matter what the bundle .icns said. Verified by reading the running Dock tile (green chameleon) against the bundle icon (Figma logo).",
+  "runtimeIconFix": {
+    "method": "full skins scan the executable for PNG streams that pixel-match the app's original bundle icon and replace exactly those bytes (same total length, zero-padded; no other offset moves), then ad-hoc re-sign as before. Original bytes are stored with the full-skin backup (exec-patch-*.bin) and restored byte-exactly on unskin; restore round-trip is unit-tested including fingerprint equality.",
+    "detection": "conservative: only square embedded PNGs >=64px whose pixels match the original bundle icon are touched; a synthetic test proves unrelated embedded images are never patched, and a replacement that cannot fit its byte slot is never forced.",
+    "matchingFix": "icon comparison shrinks by progressive halving after a detailed engraving-style icon (Figma's chameleon) aliased under single-step point sampling (Go mean diff 14.0 vs 0.9 area-averaged) and was first reported unpatchable; regression-tested with synthetic detailed artwork.",
+    "verdictGuard": "re-checking an already-patched app keeps the 'patched' verdict (the embedded art no longer matches the original because it was replaced); inspection is versioned (ExecIconCheck) so improved matching re-checks old verdicts."
   },
+  "squircleFix": "full-bleed publisher/App Store artwork fitted to the macOS grid is now also clipped to a superellipse (exponent 5) with antialiased edge — macOS does not round square artwork itself. Measured on migrated bundles: 512px rendition corner alpha 0, edge-midpoint alpha 255, bbox (50,50)-(462,462); embedded runtime icons likewise (256px corner alpha 0).",
   "liveVerification": {
-    "appsScanned": 112,
-    "migration": "after installing 0.10.1 the keep-applied pass refitted existing skins in place; every latest live Finder record and every applied full-skin record (10 clones) ended at iconFit=1",
-    "protectedApps": "Adobe Acrobat (/Applications/PdfCraft.app) and Adobe Premiere initially deferred because they carry com.apple.macl App Management protection and the locally re-signed 0.10.1 copy was not yet allowed; the setup probe honestly reported Blocked on Adobe Acrobat",
-    "appManagementRegrant": "IconCraft was switched on in System Settings → Privacy & Security → App Management and relaunched; Check again then reported Granted — tested, and the keeper repaired the final 2 icons with no skipped items",
-    "signatures": "codesign --verify --deep passed after refit/re-sign for the migrated clones checked (PdfCraft, Adobe Premiere, Figma, Adobe Photoshop, AutoCAD) and for IconCraft itself",
-    "dockProof": "a refitted clone (Figma) was launched once and captured in the Dock beside native apps at matching visual scale (build/dock-scale-0.10.1.png), then quit",
-    "backgroundKeeper": "keeper remained desired/on throughout; final reconcile log line: repaired 2 icon(s), 0 name(s), skipped: []"
+    "migration": "keeper migrated all 10 clones in place: every applied full-skin record now reads iconFit=2, runtimeIcon=patched (1 patch each), execIconCheck=3; no new records stacked for the migrations",
+    "protectedApps": "Adobe Acrobat (PdfCraft) and Adobe Premiere deferred until IconCraft was allowed in App Management for the current copy (user-approved), then patched; final keeper pass reported no skipped items",
+    "signatures": "codesign --verify --deep passed after patch/re-sign for Figma, PdfCraft and Adobe Premiere (and IconCraft itself)",
+    "dockProof": "Figma clone launched after migration: its running Dock tile shows the genuine Figma logo, rounded, at the same scale as neighbouring native icons (build/dock-final-0.11.0.png); before the fix the same tile showed the green chameleon original. App was quit afterwards.",
+    "honestFallback": "apps that set their own running icon without a replaceable embedded copy are labelled in the UI ('app controls its running icon') instead of silently flipping"
   },
-  "signing": "ad-hoc performed (per-slice sign + lipo + bundle verify --deep --strict OK); Developer ID + notarization NOT PERFORMED",
-  "install": "/Applications/IconCraft.app 0.10.1 (build 17) installed from this build, previous copies preserved under Application Support/IconCraft/previous-installations, launched successfully; because the copy is locally ad-hoc signed, App Management had to be re-allowed for this exact copy before protected bundles could be resized",
-  "notes": "v0.10.1 places IconCraft's own icon and full-bleed replacement artwork on the macOS icon grid at apply/full-skin time, migrates existing skins in place through the keeper (full skins only while the app is not running and unchanged), never double-shrinks already-padded icons, and reports deferred resizes in the reconcile result instead of skipping them silently. Full test/build/package pipeline passed."
+  "signing": "ad-hoc performed (per-slice sign + lipo + bundle verify); Developer ID + notarization NOT PERFORMED",
+  "install": "/Applications/IconCraft.app 0.11.0 (build 18) installed from this build, previous copies preserved under Application Support/IconCraft/previous-installations, launched successfully",
+  "notes": "v0.11.0 fixes running Dock icons for apps that override their icon at launch, and rounds fitted artwork to the macOS squircle. Full test/build/package pipeline passed."
 }

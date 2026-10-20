@@ -78,6 +78,30 @@ func TestFitIconPNGPlacesFullBleedArtworkOnMacOSGrid(t *testing.T) {
 	}
 }
 
+func TestFitIconPNGClipsToSquircle(t *testing.T) {
+	src := pngBytes(color.RGBA{30, 90, 200, 255}) // full-bleed square artwork
+	out, changed, err := fitIconPNG(src)
+	if err != nil || !changed {
+		t.Fatalf("changed=%v err=%v", changed, err)
+	}
+	img, err := png.Decode(bytes.NewReader(out))
+	if err != nil {
+		t.Fatal(err)
+	}
+	alpha := func(x, y int) uint32 {
+		_, _, _, a := img.At(x, y).RGBA()
+		return a
+	}
+	// Body occupies ~(100,100)-(924,924) of the 1024 canvas: corners of
+	// that square must be transparent (rounded), edge midpoints opaque.
+	if alpha(110, 110) != 0 || alpha(913, 913) != 0 {
+		t.Fatal("squircle corners should be transparent")
+	}
+	if alpha(512, 110) == 0 || alpha(110, 512) == 0 || alpha(512, 512) == 0 {
+		t.Fatal("squircle edge midpoints and centre should be opaque")
+	}
+}
+
 func TestFitIconPNGLeavesPaddedArtworkUntouched(t *testing.T) {
 	src := paddedPNG(t)
 	fitted, changed, err := fitIconPNG(src)

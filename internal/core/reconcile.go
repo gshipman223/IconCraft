@@ -153,6 +153,18 @@ func (e *Engine) Reconcile(ctx context.Context) (ReconcileResult, error) {
 					}
 				}
 			}
+			// One-time runtime-icon migration: skins applied before
+			// embedded-icon patching existed still flip to the app's
+			// own artwork in the Dock while it runs.
+			if r.ExecIconCheck < ExecIconCheckVersion {
+				if changed, err := e.patchRebrandRuntimeIcon(ctx, app, r.ID); err == nil {
+					if changed {
+						out.IconFixed++
+					}
+				} else {
+					out.Skipped = append(out.Skipped, app.Name+" (full skin): running-icon swap deferred: "+err.Error())
+				}
+			}
 		case r.BeforePrint:
 			if _, err := e.Rebrand(ctx, app.ID, r.AssetID, r.Name); err != nil {
 				out.Skipped = append(out.Skipped, app.Name+" (full skin): "+err.Error())

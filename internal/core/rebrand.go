@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image"
 	"os"
 	"path/filepath"
 	"strings"
@@ -150,7 +151,36 @@ func (e *Engine) Rebrand(ctx context.Context, appID, assetID, name string) (Rebr
 		e.State.Rebrands = e.State.Rebrands[:idx]
 		return RebrandRecord{}, fmt.Errorf("backup could not be committed; no change made: %w", err)
 	}
+	// Runtime icon plan: if this app overrides its Dock/window icon at
+	// launch with artwork embedded in the executable, swapping the
+	// bundle .icns alone would still flip back on open. Plan an in-place
+	// embedded-PNG swap (executed after the name write, before signing).
+	// Planning failures degrade to a bundle-only skin, never a failure:
+	// the outcome is journalled in RuntimeIcon so the UI can be honest.
+	exePath, exeBytes, exeErr := readExecutable(a)
+	var patches []ExecIconPatch
+	var originals, replacements [][]byte
+	runtimeIcon := "none"
+	if exeErr == nil {
+		var origImg image.Image
+		if iconExisted {
+			origImg, _ = icnsImage(iconBytes)
+		}
+		assetImg, _ := decodeAssetImage(assetPath)
+		var setsOwn bool
+		patches, originals, replacements, setsOwn = planExecIconPatches(exeBytes, origImg, assetImg)
+		switch {
+		case len(patches) > 0:
+			runtimeIcon = "patched"
+		case setsOwn:
+			runtimeIcon = "own"
+		}
+	}
+	exePatched := false
 	rollback := func(cause error) (RebrandRecord, error) {
+		if exePatched {
+			_ = restoreExecIconPatches(exePath, patches, dir)
+		}
 		_ = AtomicWrite(plistPath, plistBytes, 0644)
 		if iconExisted {
 			_ = AtomicWrite(iconPath, iconBytes, 0644)
@@ -168,6 +198,20 @@ func (e *Engine) Rebrand(ctx context.Context, appID, assetID, name string) (Rebr
 	if err := t.SetBundleName(ctx, a.Path, name); err != nil {
 		return rollback(err)
 	}
+	if len(patches) > 0 {
+		for i, orig := range originals {
+			if err := AtomicWrite(filepath.Join(dir, fmt.Sprintf("exec-patch-%d.bin", i)), orig, 0600); err != nil {
+				return rollback(fmt.Errorf("runtime-icon backup could not be written: %w", err))
+			}
+		}
+		if err := applyExecIconPatches(exePath, exeBytes, patches, replacements); err != nil {
+			return rollback(fmt.Errorf("could not swap the running icon inside the app: %w", err))
+		}
+		exePatched = true
+		e.State.Rebrands[idx].ExecPatches = patches
+	}
+	e.State.Rebrands[idx].RuntimeIcon = runtimeIcon
+	e.State.Rebrands[idx].ExecIconCheck = ExecIconCheckVersion
 	if err := t.Resign(ctx, a.Path); err != nil {
 		return rollback(err)
 	}
@@ -246,6 +290,15 @@ func (e *Engine) RestoreRebrand(ctx context.Context, appID string) (RebrandRecor
 	plistBytes, err := ReadLimited(filepath.Join(dir, "Info.plist"), 4<<20)
 	if err != nil {
 		return rec, fmt.Errorf("full-skin backup is missing: %w", err)
+	}
+	if len(rec.ExecPatches) > 0 {
+		exePath, _, er := readExecutable(a)
+		if er != nil {
+			return rec, er
+		}
+		if er := restoreExecIconPatches(exePath, rec.ExecPatches, dir); er != nil {
+			return rec, er
+		}
 	}
 	plistPath := filepath.Join(a.Path, "Contents/Info.plist")
 	iconPath := filepath.Join(a.Path, "Contents/Resources", rec.IconFile)

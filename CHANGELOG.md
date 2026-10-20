@@ -4,6 +4,31 @@ All notable changes to IconCraft. Versions are ad-hoc signed Universal
 (Apple Silicon + Intel) macOS builds; Developer ID signing/notarisation has
 not been performed.
 
+## [0.11.0] — 2026-10-21 · Running (Dock) icons that stay skinned
+
+- **Fixed icons flipping back while an app is open**: some apps (the
+  Rust/eframe clones included) ignore their bundle icon while running
+  and set the Dock/window icon at startup from artwork embedded inside
+  the executable, so a bundle-only skin always flipped on launch.
+- Full skins now also swap that embedded artwork: the executable is
+  scanned for PNGs that pixel-match the app's original bundle icon,
+  and only those byte regions are replaced — same total length,
+  zero-padded, so no other offset in the binary moves — before the
+  usual ad-hoc re-sign. The original bytes are backed up with the
+  full-skin backup and restored byte-exactly on unskin.
+- Existing full skins are migrated by the keep-applied pass (only while
+  the app is not running and unchanged). If an app sets its own running
+  icon but no replaceable embedded copy is found, IconCraft now says so
+  in the app list and rename dialog instead of silently flipping.
+- **Rounded corners**: full-bleed artwork fitted onto the macOS icon
+  grid is now also clipped to the macOS squircle (superellipse), since
+  macOS never rounds square publisher/App Store artwork itself. All
+  existing fitted skins — Finder, full and embedded runtime icons —
+  are re-rendered by the keeper.
+- Detection is conservative: non-icon images inside the binary are
+  never touched, and a replacement that cannot fit its byte slot
+  without moving data is never forced.
+
 ## [0.10.1] — 2026-10-21 · Icons at native macOS scale
 
 - **Fixed oversized icons**: IconCraft's own app icon and the replacement
