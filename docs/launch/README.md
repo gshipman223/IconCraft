@@ -29,11 +29,18 @@ showing something they made.
 | 3 | `show-hn.md` | Hacker News — Show HN | Biggest and bluntest audience. By now the obvious questions (reversibility, app updates, what happens under the hood, written in Go) will have come up once already, so the answers are ready. Submit once, don't re-post if it doesn't land, never ask for upvotes. |
 | 4 | `product-hunt.md` | Product Hunt | Most "launch-shaped" venue, so it benefits most from a site, screenshots and copy already tested by the earlier rounds. Needs a free day to reply to comments, so schedule it deliberately rather than squeezing it in. |
 
-Not a post: `iconcraft.rb` was a Homebrew cask draft — submitted 2026-10-21 as
-[homebrew-cask PR #295884](https://github.com/Homebrew/homebrew-cask/pull/295884)
-(branch `iconcraft-cask` on the gshipman223 fork), using the versioned release URL.
-Also submitted 2026-10-21: [awesome-mac PR #3713](https://github.com/jaywcjlove/awesome-mac/pull/3713)
-("Add IconCraft", branch `add-iconcraft` on the gshipman223 fork). Both await review.
+Not a post. These keep working once they are in, with no account of yours in the loop:
+
+- Working install today: `brew install --cask gshipman223/iconcraft/iconcraft`
+  from [gshipman223/homebrew-iconcraft](https://github.com/gshipman223/homebrew-iconcraft).
+  `brew audit` passes on this tap.
+- Official cask: [homebrew-cask PR #295884](https://github.com/Homebrew/homebrew-cask/pull/295884).
+  Fetch, install and the checksum pass. The audit still fails for two policy
+  reasons that are not a cask bug: `iconcraft.co` was registered on 2026-10-20
+  (Homebrew wants 30 days) and a self-submitted repo needs 225 stars, 90 forks
+  and 90 watchers. Leave the PR open.
+- [awesome-mac PR #3713](https://github.com/jaywcjlove/awesome-mac/pull/3713)
+  is open and waiting on that list's maintainer. The entry links to iconcraft.co.
 
 ## Shared rules for all of it
 
