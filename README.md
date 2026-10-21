@@ -27,8 +27,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.1-Installer.pkg"><img alt="Download IconCraft for macOS (installer)" src="https://img.shields.io/badge/⬇%20Download%20for%20macOS-Installer%20.pkg-7C3AED?style=for-the-badge"></a>
-  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.1.zip"><img alt="Download IconCraft ZIP" src="https://img.shields.io/badge/ZIP%20archive-4F46E5?style=for-the-badge"></a>
+  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.3.dmg"><img alt="Download IconCraft for macOS (disk image)" src="https://img.shields.io/badge/⬇%20Download%20for%20macOS-Disk%20image%20.dmg-7C3AED?style=for-the-badge"></a>
+  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.3.zip"><img alt="Download IconCraft ZIP" src="https://img.shields.io/badge/ZIP%20archive-4F46E5?style=for-the-badge"></a>
 </p>
 
 <p align="center">
@@ -86,7 +86,7 @@ No accounts, no telemetry, no diagnostics maze. One screen:
 | **Basic settings** | Launch at login, start-in-menu-bar-only, Dock icon and menu bar icon visibility (live, with a guarantee at least one way back in always stays on), optional notifications for keeper repairs and skins needing attention, a GitHub update check (it never self-updates), and maintenance actions (icon-cache refresh, data folder, re-run setup). |
 | **Default apps tab** | "Which app opens this?" — answered in one list instead of a dozen buried panels. See today's default for links, email, PDFs, images, video, audio, text, code, HTML, ZIPs and calendars, switch it in one click, and it applies everywhere (via LaunchServices, the same service Finder uses). |
 | **Your list, your order** | Sort the app list A–Z, Z–A or customised-first, and group by status (customised / original ready / none found) or by folder. Your choice is remembered between launches. |
-| **Setup & Permissions** | The installer explains the finish-setup step, then first launch shows live Ready / Granted — tested / Blocked / Not checked statuses. App Management is proven with the same harmless bundle-writability test used before a real change — never by pretending that opening Settings is a grant. Full Disk Access, Accessibility and Screen Recording are explicitly not requested. |
+| **Setup & Permissions** | First launch shows live Ready / Granted — tested / Blocked / Not checked statuses. App Management is proven with the same harmless bundle-writability test used before a real change — never by pretending that opening Settings is a grant. Full Disk Access, Accessibility and Screen Recording are explicitly not requested. |
 | **Native icon scale** | Full-bleed publisher/App Store artwork is placed on the standard macOS icon grid (an 824px body centred in the 1024px canvas) when a Finder or full skin is applied, so skinned apps sit at the same visual size as native icons in Finder, the Dock and Launchpad. Artwork that already has proper macOS padding is never shrunk twice, and existing skins are refitted in place by the keeper. |
 | **Originals Vault** | Before anything changes, your app's original name (folder + internal) and icon are saved under its stable bundle ID. Restore rebuilds from the vault — even after the app updates, moves, or is renamed again. |
 | **Full skin (running identity)** | Optionally write the name + icon *inside* a cloned/third-party app (re-signed, fully backed up and reversible) so it keeps your identity in the Dock/menu bar while running. Apps that set their own Dock icon at launch from artwork embedded in the executable (e.g. Rust/eframe clones) get that embedded copy swapped in place too — same byte length, originals backed up — and IconCraft says so plainly when an app's running icon can't be replaced safely. Bundle ID and links never change. |
@@ -101,15 +101,15 @@ No accounts, no telemetry, no diagnostics maze. One screen:
 **Requires macOS 12.3+ (Apple Silicon or Intel). No developer account, Xcode,
 Homebrew or VM needed.**
 
-**Option A — installer package (one click):** download
-[`IconCraft-Mac-0.13.1-Installer.pkg`](https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.1-Installer.pkg)
-and open it; its Welcome screen explains the one finish-setup step, it installs IconCraft to `/Applications`, and its Conclusion screen tells you to open IconCraft and complete Setup & Permissions.
+**Option A — disk image (recommended):** download
+[`IconCraft-Mac-0.13.3.dmg`](https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.3.dmg),
+open it, and drag IconCraft into Applications. The DMG and the app inside
+it are both signed and notarised, so macOS opens them without a Gatekeeper
+approval detour.
 
-**Option B — ZIP:** download `IconCraft-Mac-0.13.1.zip` from the
+**Option B — ZIP:** download `IconCraft-Mac-0.13.3.zip` from the
 [latest release](https://github.com/gshipman223/IconCraft/releases/latest),
-extract it, and run **Install IconCraft.command** next to `IconCraft.app`.
-The script verifies checksums, preserves your settings/backups, installs
-the app exactly as signed, and only swaps it in after checking it runs.
+extract it, and drag `IconCraft.app` into Applications yourself.
 
 Then open IconCraft and complete **Finish setup**:
 
@@ -120,11 +120,10 @@ Then open IconCraft and complete **Finish setup**:
 
 > Release builds are **signed with a Developer ID and notarised by Apple**
 > (hardened runtime, ticket stapled), so downloads open with a double-click.
-> Verify any time with `spctl --assess --type execute /Applications/IconCraft.app`
-> — it should report `accepted, source=Notarized Developer ID`. The installer
-> `.pkg` itself is unsigned (only the app is notarised); if macOS questions
-> the package, use the ZIP instead, or **System Settings → Privacy & Security
-> → Open Anyway** for that item. Don't disable Gatekeeper globally.
+> The DMG is signed and notarised too. Verify any time with
+> `spctl --assess --type execute /Applications/IconCraft.app`
+> — it should report `accepted, source=Notarized Developer ID`.
+> No **Open Anyway** step should ever be needed for a release download.
 
 ## 🚀 Usage
 

@@ -6,7 +6,7 @@ import hashlib, json, os, plistlib, re, shutil, struct, subprocess, zipfile
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / 'build'
 OUT = Path(os.environ.get('ICONCRAFT_OUTPUT_DIR', str(BUILD / 'packages')))
-VERSION = '0.13.2'
+VERSION = '0.13.3'
 # 'developer-id' when scripts/release-macos.sh packaged a signed + notarized
 # build; default stays honest for CI/ad-hoc builds.
 DIST = os.environ.get('ICONCRAFT_DISTRIBUTION', 'ad-hoc')
@@ -36,17 +36,11 @@ assert info['CFBundleShortVersionString'] == VERSION
 subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
 
 digest = hashlib.sha256(raw).hexdigest()
-installer = (ROOT / 'scripts/Install IconCraft.command.in').read_text().replace('@EXECUTABLE_SHA256@', digest).replace('@VERSION@', VERSION)
-assert '@EXECUTABLE_SHA256@' not in installer and '@VERSION@' not in installer
 stage = BUILD / f'IconCraft-Mac-{VERSION}'
 if stage.exists():
     shutil.rmtree(stage)
 stage.mkdir()
 shutil.copytree(app, stage / 'IconCraft.app')
-p = stage / 'Install IconCraft.command'
-p.write_text(installer)
-p.chmod(0o755)
-subprocess.run(['bash', '-n', str(p)], check=True)
 (stage / 'APP-SHA256SUMS.txt').write_text(''.join(
     hashlib.sha256(f.read_bytes()).hexdigest() + '  ' + f.relative_to(stage).as_posix() + '\n'
     for f in sorted((stage / 'IconCraft.app').rglob('*')) if f.is_file()))
@@ -61,13 +55,11 @@ signing_note = ('Signed with a Developer ID and notarised by Apple: it opens wit
 Apple Silicon + Intel, macOS 12.3 or later
 
 INSTALL
-Extract the ZIP and run Install IconCraft.command beside IconCraft.app.
-Quit any running IconCraft first. The installer preserves your settings,
-imported icons, original-icon recovery data and rename history. It validates
-checksums and the new executable's version on your Mac before replacing
-the previous application (release builds are installed exactly as signed;
-only unsigned local-test builds are ad-hoc signed on the spot). The .pkg
-installer also explains this finish-setup step before and after installation.
+Extract the ZIP and drag IconCraft.app into your Applications folder, then
+launch it from there. Quit any running IconCraft first. Replacing the app
+preserves your settings, imported icons, original-icon recovery data and
+rename history because they live in IconCraft's support folder, not inside
+the app bundle.
 No Apple developer account, Xcode or Homebrew is required.
 
 FINISH SETUP (FIRST LAUNCH)
@@ -103,13 +95,26 @@ with zipfile.ZipFile(appzip, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
     for f in sorted(stage.rglob('*')):
         if f.is_file():
             z.write(f, Path(stage.name) / f.relative_to(stage))
-# One-click installer package (same ad-hoc signed app, installs to
-# /Applications). Built on macOS hosts with pkgbuild/productbuild. The
-# product installer has Welcome and Conclusion screens that explain the
-# first-launch Setup & Permissions step; macOS still requires the user to
-# grant App Management themselves inside IconCraft/System Settings.
+# Drag-to-Applications disk image. The release pipeline signs and notarizes
+# the DMG after packaging, so a downloaded copy opens without a Gatekeeper
+# approval detour. (An unsigned .pkg cannot offer that, so no installer
+# package is published without a Developer ID Installer identity.)
+dmgroot = BUILD / f'IconCraft-DMG-{VERSION}'
+if dmgroot.exists():
+    shutil.rmtree(dmgroot)
+dmg = None
+if DIST == 'developer-id' and shutil.which('hdiutil'):
+    dmgroot.mkdir()
+    shutil.copytree(app, dmgroot / 'IconCraft.app')
+    (dmgroot / 'Applications').symlink_to('/Applications')
+    dmg = OUT / f'IconCraft-Mac-{VERSION}.dmg'
+    if dmg.exists():
+        dmg.unlink()
+    subprocess.run(['hdiutil', 'create', '-volname', f'IconCraft {VERSION}',
+                    '-srcfolder', str(dmgroot), '-fs', 'HFS+', '-format', 'UDZO',
+                    '-ov', str(dmg)], check=True, stdout=subprocess.DEVNULL)
 installerpkg = OUT / f'IconCraft-Mac-{VERSION}-Installer.pkg'
-if shutil.which('pkgbuild') and (BUILD / 'IconCraft.app').is_dir():
+if INSTALLER_IDENTITY and shutil.which('pkgbuild') and (BUILD / 'IconCraft.app').is_dir():
     if shutil.which('productbuild'):
         componentpkg = BUILD / 'IconCraft-component.pkg'
         if componentpkg.exists():
@@ -168,7 +173,10 @@ summary = {
     'vet': 'clean',
     'nativeSelfTest': 'passed on the build Mac (see docs/BUILD-VALIDATION.json)',
     'appIcons': 'verified live: installed apps scanned, real icon PNGs served and rendered',
-    'installerScreens': 'product installer Welcome/Conclusion explain first-launch Setup & Permissions',
+    'installerScreens': ('product installer Welcome/Conclusion explain first-launch Setup & Permissions'
+                         if INSTALLER_IDENTITY else
+                         'no installer package published without a Developer ID Installer identity'),
+    'diskImage': ('BUILT (release pipeline signs and notarizes it)' if dmg else 'not built'),
     'setupPermissions': 'in-app first-run review; App Management shown as granted only after the live bundle-writability probe passes',
     'slices': ['x86_64', 'arm64'],
     'executableSha256': digest,
@@ -181,6 +189,6 @@ summary = {
 report = OUT / f'IconCraft-Mac-{VERSION}-Validation.json'
 report.write_text(json.dumps(summary, indent=2) + '\n')
 checksums = OUT / f'IconCraft-Mac-{VERSION}-SHA256SUMS.txt'
-checksum_files = [f for f in [appzip, sourcezip, report, installerpkg] if f]
+checksum_files = [f for f in [appzip, dmg, sourcezip, report, installerpkg] if f]
 checksums.write_text(''.join(hashlib.sha256(f.read_bytes()).hexdigest() + '  ' + f.name + '\n' for f in checksum_files))
 print(json.dumps({'packages': [str(f) for f in checksum_files], **summary}, indent=2))

@@ -44,7 +44,30 @@ ICONCRAFT_DISTRIBUTION=developer-id \
 ICONCRAFT_INSTALLER_IDENTITY="${INSTALLER_IDENTITY:-}" \
   python3 scripts/package_v05.py
 
+stage "sign + notarize disk image"
+VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
+DMG="build/packages/IconCraft-Mac-$VERSION.dmg"
+if [[ -f "$DMG" ]]; then
+  codesign --force --timestamp --sign "$SIGNING_IDENTITY" "$DMG"
+  codesign --verify --verbose=2 "$DMG"
+  xcrun notarytool submit "$DMG" \
+    --key "$ASC_KEY" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER" --wait
+  xcrun stapler staple "$DMG"
+  xcrun stapler validate "$DMG"
+  spctl --assess --type open --verbose=4 "$DMG"
+  # Signing/notarizing changed the DMG, so refresh the published checksums.
+  (
+    cd build/packages
+    shasum -a 256 \
+      "IconCraft-Mac-$VERSION.zip" \
+      "IconCraft-Mac-$VERSION.dmg" \
+      "IconCraft-Mac-$VERSION-Source.zip" \
+      "IconCraft-Mac-$VERSION-Validation.json" \
+      > "IconCraft-Mac-$VERSION-SHA256SUMS.txt"
+  )
+fi
+
 echo
 echo 'Signed, notarized and packaged into build/packages/.'
 echo 'Publish: tag the release, then replace the CI-built assets with these:'
-echo '  gh release upload <tag> build/packages/* --clobber'
+echo "  gh release upload <tag> build/packages/IconCraft-Mac-$VERSION.zip build/packages/IconCraft-Mac-$VERSION.dmg build/packages/IconCraft-Mac-$VERSION-Source.zip build/packages/IconCraft-Mac-$VERSION-Validation.json build/packages/IconCraft-Mac-$VERSION-SHA256SUMS.txt --clobber"
