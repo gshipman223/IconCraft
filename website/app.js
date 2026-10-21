@@ -27,7 +27,7 @@ document.documentElement.classList.add('js');
       var downloads = 0;
       releases.forEach(function (rel) {
         (rel.assets || []).forEach(function (a) {
-          if (/-Installer\.pkg$|\.zip$/.test(a.name) && !/Source/.test(a.name)) downloads += a.download_count || 0;
+          if (/\.(dmg|zip|pkg)$/.test(a.name) && !/Source/.test(a.name)) downloads += a.download_count || 0;
         });
       });
       if (downloads > 0) {
