@@ -54,7 +54,7 @@ if [[ -f "$DMG" ]]; then
     --key "$ASC_KEY" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER" --wait
   xcrun stapler staple "$DMG"
   xcrun stapler validate "$DMG"
-  spctl --assess --type open --verbose=4 "$DMG"
+  spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG"
   # Signing/notarizing changed the DMG, so refresh the published checksums.
   (
     cd build/packages
