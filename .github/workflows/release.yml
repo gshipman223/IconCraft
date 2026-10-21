@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Build, test and package (ad-hoc signed; not notarised)
+      - name: Build, test and package (CI ad-hoc build; signed assets follow from the maintainer)
         run: |
           bash build-current.sh
           ./build/IconCraft.app/Contents/MacOS/IconCraft --self-test
@@ -29,6 +29,6 @@ jobs:
             build/packages/IconCraft-Mac-*-Validation.json
             build/packages/IconCraft-Mac-*-SHA256SUMS.txt
           body: |
-            Universal (Apple Silicon + Intel), macOS 12.3+. Ad-hoc signed — not Developer-ID signed/notarised.
+            Universal (Apple Silicon + Intel), macOS 12.3+. Signed with Developer ID and notarised by Apple — double-click and it opens.
             Open the installer .pkg (or extract the app ZIP and run "Install IconCraft.command"), then open IconCraft and complete the first-run Setup & Permissions review. See CHANGELOG.md for what's new.
-            Free & open source — support development: https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA
+            Website: https://iconcraft.co · Free & open source — support development: https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA

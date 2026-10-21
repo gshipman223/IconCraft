@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IconCraft — Your Mac. Your icons. Your defaults.</title>
+<meta name="description" content="IconCraft restores the original icons and names that cloned and AI-built apps lost, lets you customise any app's icon and name, and puts your Mac's default apps in one place. Signed, notarised, free and open source for macOS.">
+<link rel="canonical" href="https://iconcraft.co/">
+<link rel="icon" type="image/png" href="/assets/logo.png">
+<link rel="apple-touch-icon" href="/assets/logo.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://iconcraft.co/">
+<meta property="og:title" content="IconCraft — Your Mac. Your icons. Your defaults.">
+<meta property="og:description" content="Restore original app icons & names, customise any app, and set your Mac's default apps in one place. Signed & notarised, free, open source.">
+<meta property="og:image" content="https://iconcraft.co/assets/shot-apps.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="IconCraft — Your Mac. Your icons. Your defaults.">
+<meta name="twitter:description" content="Restore original app icons & names, customise any app, set default apps. Signed & notarised, free, open source.">
+<meta name="twitter:image" content="https://iconcraft.co/assets/shot-apps.jpg">
+<meta name="theme-color" content="#6d5cff">
+<link rel="stylesheet" href="/style.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"IconCraft","operatingSystem":"macOS 12.3 or later","applicationCategory":"UtilitiesApplication","softwareVersion":"0.13.1","license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"downloadUrl":"https://github.com/gshipman223/IconCraft/releases/latest","url":"https://iconcraft.co/","author":{"@type":"Person","name":"Gavin Shipman"}}
+</script>
+</head>
+<body>
+<header class="site-header">
+  <div class="container header-in">
+    <a class="brand" href="#top"><img src="/assets/logo.png" alt="IconCraft logo" width="34" height="34"><span>IconCraft</span></a>
+    <nav aria-label="Sections">
+      <a href="#features">Features</a>
+      <a href="#tour">Tour</a>
+      <a href="#safety">Safety</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/gshipman223/IconCraft" rel="noopener">GitHub</a>
+    </nav>
+    <a class="btn btn-primary btn-sm" data-download href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.1-Installer.pkg">Download</a>
+  </div>
+</header>
+
+<main id="top">
+  <!-- HERO -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-copy reveal">
+        <p class="badge">v0.13.1 · Signed &amp; notarised by Apple</p>
+        <h1>Your Mac. Your icons.<br>Your defaults.</h1>
+        <p class="lede">Cloned and AI-built apps all ship with the same borrowed icons and names, and macOS hides “which app opens this?” across a dozen panels. IconCraft fixes both: it restores genuine original icons and names, lets you customise any app, and gathers your default apps into one place. One window, fully reversible, free and open source.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" data-download href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.1-Installer.pkg">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0 4-4m-4 4L6 8m-3 6v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Download for Mac</a>
+          <a class="btn btn-ghost" href="https://github.com/gshipman223/IconCraft" rel="noopener">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0a8 8 0 0 0-2.5 15.6c.4 0 .5-.2.5-.4v-1.4c-2 .4-2.5-1-2.5-1-.3-.9-.8-1.1-.8-1.1-.7-.5 0-.5 0-.5.8 0 1.2.8 1.2.8.7 1.2 1.8.8 1.8.8.1-.6.3-1 .5-1.2-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.4 7.4 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.5.8 1.2.8 2.1 0 3.1-1.9 3.8-3.7 4 .3.3.6.8.6 1.5v2.2c0 .2.1.4.5.4A8 8 0 0 0 8 0Z"/></svg>
+            <span>Star on GitHub</span><span class="star-count" id="star-count" hidden></span></a>
+        </div>
+        <p class="hero-meta">Universal (Apple Silicon + Intel) · macOS 12.3+ · MIT licence ·
+          <span id="dl-count" hidden></span><span class="dl-fallback">Free forever</span></p>
+      </div>
+      <figure class="hero-shot reveal">
+        <img src="/assets/shot-apps.jpg" alt="IconCraft main window listing every installed app with its current and original icon" width="1400" height="1001" fetchpriority="high">
+      </figure>
+      <ul class="trust-row reveal">
+        <li>No account</li><li>No telemetry</li><li>Nothing leaves your Mac</li><li>Every change reversible</li><li>Open source (MIT)</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- PROBLEM -->
+  <section class="section">
+    <div class="container narrow reveal">
+      <h2>When every new app looks the same</h2>
+      <p>Apps built with today’s AI tools and clone templates often arrive wearing a stock icon and a generic name, so your Dock fills with lookalikes. Meanwhile the genuine originals are still on your Mac — just not attached to the apps that need them. IconCraft hunts those originals down, checks where each one really came from, and puts them back. And if you’d rather give an app a look of your own, that’s two clicks instead.</p>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="section alt" id="features">
+    <div class="container">
+      <h2 class="reveal">Everything in one window</h2>
+      <div class="cards">
+        <article class="card reveal"><h3>Original icons restored</h3><p>The Originals Vault searches your Mac for genuine manufacturer artwork, verifies each icon’s source, and offers it first in the picker — no guessing, no web downloads.</p></article>
+        <article class="card reveal"><h3>Customise any icon</h3><p>Borrow the icon of any installed app or drop in any image file. IconCraft fits and squircle-clips it so it looks native in the Dock and Launchpad — running apps included.</p></article>
+        <article class="card reveal"><h3>Rename apps safely</h3><p>Give apps names you recognise. Every rename is journaled with the original kept, so restoring is exact — per app, or everything at once.</p></article>
+        <article class="card reveal"><h3>Default apps, one place <span class="new">New</span></h3><p>Browser, email, PDF, images, movies, audio, text, source code, HTML, ZIP and calendar files — see what opens each today and switch it in one click, system-wide.</p></article>
+        <article class="card reveal"><h3>The keeper keeps it on</h3><p>A tiny background keeper re-applies your skins if an app update or another tool reverts them — even while IconCraft is closed. Control it from the menu bar.</p></article>
+        <article class="card reveal"><h3>Organise 100+ apps</h3><p>Instant search (⌘K), sort A–Z, Z–A or customised-first, group by status or folder, and replace icons in bulk. Your arrangement is remembered between launches.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOUR -->
+  <section class="section" id="tour">
+    <div class="container">
+      <h2 class="reveal">A quick tour</h2>
+
+      <div class="showcase reveal">
+        <div class="showcase-copy">
+          <h3>Every app. One list. Real icons.</h3>
+          <p>IconCraft lists every installed app with the icon it wears now and the original or custom icon ready to apply. Originals stream in as they’re verified. Got apps outside <code>/Applications</code> — in your home folder, Setapp, another drive? <strong>Add apps folder</strong> brings them in too.</p>
+        </div>
+        <figure><img src="/assets/shot-apps.jpg" alt="App list with current icons on the left and original or custom icons on the right" width="1400" height="1001" loading="lazy"></figure>
+      </div>
+
+      <div class="showcase flip reveal">
+        <div class="showcase-copy">
+          <h3>Pick a look in seconds</h3>
+          <p>The picker leads with the automatically discovered original, then every installed app’s icon as a donor grid — plus any image file you choose. It’s preview-only: nothing opens, nothing changes until you hit <strong>Replace</strong>.</p>
+        </div>
+        <figure><img src="/assets/shot-picker.jpg" alt="Icon picker showing the discovered original and a grid of donor app icons" width="1400" height="1001" loading="lazy"></figure>
+      </div>
+
+      <div class="showcase reveal">
+        <div class="showcase-copy">
+          <h3>Default apps, finally in one place</h3>
+          <p>macOS scatters these choices across Finder Get Info panels and individual app menus. IconCraft gathers eleven of them — web browser, email, PDFs, images, video, audio, text, source code, HTML, ZIP archives and calendar files — with the current default and every candidate. Changes go through the same LaunchServices Finder uses; macOS may show its own confirmation, and IconCraft verifies the result before telling you it worked.</p>
+        </div>
+        <figure><img src="/assets/shot-defaults.jpg" alt="Default apps tab listing categories with their current default app and a switcher" width="1400" height="1001" loading="lazy"></figure>
+      </div>
+
+      <div class="showcase flip reveal">
+        <div class="showcase-copy">
+          <h3>Sort it. Group it. Done.</h3>
+          <p>A–Z for finding, Z–A for the newest, customised-first for reviewing your work. Group by status to see what’s still untouched, or by folder to see where things live. Headers lead every group, counts included — and IconCraft remembers your choice.</p>
+        </div>
+        <figure><img src="/assets/shot-grouped.jpg" alt="App list grouped by status with a header above the group" width="1400" height="1001" loading="lazy"></figure>
+      </div>
+
+      <div class="showcase reveal">
+        <div class="showcase-copy">
+          <h3>Starts how you like</h3>
+          <p>Launch at login, start quietly in the menu bar, show or hide the Dock tile and menu bar icon (it never lets you hide both — there’s always a way back in), gentle notifications when a skin needs attention, and automatic update checks. Maintenance is one click: refresh the icon cache or open your data folder.</p>
+        </div>
+        <figure><img src="/assets/shot-settings.jpg" alt="Settings dialog with startup, visibility and notification options" width="1400" height="1001" loading="lazy"></figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW -->
+  <section class="section alt">
+    <div class="container">
+      <h2 class="reveal">Up and running in a minute</h2>
+      <ol class="steps">
+        <li class="reveal"><span class="step-n">1</span><h3>Download &amp; open</h3><p>Signed and notarised by Apple — double-click, no warnings. Installer package or ZIP, your choice.</p></li>
+        <li class="reveal"><span class="step-n">2</span><h3>Setup &amp; Permissions</h3><p>One honest checklist: what’s ready, what’s optional, and a genuine live test of the one permission that matters (App Management). No pretending a settings page visit proves anything.</p></li>
+        <li class="reveal"><span class="step-n">3</span><h3>Pick, replace, relax</h3><p>Choose icons and defaults, hit Replace. Changed your mind next week? Restore any app — or all of them — exactly as they were.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- SAFETY -->
+  <section class="section" id="safety">
+    <div class="container narrow reveal">
+      <h2>Safe by design</h2>
+      <ul class="ticks">
+        <li><strong>Reversible, always.</strong> Every icon and name change is journaled; Restore is per-app or all-at-once, and your settings survive reinstalls.</li>
+        <li><strong>Honest permissions.</strong> IconCraft needs App Management to change other apps’ bundles, and proves it with the same harmless write check a real change uses. It does <em>not</em> ask for Full Disk Access, Accessibility or Screen Recording.</li>
+        <li><strong>Verified, not promised.</strong> Originals are source-checked before they’re offered; default-app changes are re-read and confirmed before the app reports success.</li>
+        <li><strong>Local only.</strong> Everything runs on your Mac. No account, no telemetry; the optional update check only talks to GitHub.</li>
+        <li><strong>Signed &amp; notarised.</strong> Developer ID signed with a hardened runtime and notarised by Apple, so Gatekeeper opens it without a murmur. Check any time: <code>spctl --assess --type execute /Applications/IconCraft.app</code></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- DOWNLOAD -->
+  <section class="section download" id="download">
+    <div class="container">
+      <h2 class="reveal">Download IconCraft</h2>
+      <p class="download-sub reveal">Free and open source, forever. Version 0.13.1 · Universal · macOS 12.3 or later ·
+        <a href="https://github.com/gshipman223/IconCraft/releases/latest" rel="noopener">release notes</a></p>
+      <div class="dl-cards">
+        <article class="dl-card reveal">
+          <h3>Installer package</h3>
+          <p>The guided route: installs IconCraft into <code>/Applications</code> and explains the first-run Setup &amp; Permissions on the way through.</p>
+          <a class="btn btn-primary" data-download href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.1-Installer.pkg">Download .pkg</a>
+        </article>
+        <article class="dl-card reveal">
+          <h3>App ZIP</h3>
+          <p>The signed, notarised app in a ZIP, with a one-click install script and checksums if you prefer to see exactly what lands where.</p>
+          <a class="btn btn-ghost" data-download href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.1.zip">Download .zip</a>
+        </article>
+      </div>
+      <p class="dl-meta reveal">Verify your download with the published
+        <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.1-SHA256SUMS.txt" rel="noopener">SHA-256 checksums</a>.
+        Prefer source? It’s all on <a href="https://github.com/gshipman223/IconCraft" rel="noopener">GitHub</a> — Go standard library only, builds in one script.</p>
+    </div>
+  </section>
+
+  <!-- SUPPORT -->
+  <section class="section alt">
+    <div class="container narrow center reveal">
+      <h2>Free, and kept free</h2>
+      <p>IconCraft is MIT-licensed open source. If it brought your icons back, a coffee keeps development moving — entirely optional, always appreciated. Stars help other Mac users find it, and thoughtful issue reports make it better.</p>
+      <div class="cta-row center">
+        <a class="btn btn-primary" href="https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA" rel="noopener">♥ Contribute via PayPal</a>
+        <a class="btn btn-ghost" href="https://github.com/gshipman223/IconCraft" rel="noopener">Star on GitHub</a>
+        <a class="btn btn-ghost" href="https://github.com/gshipman223/IconCraft/issues" rel="noopener">Report an issue</a>
+      </div>
+      <p class="dl-count-line" id="dl-count-line" hidden></p>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" id="faq">
+    <div class="container narrow">
+      <h2 class="reveal">Questions</h2>
+      <details class="reveal"><summary>Is IconCraft really free?</summary><p>Yes — free and open source under the MIT licence, no tiers, no ads, no account. If it’s useful, an optional PayPal contribution supports development.</p></details>
+      <details class="reveal"><summary>Will it break my apps?</summary><p>No. Changes are journaled before they’re made and can be restored per app or all at once. Original artwork is verified before it’s offered, and default-app changes are confirmed by re-reading the system state.</p></details>
+      <details class="reveal"><summary>Why does it ask for App Management?</summary><p>Changing another app’s icon or name means writing inside that app’s bundle, which macOS guards with App Management permission. IconCraft tests it genuinely — the same harmless write check a real change performs — and is upfront about what it does and doesn’t need.</p></details>
+      <details class="reveal"><summary>Which Macs does it run on?</summary><p>Any Mac on macOS 12.3 or later. The download is a universal binary for Apple Silicon and Intel.</p></details>
+      <details class="reveal"><summary>Is it signed? Will Gatekeeper complain?</summary><p>Release builds are signed with a Developer ID, hardened, and notarised by Apple, then code-signed all the way down. Double-click and it opens — no “unidentified developer” detour.</p></details>
+      <details class="reveal"><summary>Does IconCraft phone home?</summary><p>No telemetry, no analytics, no account. The only optional network call is the update check against GitHub releases, which you can turn off in Settings.</p></details>
+      <details class="reveal"><summary>An app update reverted my icon. Now what?</summary><p>That’s the keeper’s job: the background agent notices and re-applies your skin, even with IconCraft closed, and can let you know it did. If it ever can’t, it says so rather than failing quietly.</p></details>
+      <details class="reveal"><summary>How do you count downloads?</summary><p>GitHub counts every release-asset download; the counter on this page reads those numbers live from the GitHub API. No tracking pixels here.</p></details>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="container foot-in">
+    <a class="brand" href="#top"><img src="/assets/logo.png" alt="" width="26" height="26"><span>IconCraft</span></a>
+    <p>v0.13.1 · MIT · by Gavin Shipman · Not affiliated with Apple Inc.</p>
+    <div class="foot-links">
+      <a href="https://github.com/gshipman223/IconCraft" rel="noopener">GitHub</a>
+      <a href="https://github.com/gshipman223/IconCraft/releases" rel="noopener">Releases</a>
+      <a href="https://www.paypal.com/ncp/payment/E8YDD8BNAKVJA" rel="noopener">Contribute</a>
+    </div>
+    <a class="dl-badge" href="https://github.com/gshipman223/IconCraft/releases" rel="noopener"><img src="https://img.shields.io/github/downloads/gshipman223/IconCraft/total?label=GitHub%20downloads&color=6d5cff" alt="Total GitHub downloads" height="20" loading="lazy"></a>
+  </div>
+</footer>
+<script src="/app.js" defer></script>
+</body>
+</html>

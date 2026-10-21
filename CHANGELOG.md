@@ -1,8 +1,20 @@
 # Changelog
 
-All notable changes to IconCraft. Versions are ad-hoc signed Universal
-(Apple Silicon + Intel) macOS builds; Developer ID signing/notarisation has
-not been performed.
+All notable changes to IconCraft. Builds are Universal (Apple Silicon +
+Intel) for macOS 12.3+. From 0.13.1, release builds are signed with the
+maintainer's Developer ID and notarised by Apple.
+
+## [0.13.1] — 2026-10-21 · Production release: signed, notarised, new home
+
+- **Signed & notarised**: release builds are now signed with a Developer
+  ID Application certificate (hardened runtime) and notarised by Apple,
+  so downloads open with a double-click — no Gatekeeper warnings.
+- **Group headers fix**: when grouping by status or folder under a name
+  sort, the first group could lose its header (a reused header node was
+  moved by the list renderer). Headers now lead every group under every
+  sort order; regression-tested.
+- **New website**: [iconcraft.co](https://iconcraft.co) — every feature
+  explained with real screenshots, download and support links.
 
 ## [0.13.0] — 2026-10-21 · Default apps tab, list organisation, cleaner design
 

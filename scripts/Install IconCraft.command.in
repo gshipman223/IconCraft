@@ -57,9 +57,13 @@ fi
 STAGE="$(/usr/bin/mktemp -d "$APPDIR/.iconcraft-install.XXXXXX")"
 /usr/bin/ditto "$SOURCE" "$STAGE/IconCraft.app"
 /bin/chmod 755 "$STAGE/IconCraft.app/Contents/MacOS/IconCraft"
-printf '\nPreparing this copy locally. No Developer ID or Apple account is used.\n'
-# Ad-hoc signing is local integrity metadata, not Developer ID signing or notarization.
-/usr/bin/codesign --force --sign - --timestamp=none "$STAGE/IconCraft.app"
+if /usr/bin/codesign -dvv "$STAGE/IconCraft.app" 2>&1 | grep -q 'Authority=Developer ID Application'; then
+    printf '\nThis copy is Developer ID signed and notarised by Apple — installing it exactly as published.\n'
+else
+    printf '\nPreparing this copy locally. No Developer ID or Apple account is used.\n'
+    # Ad-hoc signing is local integrity metadata, not Developer ID signing or notarization.
+    /usr/bin/codesign --force --sign - --timestamp=none "$STAGE/IconCraft.app"
+fi
 /usr/bin/codesign --verify --deep --strict "$STAGE/IconCraft.app"
 printf '\nChecking that this Mac can execute the new binary…\n'
 if ! CHECK_VERSION="$("$STAGE/IconCraft.app/Contents/MacOS/IconCraft" --version 2>&1)"; then
@@ -84,6 +88,5 @@ COMMITTED=1
 printf '\nInstalled: %s\n' "$DEST"
 if [[ -n "$BACKUP" ]]; then printf 'Previous application saved at: %s\n' "$BACKUP"; fi
 printf '\nLaunching IconCraft @VERSION@. On first launch, Finish setup will walk you through permissions; your existing icon backups are preserved.\n'
-printf 'If macOS blocks this locally signed app, open System Settings > Privacy & Security > Open Anyway.\n'
 printf 'This installer does not disable Gatekeeper or remove quarantine attributes.\n'
 /usr/bin/open "$DEST"

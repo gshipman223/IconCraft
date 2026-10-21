@@ -6,7 +6,11 @@ import hashlib, json, os, plistlib, re, shutil, struct, subprocess, zipfile
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / 'build'
 OUT = Path(os.environ.get('ICONCRAFT_OUTPUT_DIR', str(BUILD / 'packages')))
-VERSION = '0.13.0'
+VERSION = '0.13.1'
+# 'developer-id' when scripts/release-macos.sh packaged a signed + notarized
+# build; default stays honest for CI/ad-hoc builds.
+DIST = os.environ.get('ICONCRAFT_DISTRIBUTION', 'ad-hoc')
+INSTALLER_IDENTITY = os.environ.get('ICONCRAFT_INSTALLER_IDENTITY', '')
 OUT.mkdir(parents=True, exist_ok=True)
 assert (BUILD / 'BUILD-COMPLETE').read_text().strip() == 'OK'
 manifest = json.loads((BUILD / 'build-manifest.json').read_text())
@@ -46,6 +50,13 @@ subprocess.run(['bash', '-n', str(p)], check=True)
 (stage / 'APP-SHA256SUMS.txt').write_text(''.join(
     hashlib.sha256(f.read_bytes()).hexdigest() + '  ' + f.relative_to(stage).as_posix() + '\n'
     for f in sorted((stage / 'IconCraft.app').rglob('*')) if f.is_file()))
+signing_note = ('Signed with a Developer ID and notarised by Apple: it opens with a '
+                'double-click, no Gatekeeper warnings. Verify any time with:\n'
+                '  spctl --assess --type execute /Applications/IconCraft.app'
+                if DIST == 'developer-id' else
+                'Developer ID signing and notarization have not been performed. If macOS\n'
+                'blocks the download, use Privacy & Security > Open Anyway for this item.\n'
+                'Do not turn off macOS security globally.')
 (stage / 'READ ME.txt').write_text(f'''IconCraft {VERSION} — personal Mac edition
 Apple Silicon + Intel, macOS 12.3 or later
 
@@ -53,8 +64,9 @@ INSTALL
 Extract the ZIP and run Install IconCraft.command beside IconCraft.app.
 Quit any running IconCraft first. The installer preserves your settings,
 imported icons, original-icon recovery data and rename history. It validates
-checksums, applies a local ad-hoc signature and checks the new executable's
-version on your Mac before replacing the previous application. The .pkg
+checksums and the new executable's version on your Mac before replacing
+the previous application (release builds are installed exactly as signed;
+only unsigned local-test builds are ad-hoc signed on the spot). The .pkg
 installer also explains this finish-setup step before and after installation.
 No Apple developer account, Xcode or Homebrew is required.
 
@@ -66,18 +78,18 @@ pretends that merely opening System Settings proves a permission was granted.
 Full Disk Access, Accessibility and Screen Recording are not requested.
 
 WHAT'S NEW IN {VERSION}
-- First-run Setup & Permissions screen with live status pills, one-click
-  App Management settings, a real permission test, background-keeper status,
-  and a clear list of permissions IconCraft does not need.
-- Menu bar control for the background keeper, which also heals itself if
-  another tool removes its LaunchAgent.
-- Originals Vault, full skins for running-app identity, and journalled,
-  reversible icon and name changes remain built in.
+- Signed with a Developer ID and notarised by Apple (this build).
+- Default apps tab: browser, email, PDF, images, movies, audio, text,
+  source code, HTML, ZIP and calendar defaults in one place.
+- Sort and group the app list (remembered between launches); group
+  headers now lead every group under every sort order.
+- Cleaner, calmer design; "Add apps folder" explained in the toolbar.
+- Settings for launch at login, menu-bar-only start, Dock/menu-bar
+  visibility, notifications and update checks; first-run Setup &
+  Permissions with a genuine App Management test.
 
-Developer ID signing and notarization have not been performed. If macOS
-blocks the download, use Privacy & Security > Open Anyway for this item.
-Do not turn off macOS security globally.
-''')
+@SIGNING_NOTE@
+'''.replace('@SIGNING_NOTE@', signing_note))
 
 def archive(zip_path, source, arc_root, exclude_names=()):
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
@@ -135,6 +147,11 @@ if shutil.which('pkgbuild') and (BUILD / 'IconCraft.app').is_dir():
                         '--install-location', '/Applications', str(installerpkg)], check=True)
 else:
     installerpkg = None
+if installerpkg and INSTALLER_IDENTITY:
+    signed_pkg = BUILD / 'IconCraft-Installer-signed.pkg'
+    subprocess.run(['productsign', '--sign', INSTALLER_IDENTITY,
+                    str(installerpkg), str(signed_pkg)], check=True)
+    shutil.move(str(signed_pkg), str(installerpkg))
 sourcezip = OUT / f'IconCraft-Mac-{VERSION}-Source.zip'
 with zipfile.ZipFile(sourcezip, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
     for f in sorted(ROOT.rglob('*')):
@@ -155,9 +172,11 @@ summary = {
     'setupPermissions': 'in-app first-run review; App Management shown as granted only after the live bundle-writability probe passes',
     'slices': ['x86_64', 'arm64'],
     'executableSha256': digest,
-    'adHocSigned': True,
-    'developerIDSigning': 'NOT PERFORMED',
-    'notarization': 'NOT PERFORMED',
+    'adHocSigned': DIST != 'developer-id',
+    'developerIDSigning': ('PERFORMED (Developer ID Application, hardened runtime, timestamp)'
+                           if DIST == 'developer-id' else 'NOT PERFORMED'),
+    'notarization': 'PERFORMED (ticket stapled to the app)' if DIST == 'developer-id' else 'NOT PERFORMED',
+    'installerPkgSigned': bool(INSTALLER_IDENTITY),
 }
 report = OUT / f'IconCraft-Mac-{VERSION}-Validation.json'
 report.write_text(json.dumps(summary, indent=2) + '\n')

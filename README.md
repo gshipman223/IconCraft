@@ -13,19 +13,28 @@
 
 <p align="center">
   <a href="https://github.com/gshipman223/IconCraft/releases"><img alt="Release" src="https://img.shields.io/github/v/release/gshipman223/IconCraft?display_name=tag&style=flat-square"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-0.13.0-blueviolet?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.13.1-blueviolet?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/macOS-12.3%2B%20%C2%B7%20Apple%20Silicon%20%2B%20Intel-black?style=flat-square&logo=apple">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green?style=flat-square">
+  <a href="https://github.com/gshipman223/IconCraft/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/gshipman223/IconCraft/total?label=downloads&style=flat-square&color=6d5cff"></a>
   <a href="#-support-iconcraft"><img alt="Support via PayPal" src="https://img.shields.io/badge/support-PayPal-00457C?style=flat-square&logo=paypal"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.0-Installer.pkg"><img alt="Download IconCraft for macOS (installer)" src="https://img.shields.io/badge/⬇%20Download%20for%20macOS-Installer%20.pkg-7C3AED?style=for-the-badge"></a>
-  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.0.zip"><img alt="Download IconCraft ZIP" src="https://img.shields.io/badge/ZIP%20archive-4F46E5?style=for-the-badge"></a>
+  <strong>🌐 Website: <a href="https://iconcraft.co">iconcraft.co</a></strong> · Signed with Developer ID &amp; notarised by Apple — double-click and it opens.
 </p>
 
 <p align="center">
-  <img src="docs/app-screenshot.png" width="860" alt="IconCraft main window: every installed app with its original icon, ready to skin, rename, full-skin or restore">
+  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.1-Installer.pkg"><img alt="Download IconCraft for macOS (installer)" src="https://img.shields.io/badge/⬇%20Download%20for%20macOS-Installer%20.pkg-7C3AED?style=for-the-badge"></a>
+  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.1.zip"><img alt="Download IconCraft ZIP" src="https://img.shields.io/badge/ZIP%20archive-4F46E5?style=for-the-badge"></a>
+</p>
+
+<p align="center">
+  <img src="website/assets/shot-apps.jpg" width="860" alt="IconCraft main window: every installed app with its current icon and the original or custom icon ready to apply">
+</p>
+
+<p align="center">
+  <img src="website/assets/shot-defaults.jpg" width="860" alt="The Default apps tab: web browser, email, PDF and more, each with its current default and a switcher">
 </p>
 
 <p align="center">
@@ -84,14 +93,14 @@ No tabs, no accounts, no telemetry, no diagnostics maze. One screen:
 Homebrew or VM needed.**
 
 **Option A — installer package (one click):** download
-[`IconCraft-Mac-0.13.0-Installer.pkg`](https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.0-Installer.pkg)
+[`IconCraft-Mac-0.13.1-Installer.pkg`](https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.1-Installer.pkg)
 and open it; its Welcome screen explains the one finish-setup step, it installs IconCraft to `/Applications`, and its Conclusion screen tells you to open IconCraft and complete Setup & Permissions.
 
-**Option B — ZIP:** download `IconCraft-Mac-0.13.0.zip` from the
+**Option B — ZIP:** download `IconCraft-Mac-0.13.1.zip` from the
 [latest release](https://github.com/gshipman223/IconCraft/releases/latest),
 extract it, and run **Install IconCraft.command** next to `IconCraft.app`.
-The script verifies checksums, preserves your settings/backups, applies
-a local ad-hoc signature, and only swaps in the new app after checking it runs.
+The script verifies checksums, preserves your settings/backups, installs
+the app exactly as signed, and only swaps it in after checking it runs.
 
 Then open IconCraft and complete **Finish setup**:
 
@@ -100,10 +109,13 @@ Then open IconCraft and complete **Finish setup**:
 3. Choose whether the optional background helper stays on.
 4. Choose **Finish setup**. You can reopen this screen at any time from **Setup & permissions** or the menu bar icon — and you should recheck after an IconCraft update, because macOS may treat a newly signed local copy as new.
 
-> The app is ad-hoc signed, not Developer-ID signed/notarised (no paid Apple
-> certificate — this is a free open-source project). If macOS blocks a
-> downloaded copy, use **System Settings → Privacy & Security → Open Anyway**
-> for that item. Don't disable Gatekeeper globally.
+> Release builds are **signed with a Developer ID and notarised by Apple**
+> (hardened runtime, ticket stapled), so downloads open with a double-click.
+> Verify any time with `spctl --assess --type execute /Applications/IconCraft.app`
+> — it should report `accepted, source=Notarized Developer ID`. The installer
+> `.pkg` itself is unsigned (only the app is notarised); if macOS questions
+> the package, use the ZIP instead, or **System Settings → Privacy & Security
+> → Open Anyway** for that item. Don't disable Gatekeeper globally.
 
 ## 🚀 Usage
 
@@ -201,7 +213,7 @@ notarised releases):
 </p>
 
 The same contribution bar lives at the bottom of the app window.
-`v0.13.0 · by Gavin Shipman · MIT`
+`v0.13.1 · by Gavin Shipman · MIT`
 
 ## 📄 License
 

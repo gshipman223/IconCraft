@@ -1,0 +1,9 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Content-Security-Policy: default-src 'self'; img-src 'self' https://img.shields.io; script-src 'self'; style-src 'self'; connect-src https://api.github.com; frame-ancestors 'none'; base-uri 'self'
+
+/assets/*
+  Cache-Control: public, max-age=604800
