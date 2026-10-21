@@ -164,6 +164,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	switch p {
 	case "api/session":
+		// Heal vault entries saved before original icons were captured, so
+		// the "Originally …" row can always show the real underlying icon.
+		s.Engine.BackfillVaultIcons(ctx)
 		sess := s.Engine.Session()
 		sess["keepAlive"] = false
 		if p, ok := s.Engine.Native.(interface{ KeepAgentEnabled() bool }); ok {

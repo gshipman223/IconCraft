@@ -1,8 +1,12 @@
 package core
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
+	"image"
 	"image/color"
+	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
@@ -36,6 +40,119 @@ func TestVaultCapturesOriginalBeforeFirstApply(t *testing.T) {
 	}
 	if got := e.SavedOriginals()[a.BundleID]; got.IconAssetID != v.IconAssetID || got.AppName != v.AppName {
 		t.Fatalf("vault overwritten by later skin: %+v", got)
+	}
+}
+
+// TestVaultBackfillIconFromRebrandJournal reproduces the reported bug: an
+// app first full-skinned before the vault saved icons has a vault entry
+// with a name but no icon, so the "Originally …" row showed a placeholder.
+// The original icon must be recovered from the full-skin journal's backup.
+func TestVaultBackfillIconFromRebrandJournal(t *testing.T) {
+	e, _, a, asset := fixture(t)
+	if _, err := e.Rebrand(context.Background(), a.ID, asset.ID, "Adobe Photoshop"); err != nil {
+		t.Fatal(err)
+	}
+	// The fixture app has no bundle icon file until the rebrand creates
+	// one, so build the journal by hand: a pristine .icns in Contents, then
+	// a rebrand — its journal now holds the true original icon.
+	p := filepath.Join(a.Path, "Contents/Resources/AppIcon.icns")
+	origPNG := pngBytes(color.RGBA{7, 77, 177, 255})
+	icns := []byte("icns")
+	var sz [4]byte
+	binary.BigEndian.PutUint32(sz[:], uint32(8+8+len(origPNG)))
+	icns = append(icns, sz[:]...)
+	icns = append(icns, []byte("ic09")...)
+	binary.BigEndian.PutUint32(sz[:], uint32(8+len(origPNG)))
+	icns = append(icns, sz[:]...)
+	icns = append(icns, origPNG...)
+	if err := os.WriteFile(p, icns, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.Rebrand(context.Background(), a.ID, asset.ID, "Adobe Photoshop"); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate the pre-vault state: entry exists, icon never saved.
+	e.mu.Lock()
+	v := e.State.Vault[a.BundleID]
+	v.IconAssetID = ""
+	e.State.Vault[a.BundleID] = v
+	e.mu.Unlock()
+	e.BackfillVaultIcons(context.Background())
+	got := e.SavedOriginals()[a.BundleID]
+	if got.IconAssetID == "" {
+		t.Fatal("backfill did not recover the original icon")
+	}
+	ap, err := e.AssetPath(got.IconAssetID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(ap)
+	if err != nil || !bytes.Equal(b, origPNG) {
+		t.Fatalf("recovered icon is not the original artwork: %v", err)
+	}
+}
+
+// TestVaultBackfillNeverStealsSkin: an app still wearing a skin, with no
+// journal icon, must NOT have its current (skin) icon saved as "original".
+func TestVaultBackfillNeverStealsSkin(t *testing.T) {
+	e, _, a, asset := fixture(t)
+	if _, err := e.Apply(context.Background(), a.ID, asset.ID); err != nil {
+		t.Fatal(err)
+	}
+	e.mu.Lock()
+	v := e.State.Vault[a.BundleID]
+	v.IconAssetID = ""
+	e.State.Vault[a.BundleID] = v
+	e.mu.Unlock()
+	// The live Finder-icon record blocks the export fallback: the app's
+	// current on-disk appearance is the skin, never the original.
+	e.BackfillVaultIcons(context.Background())
+	if got := e.SavedOriginals()[a.BundleID]; got.IconAssetID != "" {
+		t.Fatalf("backfill captured the skin as the original: %+v", got)
+	}
+}
+
+func TestICNSToPNGExtractsLargest(t *testing.T) {
+	small := pngBytes(color.RGBA{1, 1, 1, 255})
+	// A gradient so the "big" payload is genuinely larger than the solid one.
+	im := image.NewRGBA(image.Rect(0, 0, 64, 64))
+	for y := 0; y < 64; y++ {
+		for x := 0; x < 64; x++ {
+			im.SetRGBA(x, y, color.RGBA{uint8(x * 4), uint8(y * 4), 128, 255})
+		}
+	}
+	var bigBuf bytes.Buffer
+	if err := png.Encode(&bigBuf, im); err != nil {
+		t.Fatal(err)
+	}
+	big := bigBuf.Bytes()
+	mk := func(els ...[]byte) []byte {
+		out := []byte("icns")
+		total := 8
+		for _, el := range els {
+			total += 8 + len(el)
+		}
+		var sz [4]byte
+		binary.BigEndian.PutUint32(sz[:], uint32(total))
+		out = append(out, sz[:]...)
+		for i, el := range els {
+			out = append(out, []byte("ic0x")...)
+			out[len(out)-1] = byte('0' + i)
+			binary.BigEndian.PutUint32(sz[:], uint32(8+len(el)))
+			out = append(out, sz[:]...)
+			out = append(out, el...)
+		}
+		return out
+	}
+	got, ok := icnsToPNG(mk([]byte("not-a-png"), small, big))
+	if !ok || !bytes.Equal(got, big) {
+		t.Fatalf("icnsToPNG picked the wrong payload: ok=%v", ok)
+	}
+	if _, ok = icnsToPNG([]byte("icns")); ok {
+		t.Fatal("empty icns must not parse")
+	}
+	if _, ok := asPNG(small); !ok {
+		t.Fatal("plain PNG must pass through asPNG")
 	}
 }
 

@@ -6,7 +6,7 @@ import hashlib, json, os, plistlib, re, shutil, struct, subprocess, zipfile
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / 'build'
 OUT = Path(os.environ.get('ICONCRAFT_OUTPUT_DIR', str(BUILD / 'packages')))
-VERSION = '0.13.1'
+VERSION = '0.13.2'
 # 'developer-id' when scripts/release-macos.sh packaged a signed + notarized
 # build; default stays honest for CI/ad-hoc builds.
 DIST = os.environ.get('ICONCRAFT_DISTRIBUTION', 'ad-hoc')

@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"html"
@@ -90,18 +91,165 @@ func (e *Engine) captureOriginalLocked(ctx context.Context, a App) {
 	}
 	e.State.Vault[a.BundleID] = entry
 	if pristine {
-		// Save the original icon itself, checksummed as an asset. Only done
-		// while the app is untouched — afterwards the exported icon could
-		// already be a skin, and the journals (Record.Before / rebrand
-		// backups) are the source of truth instead.
-		if b, err := e.Native.ExportIcon(ctx, a.Path, true); err == nil && ValidatePNG(b) == nil {
-			if asset, err := e.importPNGBytesLocked("Original icon — "+a.Name, "Saved to the Originals Vault before IconCraft changed "+a.BundleID, b); err == nil {
+		e.savePristineIconLocked(ctx, a)
+	}
+	_ = e.save()
+}
+
+// savePristineIconLocked exports the untouched app's icon into the vault as
+// a checksummed asset. Caller holds e.mu; the entry must already exist in
+// State.Vault. Only valid while the app is untouched — afterwards the
+// exported icon could already be a skin, and the journals (Record.Before /
+// rebrand backups) are the source of truth instead.
+func (e *Engine) savePristineIconLocked(ctx context.Context, a App) {
+	entry, ok := e.State.Vault[a.BundleID]
+	if !ok || entry.IconAssetID != "" {
+		return
+	}
+	if b, err := e.Native.ExportIcon(ctx, a.Path, true); err == nil && ValidatePNG(b) == nil {
+		if asset, err := e.importPNGBytesLocked("Original icon — "+entry.AppName, "Saved to the Originals Vault before IconCraft changed "+a.BundleID, b); err == nil {
+			entry.IconAssetID = asset.ID
+			e.State.Vault[a.BundleID] = entry
+		}
+	}
+}
+
+// BackfillVaultIcons fills in missing vault original icons from the change
+// journals: apps first skinned before the vault existed have no pristine
+// export, but the Finder-icon journal keeps a PNG of the pre-change state
+// and the full-skin journal keeps the original icon file. Backfilled
+// entries are persisted so the UI can always show the real original icon.
+func (e *Engine) BackfillVaultIcons(ctx context.Context) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	changed := false
+	for bundle, entry := range e.State.Vault {
+		if entry.IconAssetID != "" {
+			continue
+		}
+		if png, ok := e.originalIconFromJournalsLocked(bundle); ok && ValidatePNG(png) == nil {
+			if asset, err := e.importPNGBytesLocked("Original icon — "+entry.AppName, "Recovered from IconCraft's change journal for "+bundle, png); err == nil {
 				entry.IconAssetID = asset.ID
-				e.State.Vault[a.BundleID] = entry
+				e.State.Vault[bundle] = entry
+				changed = true
+			}
+			continue
+		}
+		// No journal source: if the app itself is untouched again (every
+		// change undone), its current icon IS the original.
+		live := false
+		for _, r := range e.State.Records {
+			if r.App.BundleID == bundle && isLive(r.Status) {
+				live = true
+				break
+			}
+		}
+		if !live {
+			for _, r := range e.State.Rebrands {
+				if r.BundleID == bundle && r.Status == "applied" {
+					live = true
+					break
+				}
+			}
+		}
+		if live {
+			continue
+		}
+		for _, nr := range e.State.Renames {
+			if nr.BundleID == bundle && (nr.Status == "applied" || nr.Status == "prepared") {
+				live = true
+				break
+			}
+		}
+		if live {
+			continue
+		}
+		// Inline app lookup: appByBundle takes e.mu, which we already hold.
+		for _, a := range e.Apps {
+			if a.BundleID != bundle {
+				continue
+			}
+			e.savePristineIconLocked(ctx, a)
+			if e.State.Vault[bundle].IconAssetID != "" {
+				changed = true
+			}
+			break
+		}
+	}
+	if changed {
+		_ = e.save()
+	}
+}
+
+// originalIconFromJournalsLocked recovers the pre-change icon for a bundle
+// from the change journals: the earliest Finder-icon record's Before
+// snapshot, or the earliest full-skin backup's saved icon file. Caller
+// holds e.mu. Returns PNG bytes.
+func (e *Engine) originalIconFromJournalsLocked(bundle string) ([]byte, bool) {
+	var earliestRec *Record
+	for i := range e.State.Records {
+		r := &e.State.Records[i]
+		if r.App.BundleID != bundle || len(r.Before.Data) == 0 {
+			continue
+		}
+		if earliestRec == nil || r.Created < earliestRec.Created {
+			earliestRec = r
+		}
+	}
+	if earliestRec != nil {
+		if pngB, ok := asPNG(earliestRec.Before.Data); ok {
+			return pngB, true
+		}
+	}
+	var firstRebrand *RebrandRecord
+	for i := range e.State.Rebrands {
+		r := &e.State.Rebrands[i]
+		if r.BundleID != bundle || !r.IconExisted {
+			continue
+		}
+		if firstRebrand == nil || r.Created < firstRebrand.Created {
+			firstRebrand = r
+		}
+	}
+	if firstRebrand != nil {
+		if b, err := ReadLimited(filepath.Join(e.rebrandDir(firstRebrand.ID), "icon.icns"), MaxIconBytes); err == nil {
+			if firstRebrand.BeforeIconHash == "" || hash(b) == firstRebrand.BeforeIconHash {
+				if pngB, ok := asPNG(b); ok {
+					return pngB, true
+				}
 			}
 		}
 	}
-	_ = e.save()
+	return nil, false
+}
+
+// asPNG returns b when it is already a valid PNG, else extracts the largest
+// embedded PNG from an ICNS container.
+func asPNG(b []byte) ([]byte, bool) {
+	if ValidatePNG(b) == nil {
+		return b, true
+	}
+	return icnsToPNG(b)
+}
+
+// icnsToPNG extracts the largest embedded PNG payload from an ICNS
+// container (modern icon elements are PNG data). ok=false when none parse.
+func icnsToPNG(b []byte) ([]byte, bool) {
+	if len(b) < 8 || string(b[:4]) != "icns" {
+		return nil, false
+	}
+	var best []byte
+	for off := 8; off+8 <= len(b); {
+		size := int(binary.BigEndian.Uint32(b[off+4 : off+8]))
+		if size < 8 || off+size > len(b) {
+			break
+		}
+		if payload := b[off+8 : off+size]; ValidatePNG(payload) == nil && len(payload) > len(best) {
+			best = payload
+		}
+		off += size
+	}
+	return best, best != nil
 }
 
 // SavedOriginals returns a copy of the vault (bundle ID → saved original).
