@@ -5,10 +5,12 @@
 <h1 align="center">IconCraft</h1>
 
 <p align="center">
-  <strong>Every app. Its real icon. Its real name — or any name and icon you want.</strong><br>
-  A system-wide app icon &amp; name customiser for macOS. Restore genuine original
-  icons and names to cloned / vibe-coded alternative apps, or give any native app
-  a whole new look — safely, reversibly, in one window.
+  <strong>You switched apps. Keep the faces you know.</strong><br>
+  Cancelled the expensive subscription and moved to an AI-built, vibe-coded or
+  indie alternative? Keep the name and icon you already know — or give any app,
+  Apple’s included, a name and icon entirely your own. The app underneath
+  doesn’t change at all; it just looks and feels like home. Safely,
+  reversibly, in one window.
 </p>
 
 <p align="center">
@@ -45,25 +47,32 @@
 
 ## What is IconCraft?
 
-You know the situation: you (or your AI coding tool of choice) cloned or
-vibe-coded an alternative to a well-known app — a Photoshop-style editor, a
-CAD tool, a design app — and it sits in Finder and the Dock with a generic,
-placeholder, or just plain *wrong* icon and a forgettable name.
+You did the maths, cancelled the big subscription, and replaced it with
+something AI-built, vibe-coded or indie — a Photoshop-style editor, a CAD
+tool, a design app. Great move. Except now it sits in your Dock with a
+generic icon and a name you never chose, and your muscle memory keeps
+missing it.
 
-**IconCraft fixes that, system-wide, from one window:**
+**IconCraft puts the familiar face back, system-wide, from one window:**
 
-- 🔍 **Finds the genuine original icon** for cloned/alternative apps from
-  verified publisher sources (see [how the search works](#-how-the-original-icon-search-works)) and lets you apply it in one click.
-- 🎨 **Customises any native app** — give *any* installed app any other app's
-  icon, your own PNG/ICNS artwork, and a new Finder name.
-- ↩️ **Restores everything** — one click per app (or Restore all) returns the
-  exact original icon *and* name. Every change is journalled and
-  backup-verified before anything is touched.
-- 🖥️ **Every installed app is listed with its real icon** — all 100+ of them,
-  searchable (⌘K), with bulk select / Replace selected.
+- 🎭 **Keep the face you know** — your replacement app, wearing the original
+  app’s genuine name and icon (found from verified sources — see
+  [how the search works](#-how-the-original-icon-search-works)). PdfCraft
+  becomes Adobe Acrobat again; the list always shows the original app
+  underneath, so nothing is pretending to be something it isn’t.
+- 🎨 **…or make it entirely yours** — give *any* app, Apple’s included, any
+  other app’s icon, your own PNG/ICNS artwork, and a new name.
+- 🧩 **The app underneath never changes** — same code, same files, same
+  behaviour. IconCraft only changes how it looks and what it’s called.
+- ↩️ **Change your mind any time** — every change is backed up before it’s
+  made; one click per app (or Restore all) puts the exact original back.
+- 🖥️ **Every app, one list** — all 100+ installed apps with their real
+  icons, searchable (⌘K), with bulk select / Replace selected.
+- 🗂️ **What opens what, in one place** — which app opens your links, PDFs,
+  photos and files, in a single list instead of a dozen buried panels.
 
-No tabs, no accounts, no telemetry, no diagnostics maze. One screen:
-**your apps → their original (or your chosen) look.**
+No accounts, no telemetry, no diagnostics maze. One screen:
+**your apps → the look you know (or the look you choose).**
 
 ## ✨ Features
 
@@ -75,7 +84,7 @@ No tabs, no accounts, no telemetry, no diagnostics maze. One screen:
 | **Safe by design** | Original metadata is backed up *before* mutation, bundle identity + code signature verified, rollback on any failure, restore refuses to overwrite apps changed behind its back. |
 | **Menu bar control** | IconCraft's menu bar icon toggles the background keeper, opens Setup & Permissions, jumps to App Management settings, and opens the app — while skins themselves live on disk and need no process at all. If anything removes the keeper agent, IconCraft restores it. |
 | **Basic settings** | Launch at login, start-in-menu-bar-only, Dock icon and menu bar icon visibility (live, with a guarantee at least one way back in always stays on), optional notifications for keeper repairs and skins needing attention, a GitHub update check (it never self-updates), and maintenance actions (icon-cache refresh, data folder, re-run setup). |
-| **Default apps tab** | macOS scatters "which app opens this?" across Finder Get Info panels and app menus. The Default apps tab gathers web browser, email, PDFs, images, video, audio, text, source code, HTML, ZIP archives and calendar files in one list — see the current default and switch it instantly via LaunchServices, the same service Finder uses. |
+| **Default apps tab** | "Which app opens this?" — answered in one list instead of a dozen buried panels. See today's default for links, email, PDFs, images, video, audio, text, code, HTML, ZIPs and calendars, switch it in one click, and it applies everywhere (via LaunchServices, the same service Finder uses). |
 | **Your list, your order** | Sort the app list A–Z, Z–A or customised-first, and group by status (customised / original ready / none found) or by folder. Your choice is remembered between launches. |
 | **Setup & Permissions** | The installer explains the finish-setup step, then first launch shows live Ready / Granted — tested / Blocked / Not checked statuses. App Management is proven with the same harmless bundle-writability test used before a real change — never by pretending that opening Settings is a grant. Full Disk Access, Accessibility and Screen Recording are explicitly not requested. |
 | **Native icon scale** | Full-bleed publisher/App Store artwork is placed on the standard macOS icon grid (an 824px body centred in the 1024px canvas) when a Finder or full skin is applied, so skinned apps sit at the same visual size as native icons in Finder, the Dock and Launchpad. Artwork that already has proper macOS padding is never shrunk twice, and existing skins are refitted in place by the keeper. |

@@ -92,6 +92,19 @@ test('default apps tab, organise controls and relocated Add folder are wired', (
   assert.match(css, /\.tab\[aria-selected=true\]/);
 });
 
+test('renamed or full-skinned rows show the original underlying app', () => {
+  const js = ui('app.js');
+  const css = ui('style.css');
+  // A dedicated line under the installed app, fed by the saved original.
+  assert.match(js, /orig-line/);
+  assert.match(js, /'Originally '\+origName/);
+  assert.match(js, /model\.vault\[a\.bundleId\]/);
+  assert.match(js, /saved\?\.iconAssetId/);
+  // Only when the worn identity actually differs from the original.
+  assert.match(js, /origName!==a\.name&&\(a\.renamed\|\|model\.rebrands\[a\.bundleId\]\)/);
+  assert.match(css, /\.orig-line/);
+});
+
 test('group headers lead every group under any sort order', () => {
   const js = ui('app.js');
   // A single reused header node per group is moved by append() whenever the

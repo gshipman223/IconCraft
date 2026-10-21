@@ -49,18 +49,24 @@ function makeRow(a){
  const root=node('div','app-row');root.dataset.app=a.id;
  const check=node('input');check.type='checkbox';check.addEventListener('change',()=>{selectFuture=false;if(check.checked)selected.add(a.id);else selected.delete(a.id);render();});
  const current=imageView(),target=imageView();
- const left=node('div','app-cell'),copy=node('div','app-copy'),name=node('div','app-name'),sub=node('div','subtitle');copy.append(name,sub);left.append(current.wrap,copy);
+ const left=node('div','app-cell'),copy=node('div','app-copy'),name=node('div','app-name'),sub=node('div','subtitle');const orig=imageView(true),origLine=node('div','orig-line'),origText=node('span','orig-text');origLine.append(orig.wrap,origText);origLine.hidden=true;copy.append(name,sub,origLine);left.append(current.wrap,copy);
  const arr=svg('arrow');arr.classList.add('arrow');
  const right=node('div','app-cell'),targetButton=button('Choose icon','icon-button',()=>openPicker(currentApp()));targetButton.replaceChildren(target.wrap);
  const detail=node('div','app-copy'),title=node('div','replacement-name'),note=node('div','row-note');detail.append(title,note);right.append(targetButton,detail);
  const actions=node('div','row-actions');const custom=button('Choose custom icon','icon-action',()=>openPicker(currentApp()),'grid');const rename=button('Rename app','icon-action',()=>openRename(currentApp()),'edit');const restore=button('Restore this app','icon-action',()=>restoreOne(currentApp()),'restore');const set=button('Replace','set',()=>applyApps([currentApp()]));
  actions.append(custom,rename,restore,set);const error=node('div','row-error');error.hidden=true;root.append(check,left,arr,right,actions,error);
- return {root,check,current,target,name,sub,title,note,targetButton,custom,rename,restore,set,error};
+ return {root,check,current,target,name,sub,orig,origLine,origText,title,note,targetButton,custom,rename,restore,set,error};
 }
 function updateRow(a,v){
  const st=rs(a),id=chosen(a),custom=!!model.choices[a.bundleId],orig=model.originals[a.craftId];
  v.root.classList.toggle('selected',selected.has(a.id));v.check.checked=selected.has(a.id);v.check.disabled=busy||!ready(a);v.check.setAttribute('aria-label','Select '+a.name);
  v.name.textContent=a.name;v.name.title=a.path;v.sub.textContent=(active(a)?(a.renamed?'Renamed'+(model.records.some(r=>r.appId===a.id&&live(r))?' · Icon changed':''):'Icon changed'):(a.version?'v'+a.version:'Installed'))+(model.rebrands[a.bundleId]?' · Full skin'+(model.rebrandRuntime[a.bundleId]==='own'?' (app controls its running icon)':''):'')+(model.vault[a.bundleId]?' · Original saved':'');v.sub.classList.toggle('changed',active(a));
+ /* Once an app wears a new identity, the installed column alone no longer
+    says what the app really is — surface the saved underlying original. */
+ const saved=model.vault[a.bundleId],origName=saved?.appName||model.renames.find(r=>r.bundleId===a.bundleId)?.oldName||'';
+ const showOrig=!!(origName&&origName!==a.name&&(a.renamed||model.rebrands[a.bundleId]));
+ v.origLine.hidden=!showOrig;
+ if(showOrig){v.origText.textContent='Originally '+origName;v.origText.title='The original app underneath: '+origName;setImage(v.orig,saved?.iconAssetId?assetIcon(saved.iconAssetId):'',origName+' original icon');}
  setImage(v.current,appIcon(a),a.name+' current icon');
  /* With no mapped/custom target yet, preview the app's own icon dimmed so
     every row shows real artwork instead of an empty placeholder. */
