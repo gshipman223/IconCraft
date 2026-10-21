@@ -80,6 +80,34 @@ h1{font-size:clamp(46px,7vw,80px);line-height:1.04;letter-spacing:-.03em;font-we
   background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .dark-stats dd{margin:8px 0 0;color:var(--dark-muted);font-size:14.5px}
 
+/* Quick hooks under the hero */
+.hook-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding-top:34px;padding-bottom:34px;text-align:center}
+.hook-strip p{margin:0;color:var(--muted);font-size:15.5px}
+.hook-strip strong{color:var(--text)}
+
+/* Without / with contrast */
+.panel-dark .panel-sub.strong{color:var(--dark-text)}
+.versus{display:grid;grid-template-columns:1fr 1fr;gap:16px;text-align:left;margin-top:52px}
+.versus-card{border:1px solid rgba(245,247,255,.14);border-radius:20px;padding:34px}
+.versus-after{border-color:rgba(245,247,255,.4);background:rgba(245,247,255,.04)}
+.versus-label{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--dark-muted);margin:0 0 18px}
+.versus-after .versus-label{color:#3ddcb8}
+.versus-card ul{list-style:none;margin:0;padding:0}
+.versus-card li{padding:11px 0 11px 28px;position:relative;color:var(--dark-muted);font-size:16px;border-top:1px solid rgba(245,247,255,.08)}
+.versus-card li:first-child{border-top:none}
+.versus-before li::before{content:"✕";position:absolute;left:2px;color:#ff8ca3;font-weight:700}
+.versus-after li{color:var(--dark-text)}
+.versus-after li::before{content:"✓";position:absolute;left:2px;color:#3ddcb8;font-weight:700}
+
+/* Sticky download bar */
+.sticky-cta{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:30;
+  display:flex;align-items:center;gap:18px;padding:10px 12px 10px 24px;border-radius:999px;
+  background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  box-shadow:0 14px 40px rgba(12,20,36,.22),inset 0 0 0 1px var(--line);white-space:nowrap}
+.sticky-cta p{margin:0;font-size:14.5px;font-weight:600;letter-spacing:-.01em}
+.sticky-cta .btn-sm{margin:0}
+body{padding-bottom:84px}
+
 /* Scenarios — "that's me" cards */
 .panel-tight{padding-top:90px;padding-bottom:90px}
 .scenarios{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;text-align:left;margin-top:48px}
@@ -159,6 +187,9 @@ html.js .reveal.visible{opacity:1;transform:none}
   .btn{transition:none}
 }
 @media (max-width:900px){
+  .hook-strip,.versus{grid-template-columns:1fr}
+  .sticky-cta p{display:none}
+  .sticky-cta{padding:10px}
   .scenarios,.feat-list{grid-template-columns:1fr}
   .tour-row{grid-template-columns:1fr;gap:22px}
   .tour-row.flip figure{order:0}
