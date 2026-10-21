@@ -129,12 +129,12 @@ details p{margin:10px 0 2px;font-size:15px}
 .foot-links a:hover{color:var(--text)}
 .dl-badge img{display:block}
 
-/* Reveal */
-.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
-.reveal.visible{opacity:1;transform:none}
+/* Reveal (hidden state only when JS is running, so no-JS never blanks) */
+html.js .reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
+html.js .reveal.visible{opacity:1;transform:none}
 @media (prefers-reduced-motion: reduce){
   html{scroll-behavior:auto}
-  .reveal{opacity:1;transform:none;transition:none}
+  html.js .reveal{opacity:1;transform:none;transition:none}
   .btn{transition:none}
 }
 

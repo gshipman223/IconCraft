@@ -1,6 +1,7 @@
 'use strict';
 /* IconCraft site: live GitHub download/star counts (GitHub counts every
    release-asset download — no tracking of our own) + gentle reveals. */
+document.documentElement.classList.add('js');
 (function () {
   var reveal = function () {
     var els = document.querySelectorAll('.reveal');
