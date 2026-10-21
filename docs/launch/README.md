@@ -29,10 +29,11 @@ showing something they made.
 | 3 | `show-hn.md` | Hacker News — Show HN | Biggest and bluntest audience. By now the obvious questions (reversibility, app updates, what happens under the hood, written in Go) will have come up once already, so the answers are ready. Submit once, don't re-post if it doesn't land, never ask for upvotes. |
 | 4 | `product-hunt.md` | Product Hunt | Most "launch-shaped" venue, so it benefits most from a site, screenshots and copy already tested by the earlier rounds. Needs a free day to reply to comments, so schedule it deliberately rather than squeezing it in. |
 
-Not a post: `iconcraft.rb` is a Homebrew cask **draft only**. It is not submitted to
-homebrew-cask and shouldn't be until that's a separate, deliberate decision (their
-contribution and notability rules need checking at the time, and the versioned
-release URL should be confirmed — see the comment at the top of the file).
+Not a post: `iconcraft.rb` was a Homebrew cask draft — submitted 2026-10-21 as
+[homebrew-cask PR #295884](https://github.com/Homebrew/homebrew-cask/pull/295884)
+(branch `iconcraft-cask` on the gshipman223 fork), using the versioned release URL.
+Also submitted 2026-10-21: [awesome-mac PR #3713](https://github.com/jaywcjlove/awesome-mac/pull/3713)
+("Add IconCraft", branch `add-iconcraft` on the gshipman223 fork). Both await review.
 
 ## Shared rules for all of it
 
