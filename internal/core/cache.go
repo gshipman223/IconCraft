@@ -58,6 +58,37 @@ func (e *Engine) saveInventoryLocked() error {
 	}
 	return AtomicWrite(filepath.Join(e.Dir, "inventory.json"), b, 0600)
 }
+func (e *Engine) Organize() OrganizePrefs {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	o := e.State.Organize
+	if o.Sort == "" {
+		o.Sort = "name-asc"
+	}
+	if o.Group == "" {
+		o.Group = "none"
+	}
+	return o
+}
+
+func (e *Engine) SetOrganize(sort, group string) error {
+	if sort != "name-asc" && sort != "name-desc" && sort != "status" {
+		return fmt.Errorf("invalid sort order")
+	}
+	if group != "none" && group != "status" && group != "location" {
+		return fmt.Errorf("invalid grouping")
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	old := e.State.Organize
+	e.State.Organize = OrganizePrefs{Sort: sort, Group: group}
+	if err := e.save(); err != nil {
+		e.State.Organize = old
+		return err
+	}
+	return nil
+}
+
 func (e *Engine) SetTheme(theme string) error {
 	if theme != "system" && theme != "light" && theme != "dark" {
 		return fmt.Errorf("invalid appearance")
@@ -124,7 +155,14 @@ func (e *Engine) Session() map[string]any {
 	if theme == "" {
 		theme = "system"
 	}
-	return map[string]any{"version": Version, "supportUrl": SupportURL, "repositoryUrl": RepositoryURL, "apps": apps, "assets": assets, "originals": originals, "choices": choices, "records": records, "renames": renames, "rebrands": rebrands, "rebrandRuntime": rebrandRuntime, "vault": vault, "theme": theme, "setupRequired": e.State.SetupVersion < SetupVersion, "setupVersion": e.State.SetupVersion}
+	org := e.State.Organize
+	if org.Sort == "" {
+		org.Sort = "name-asc"
+	}
+	if org.Group == "" {
+		org.Group = "none"
+	}
+	return map[string]any{"version": Version, "supportUrl": SupportURL, "repositoryUrl": RepositoryURL, "apps": apps, "assets": assets, "originals": originals, "choices": choices, "records": records, "renames": renames, "rebrands": rebrands, "rebrandRuntime": rebrandRuntime, "vault": vault, "theme": theme, "organize": org, "setupRequired": e.State.SetupVersion < SetupVersion, "setupVersion": e.State.SetupVersion}
 }
 
 // Extended-attribute writes may change ctime without changing mtime on macOS.

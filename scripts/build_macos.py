@@ -4,7 +4,7 @@ from pathlib import Path
 import hashlib, json, os, plistlib, shutil, struct, subprocess, zipfile
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'build'
-VERSION='0.12.0'
+VERSION='0.13.0'
 
 def run(args,**kw):subprocess.run(args,cwd=ROOT,check=True,**kw)
 def build():
@@ -45,7 +45,23 @@ def build():
         exe.write_bytes(fat);exe.chmod(0o755)
         for entry,piece in zip(entries,pieces):assert bytes(fat[entry[2]:entry[2]+entry[3]])==piece[2]
         fat=bytes(fat)
-    metadata={'CFBundleName':'IconCraft','CFBundleDisplayName':'IconCraft','CFBundleIdentifier':'io.iconcraft.mac','CFBundleExecutable':'IconCraft','CFBundleIconFile':'icon.icns','CFBundlePackageType':'APPL','CFBundleShortVersionString':VERSION,'CFBundleVersion':'19','LSMinimumSystemVersion':'12.3','CFBundleSupportedPlatforms':['MacOSX'],'NSHighResolutionCapable':True,'LSUIElement':True,'NSAppTransportSecurity':{'NSAllowsLocalNetworking':True},'NSHumanReadableCopyright':'Copyright © 2026 Gavin Shipman and IconCraft contributors. MIT license.'}
+    # Bundled helper that changes default apps through NSWorkspace. It must
+    # live inside the bundle: LaunchServices refuses those writes from
+    # unbundled processes (the JXA bridge gets -54 / silent no-ops).
+    helper_built=False
+    if shutil.which('clang') and shutil.which('lipo'):
+        parts=[]
+        for arch in ['arm64','x86_64']:
+            part=OUT/('iconcraft-defaults-'+arch)
+            run(['clang','-fobjc-arc','-mmacosx-version-min=12.3','-arch',arch,'-framework','Foundation','-framework','AppKit','-framework','UniformTypeIdentifiers','-framework','CoreServices',str(ROOT/'scripts/defaults-helper.m'),'-o',str(part)])
+            parts.append(str(part))
+        helper=contents/'MacOS/iconcraft-defaults'
+        run(['lipo','-create',*parts,'-output',str(helper)])
+        helper.chmod(0o755)
+        if signed:
+            run(['codesign','--force','--sign','-','--timestamp=none',str(helper)])
+        helper_built=True
+    metadata={'CFBundleName':'IconCraft','CFBundleDisplayName':'IconCraft','CFBundleIdentifier':'io.iconcraft.mac','CFBundleExecutable':'IconCraft','CFBundleIconFile':'icon.icns','CFBundlePackageType':'APPL','CFBundleShortVersionString':VERSION,'CFBundleVersion':'20','LSMinimumSystemVersion':'12.3','CFBundleSupportedPlatforms':['MacOSX'],'NSHighResolutionCapable':True,'LSUIElement':True,'NSAppTransportSecurity':{'NSAllowsLocalNetworking':True},'NSHumanReadableCopyright':'Copyright © 2026 Gavin Shipman and IconCraft contributors. MIT license.'}
     (contents/'Info.plist').write_bytes(plistlib.dumps(metadata));(contents/'PkgInfo').write_bytes(b'APPL????')
     shutil.copy2(ROOT/'assets/icon.icns',contents/'Resources/icon.icns')
     shutil.copy2(ROOT/'assets/logo.svg',contents/'Resources/logo.svg')
@@ -54,7 +70,7 @@ def build():
         run(['codesign','--force','--sign','-','--timestamp=none',str(app)])
         run(['codesign','--verify','--deep','--strict',str(app)])
         fat=exe.read_bytes()
-    record={'version':VERSION,'architectures':['x86_64','arm64'],'format':'Universal Mach-O app bundle','toolchain':subprocess.check_output(['go','version'],text=True).strip(),'nativeExecution':'see docs/BUILD-VALIDATION.json','adHocSigning':'PERFORMED on macOS build host' if signed else 'NOT PERFORMED (non-macOS host)','developerIDSigning':'NOT PERFORMED','notarization':'NOT PERFORMED','sha256Executable':hashlib.sha256(fat).hexdigest()}
+    record={'version':VERSION,'architectures':['x86_64','arm64'],'format':'Universal Mach-O app bundle','toolchain':subprocess.check_output(['go','version'],text=True).strip(),'nativeExecution':'see docs/BUILD-VALIDATION.json','defaultsHelper':'BUILT (universal, ad-hoc signed with the bundle)' if helper_built else 'NOT BUILT (no clang/lipo on this host)','adHocSigning':'PERFORMED on macOS build host' if signed else 'NOT PERFORMED (non-macOS host)','developerIDSigning':'NOT PERFORMED','notarization':'NOT PERFORMED','sha256Executable':hashlib.sha256(fat).hexdigest()}
     (OUT/'build-manifest.json').write_text(json.dumps(record,indent=2)+'\n')
     print(json.dumps(record,indent=2))
 if __name__=='__main__':build()

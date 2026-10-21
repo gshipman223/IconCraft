@@ -4,6 +4,7 @@
  */
 ObjC.import('Foundation');
 ObjC.import('AppKit');
+ObjC.import('CoreServices');
 
 function isNil(value) {
     return value === null || value === undefined ||
@@ -29,6 +30,49 @@ function textValue(dictionary, key) {
 }
 
 function validImage(image) { return !isNil(image) && Boolean(image.isValid); }
+
+// LaunchServices C functions return CF refs, which JXA surfaces as opaque
+// Ref objects; castRefToObject bridges them before unwrapping. Proven on
+// macOS 26: the modern NSWorkspace default-app methods are invisible to
+// JXA (frozen BridgeSupport), so the classic LS C API is the read route.
+// Writes are refused from this unbundled process (-54 / silent no-ops)
+// and live in the bundled iconcraft-defaults helper instead.
+function cfString(ref) {
+    if (isNil(ref)) return '';
+    try {
+        const value = ObjC.unwrap(ObjC.castRefToObject(ref));
+        return typeof value === 'string' ? value : '';
+    } catch (_) { return ''; }
+}
+function cfStringList(ref) {
+    if (isNil(ref)) return [];
+    const out = [];
+    try {
+        const list = ObjC.castRefToObject(ref);
+        const count = Number(list.count);
+        for (let i = 0; i < count; i++) {
+            const item = ObjC.unwrap(list.objectAtIndex(i));
+            if (typeof item === 'string' && item && out.indexOf(item) < 0) out.push(item);
+        }
+    } catch (_) { /* a partial list beats failing the whole request */ }
+    return out;
+}
+function appPathForBundleId(w, bundleId) {
+    try {
+        const url = w.URLForApplicationWithBundleIdentifier($(bundleId));
+        return isNil(url) ? '' : (ObjC.unwrap(url.path) || '');
+    } catch (_) { return ''; }
+}
+function defaultHandler(c) {
+    return c.kind === 'scheme'
+        ? cfString($.LSCopyDefaultHandlerForURLScheme($(c.scheme)))
+        : cfString($.LSCopyDefaultRoleHandlerForContentType($(c.uti), $.kLSRolesAll));
+}
+function handlerCandidates(c) {
+    return c.kind === 'scheme'
+        ? cfStringList($.LSCopyAllHandlersForURLScheme($(c.scheme)))
+        : cfStringList($.LSCopyAllRoleHandlersForContentType($(c.uti), $.kLSRolesAll));
+}
 
 function imagePNG(image) {
     if (!validImage(image)) throw Error('macOS could not decode the icon');
@@ -128,6 +172,19 @@ function run(argv) {
         case 'notify':
             w.noteFileSystemChanged($(r.path));
             result = true;
+            break;
+        case 'defaults':
+            result = (r.categories || []).map(function (c) {
+                const current = defaultHandler(c);
+                const candidates = handlerCandidates(c);
+                if (current && candidates.indexOf(current) < 0) candidates.push(current);
+                const paths = {};
+                candidates.forEach(function (id) {
+                    const p = appPathForBundleId(w, id);
+                    if (p) paths[id] = p;
+                });
+                return { id: c.id, current: current, candidates: candidates, paths: paths };
+            });
             break;
         case 'openurl':
             // Defence in depth: Go also allowlists these two exact URLs.

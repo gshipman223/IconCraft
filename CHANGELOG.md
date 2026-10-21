@@ -4,6 +4,28 @@ All notable changes to IconCraft. Versions are ad-hoc signed Universal
 (Apple Silicon + Intel) macOS builds; Developer ID signing/notarisation has
 not been performed.
 
+## [0.13.0] — 2026-10-21 · Default apps tab, list organisation, cleaner design
+
+- **Default apps tab**: macOS spreads "which app opens this?" across
+  Finder Get Info panels, System Settings and individual app menus.
+  IconCraft now gathers eleven of them in one list — web browser,
+  email, PDF documents, images, movies & video, audio, text files,
+  source code, HTML files, ZIP archives and calendar files — showing
+  the live default and every app that can take over, switched
+  instantly through LaunchServices (the same service Finder uses).
+  Browser/email changes may show a macOS confirmation; that's Apple
+  double-checking, not IconCraft asking for anything.
+- **Organise the app list**: sort A–Z, Z–A or customised-first, and
+  group by status or by folder. The choice is remembered between
+  launches.
+- **Cleaner design**: hairlines instead of boxed borders, softer
+  layered shadows, a proper tab bar, and colour kept for brand
+  moments. Same light/dark/system appearances.
+- **Add folder, explained**: the old footer button moves next to the
+  sort controls as "Add apps folder" — it includes apps stored
+  outside /Applications (~/Applications, Setapp, another drive) in
+  the list. Apps in the standard locations never needed it.
+
 ## [0.12.0] — 2026-10-21 · Basic settings: startup, visibility, notifications, updates
 
 - **Settings screen** (header → Settings) with the basics expected of a

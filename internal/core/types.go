@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const Version = "0.12.0"
+const Version = "0.13.0"
 
 // SetupVersion is bumped when the first-run permissions review needs to be
 // shown again (for example, when a release needs a new macOS permission).
@@ -171,8 +171,17 @@ type PermissionCheck struct {
 	CheckedAt string `json:"checkedAt,omitempty"`
 }
 
+// OrganizePrefs is how the user likes the app list ordered. It lives in
+// the journal (like the theme) because the UI origin changes every
+// launch — a random loopback port — so browser storage cannot persist.
+type OrganizePrefs struct {
+	Sort  string `json:"sort"`
+	Group string `json:"group"`
+}
+
 type State struct {
 	Theme         string                   `json:"theme,omitempty"`
+	Organize      OrganizePrefs            `json:"organize,omitempty"`
 	Renames       []RenameRecord           `json:"renames,omitempty"`
 	Schema        int                      `json:"schema"`
 	Originals     map[string]Original      `json:"originals,omitempty"`

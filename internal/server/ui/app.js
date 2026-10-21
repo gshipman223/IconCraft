@@ -5,6 +5,11 @@ const rows=new Map(), rowState=new Map(), selected=new Set();
 let scanning=false, busy=false, firstLoad=true, selectFuture=false, query='',theme='system',themeTouched=false;
 let generation=0,workerCount=0,queue=[],seen=new Set(),controllers=new Set(),pickerApp=null,renameApp=null;
 let setupData=null,setupChecking=false,setupOpening=false,setupWanted=false;
+let tab='apps',defaultsData=null,defaultsBusy=false;
+/* Sort/group persist server-side (the journal): this page is served from
+   a fresh loopback port every launch, so browser storage never survives. */
+let organize={sort:'name-asc',group:'none'};
+let groupHeadNodes=[];
 const media=window.matchMedia('(prefers-color-scheme: dark)');
 const paths={grid:'M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3zM12 12h5v5h-5z',restore:'M4 7a6 6 0 111 8M1.5 3v5h5',edit:'m4 13-1 4 4-1L17 6l-3-3zM12 5l3 3',arrow:'M4 10h12m-4-4 4 4-4 4',refresh:'M16 7A6 6 0 004 5L2 7m0-4v4h4M4 13a6 6 0 0012 2l2-2m0 4v-4h-4'};
 function svg(key){const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('viewBox','0 0 20 20');s.setAttribute('aria-hidden','true');const p=document.createElementNS(s.namespaceURI,'path');p.setAttribute('d',paths[key]||paths.grid);s.append(p);return s;}
@@ -20,14 +25,24 @@ function active(a){return a.renamed||model.records.some(r=>r.appId===a.id&&live(
 /* Every installed app is listed with its real icon. Apps with a known
    original counterpart get background original-artwork checks; every app can
    still be given any installed app's icon, a custom image, or a new name. */
-function relevant(){return [...model.apps].sort((a,b)=>a.name.localeCompare(b.name));}
+function compareApps(a,b){
+ if(organize.sort==='name-desc')return b.name.localeCompare(a.name);
+ if(organize.sort==='status'){const d=Number(active(b))-Number(active(a));if(d)return d;const r=Number(ready(b))-Number(ready(a));if(r)return r;}
+ return a.name.localeCompare(b.name);
+}
+function relevant(){return [...model.apps].sort(compareApps);}
+function groupOf(a){
+ if(organize.group==='status')return active(a)?'Customised':ready(a)?'Original ready':'No original found yet';
+ if(organize.group==='location')return a.path.replace(/\/[^/]*\.app$/i,'')||'Applications';
+ return '';
+}
 function visible(){return relevant().filter(a=>(a.name+' '+a.equivalent+' '+a.craftId+' '+(model.originals[a.craftId]?.product||'')).toLowerCase().includes(query));}
 function sourceStatus(a){const v=model.originals[a.craftId];return v?.source||'';}
 function appIcon(a){return 'api/icon?app='+encodeURIComponent(a.id)+'&v='+encodeURIComponent((a.iconStamp||'1')+'-'+rs(a).revision);}
 function assetIcon(id){return id?'api/icon?asset='+encodeURIComponent(id):'';}
 function imageView(small=false){const wrap=node('span','icon-wrap'+(small?' small':''));const f=svg('grid');f.classList.add('fallback');const img=node('img','icon');img.alt='';/* NOT lazy: icons are display:none until load, and WebKit never fetches hidden lazy images — the load event that reveals them would never fire. Local thumbnails are cheap; load eagerly. */img.decoding='async';wrap.append(f,img);img.addEventListener('load',()=>wrap.classList.add('has-image'));img.addEventListener('error',()=>wrap.classList.remove('has-image'));return {wrap,img,src:''};}
 function setImage(view,src,alt){view.img.alt=alt;if(view.src===src)return;view.src=src;view.wrap.classList.remove('has-image');if(src)view.img.src=src;else view.img.removeAttribute('src');}
-function updateModel(data){model.apps=data.apps||model.apps;Object.assign(model.assets,data.assets||{});Object.assign(model.originals,data.originals||{});model.choices=data.choices||{};model.records=data.records||[];model.renames=data.renames||[];if(typeof data.keepAlive==='boolean')model.keepAlive=data.keepAlive;if(typeof data.setupRequired==='boolean')model.setupRequired=data.setupRequired;if(data.settings)model.settings=data.settings;if(typeof data.loginAgent==='boolean')model.loginAgent=data.loginAgent;model.rebrands=data.rebrands||{};model.rebrandRuntime=data.rebrandRuntime||{};model.vault=data.vault||{};$('version').textContent=data.version||'0.12.0';const v2=$('version-2');if(v2)v2.textContent=data.version||'0.12.0';selected.forEach(id=>{if(!model.apps.some(a=>a.id===id))selected.delete(id);});}
+function updateModel(data){if(data.organize){organize={sort:data.organize.sort||'name-asc',group:data.organize.group||'none'};const so=$('sort'),gr=$('group');if(so)so.value=organize.sort;if(gr)gr.value=organize.group;}model.apps=data.apps||model.apps;Object.assign(model.assets,data.assets||{});Object.assign(model.originals,data.originals||{});model.choices=data.choices||{};model.records=data.records||[];model.renames=data.renames||[];if(typeof data.keepAlive==='boolean')model.keepAlive=data.keepAlive;if(typeof data.setupRequired==='boolean')model.setupRequired=data.setupRequired;if(data.settings)model.settings=data.settings;if(typeof data.loginAgent==='boolean')model.loginAgent=data.loginAgent;model.rebrands=data.rebrands||{};model.rebrandRuntime=data.rebrandRuntime||{};model.vault=data.vault||{};$('version').textContent=data.version||'0.13.0';const v2=$('version-2');if(v2)v2.textContent=data.version||'0.13.0';selected.forEach(id=>{if(!model.apps.some(a=>a.id===id))selected.delete(id);});}
 async function session(){updateModel(await api('session'));render();}
 function makeRow(a){
  const currentApp=()=>model.apps.find(x=>x.id===a.id)||a;
@@ -60,8 +75,31 @@ function updateRow(a,v){
 function render(){
  const all=relevant(),filtered=visible(),visibleIDs=new Set(filtered.map(a=>a.id)),allIDs=new Set(all.map(a=>a.id));
  for(const [id,v]of rows){if(!allIDs.has(id)){v.root.remove();rows.delete(id);}}
- let cursor=$('apps').firstElementChild;
- for(const a of all){let v=rows.get(a.id);if(!v){v=makeRow(a);rows.set(a.id,v);}v.root.hidden=!visibleIDs.has(a.id);updateRow(a,v);if(v.root!==cursor)$('apps').insertBefore(v.root,cursor);cursor=v.root.nextElementSibling;}
+ for(const h of groupHeadNodes)h.remove();groupHeadNodes=[];
+ const sequence=[],groupCounts={};let lastGroup=null;
+ let ordered=all;
+ if(organize.group!=='none'){
+  for(const a of filtered){const g=groupOf(a);if(g)groupCounts[g]=(groupCounts[g]||0)+1;}
+  /* Cluster by group (first-appearance order under the chosen sort), keeping
+     the sort order inside each group: Array.sort is stable. A single reused
+     header node per group would be moved by append() whenever the groups
+     interleaved, stranding the first run of each group without a header. */
+  const rank=new Map();
+  for(const a of all){const g=groupOf(a);if(g&&!rank.has(g))rank.set(g,rank.size);}
+  ordered=[...all].sort((x,y)=>(rank.get(groupOf(x))??0)-(rank.get(groupOf(y))??0));
+ }
+ for(const a of ordered){
+  let v=rows.get(a.id);if(!v){v=makeRow(a);rows.set(a.id,v);}
+  v.root.hidden=!visibleIDs.has(a.id);updateRow(a,v);
+  if(v.root.hidden){sequence.push(v.root);continue;}
+  const g=groupOf(a);
+  if(g&&g!==lastGroup){
+   const head=node('div','group-head',g+(groupCounts[g]?' · '+groupCounts[g]:''));
+   groupHeadNodes.push(head);sequence.push(head);lastGroup=g;
+  }
+  sequence.push(v.root);
+ }
+ for(const n of sequence)$('apps').append(n);
  const eligible=filtered.filter(ready),count=eligible.filter(a=>selected.has(a.id)).length;
  $('select-all').disabled=busy||eligible.length===0;$('select-all').checked=eligible.length>0&&count===eligible.length;$('select-all').indeterminate=count>0&&count<eligible.length;
  $('replace').disabled=busy||count===0;$('selection-count').textContent=count+' selected';$('restore-all').disabled=busy||!model.records.some(live)&&!model.apps.some(a=>a.renamed);
@@ -224,5 +262,49 @@ $('dismiss').addEventListener('click',()=>tell(''));$('notice-action').addEventL
 $('select-all').addEventListener('change',()=>{selectFuture=$('select-all').checked;for(const a of visible()){if(selectFuture&&ready(a))selected.add(a.id);else selected.delete(a.id);}render();});
 $('replace').addEventListener('click',()=>applyApps(visible().filter(a=>selected.has(a.id))));$('restore-all').addEventListener('click',restoreAll);
 $('folder').addEventListener('click',async()=>{if(busy)return;busy=true;render();let added=false;try{const r=await api('root',{});added=!r.cancelled;}catch(e){tell(e.message,true);}finally{busy=false;render();}if(added)refresh();});
+/* ---- organise: sort + group, remembered between launches ---- */
+function saveOrganize(){api('organize',organize).catch(e=>tell('Could not save list order: '+e.message,true));}
+$('sort').value=organize.sort;$('group').value=organize.group;
+$('sort').addEventListener('change',()=>{organize.sort=$('sort').value;saveOrganize();render();});
+$('group').addEventListener('change',()=>{organize.group=$('group').value;saveOrganize();render();});
+/* ---- tabs ---- */
+function setTab(next){
+ tab=next==='defaults'?'defaults':'apps';const appsOn=tab==='apps';
+ $('apps-view').hidden=!appsOn;$('defaults-view').hidden=appsOn;
+ $('tab-apps').setAttribute('aria-selected',String(appsOn));$('tab-defaults').setAttribute('aria-selected',String(!appsOn));
+ if(appsOn)render();else loadDefaults();
+}
+$('tab-apps').addEventListener('click',()=>setTab('apps'));$('tab-defaults').addEventListener('click',()=>setTab('defaults'));
+$('defaults-refresh').addEventListener('click',()=>loadDefaults(true));
+/* ---- default apps ---- */
+function drawDefaults(){
+ const list=$('defaults-list');list.replaceChildren();
+ const cats=(defaultsData||[]).filter(c=>c.candidates.length);
+ if(!cats.length){list.append(node('p','row-note','macOS reported no choices for any category.'));return;}
+ for(const cat of cats){
+  const row=node('section','default-row'),left=node('div','app-cell');
+  const view=imageView(true);setImage(view,cat.current.appId?'api/icon?app='+encodeURIComponent(cat.current.appId)+'&v=1':'',cat.current.name+' icon');
+  const copy=node('div','app-copy');copy.append(node('div','app-name',cat.label),node('div','subtitle',cat.detail),node('div','row-note default-current','Currently: '+cat.current.name));
+  left.append(view.wrap,copy);
+  const sel=node('select','default-select');sel.setAttribute('aria-label','Default app for '+cat.label);
+  for(const c of [...cat.candidates].sort((x,y)=>x.name.localeCompare(y.name))){const o=node('option','',c.name);o.value=c.bundleId;sel.append(o);}
+  sel.value=cat.current.bundleId||'';
+  sel.addEventListener('change',()=>changeDefault(cat,sel));
+  const side=node('div','default-side');side.append(sel);row.append(left,side);list.append(row);
+ }
+}
+async function loadDefaults(force=false){
+ if(defaultsBusy||(defaultsData&&!force)){if(defaultsData)drawDefaults();return;}
+ defaultsBusy=true;$('defaults-list').replaceChildren(node('div','empty','Reading your current defaults…'));
+ try{const r=await api('defaults');defaultsData=r.categories;drawDefaults();}
+ catch(e){const d=node('div','empty');d.append(node('h2','','Could not read your defaults'),node('p','',e.message));$('defaults-list').replaceChildren(d);}
+ finally{defaultsBusy=false;}
+}
+async function changeDefault(cat,sel){
+ const bid=sel.value,dest=(cat.candidates||[]).find(c=>c.bundleId===bid);sel.disabled=true;
+ try{const r=await api('defaults/set',{category:cat.id,bundleId:bid});const i=(defaultsData||[]).findIndex(c=>c.id===cat.id);if(i>=0)defaultsData[i]=r.category;tell(cat.label+' now opens with '+(dest?dest.name:'the selected app')+'.');}
+ catch(e){tell('Could not change '+cat.label+': '+e.message,true);}
+ finally{drawDefaults();}
+}
 document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('search').focus();}});
 (async()=>{applyTheme('system');try{const s=await api('session');updateModel(s);setupWanted=!!s.setupRequired;if(!themeTouched)applyTheme(s.theme||'system');render();}catch(e){tell(e.message,true);}await refresh();if(setupWanted||location.hash==='#setup')await openSetup();})();

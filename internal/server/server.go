@@ -150,7 +150,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	expected := "POST"
-	if p == "api/session" || p == "api/status" || p == "api/permissions" || p == "api/icon" || p == "api/profile" || p == "api/report" {
+	if p == "api/session" || p == "api/status" || p == "api/permissions" || p == "api/icon" || p == "api/profile" || p == "api/report" || p == "api/defaults" {
 		expected = "GET"
 	}
 	if r.Method != expected {
@@ -251,6 +251,42 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		respond(w, 200, map[string]bool{"opened": true})
+	case "api/defaults":
+		provider, ok := s.Engine.Native.(interface {
+			DefaultApps(context.Context) ([]native.DefaultCategoryState, error)
+		})
+		if !ok {
+			fail(w, errors.New("default apps require the macOS native layer"))
+			return
+		}
+		cats, err := provider.DefaultApps(ctx)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		respond(w, 200, map[string]any{"categories": s.defaultsPayload(cats)})
+	case "api/defaults/set":
+		var b struct {
+			Category string `json:"category"`
+			BundleID string `json:"bundleId"`
+		}
+		if err := readJSON(w, r, &b); err != nil {
+			fail(w, err)
+			return
+		}
+		setter, ok := s.Engine.Native.(interface {
+			SetDefaultApp(context.Context, string, string) (native.DefaultCategoryState, error)
+		})
+		if !ok {
+			fail(w, errors.New("default apps require the macOS native layer"))
+			return
+		}
+		updated, err := setter.SetDefaultApp(ctx, b.Category, b.BundleID)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		respond(w, 200, map[string]any{"category": s.defaultsPayload([]native.DefaultCategoryState{updated})[0]})
 	case "api/test-notification":
 		notifier, ok := s.Engine.Native.(interface {
 			NotifyUser(context.Context, string, string) error
@@ -518,6 +554,35 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// defaultsPayload enriches LaunchServices categories with scanned-app
+// IDs so the UI can render real icons for candidates it already knows.
+func (s *Server) defaultsPayload(cats []native.DefaultCategoryState) []map[string]any {
+	byPath := map[string]string{}
+	for _, a := range s.Engine.Apps {
+		byPath[a.Path] = a.ID
+	}
+	candidate := func(c native.DefaultCandidate) map[string]any {
+		return map[string]any{"bundleId": c.BundleID, "name": c.Name, "path": c.Path, "appId": byPath[c.Path]}
+	}
+	out := []map[string]any{}
+	for _, cat := range cats {
+		list := []map[string]any{}
+		var current map[string]any
+		for _, c := range cat.Candidates {
+			m := candidate(c)
+			list = append(list, m)
+			if c.BundleID == cat.Current {
+				current = m
+			}
+		}
+		if current == nil {
+			current = map[string]any{"bundleId": cat.Current, "name": cat.Current, "path": "", "appId": ""}
+		}
+		out = append(out, map[string]any{"id": cat.ID, "label": cat.Label, "detail": cat.Detail, "current": current, "candidates": list})
+	}
+	return out
 }
 func summaries(records []core.Record) []map[string]any {
 	out := []map[string]any{}

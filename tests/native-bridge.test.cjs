@@ -37,7 +37,22 @@ function harness(options = {}) {
     }};
     $.NSUTF8StringEncoding = 4;
     $.NSBitmapImageFileTypePNG = 4;
-    const ctx = vm.createContext({ $, ObjC: { import: () => {}, unwrap, deepUnwrap: unwrap } });
+    if (options.ls) {
+        // Simulated LaunchServices: CF-string returns ride in wrappers,
+        // CF arrays expose count/objectAtIndex like a bridged NSArray.
+        const ls = options.ls;
+        const refArr = a => ({ isNil: () => false, count: a.length, objectAtIndex: i => wrapper(a[i]) });
+        const key = (kind, id) => kind + ':' + id;
+        $.kLSRolesAll = -1;
+        $.LSCopyDefaultHandlerForURLScheme = s => ls.current[key('scheme', unwrap(s))] ? wrapper(ls.current[key('scheme', unwrap(s))]) : nil;
+        $.LSCopyDefaultRoleHandlerForContentType = u => ls.current[key('uti', unwrap(u))] ? wrapper(ls.current[key('uti', unwrap(u))]) : nil;
+        $.LSCopyAllHandlersForURLScheme = s => refArr(ls.candidates[key('scheme', unwrap(s))] || []);
+        $.LSCopyAllRoleHandlersForContentType = u => refArr(ls.candidates[key('uti', unwrap(u))] || []);
+        $.LSSetDefaultHandlerForURLScheme = (s, b) => { calls.push(['setScheme', unwrap(s), unwrap(b)]); if (ls.setStatus) return ls.setStatus; ls.current[key('scheme', unwrap(s))] = unwrap(b); return 0; };
+        $.LSSetDefaultRoleHandlerForContentType = (u, r, b) => { calls.push(['setUTI', unwrap(u), unwrap(b)]); if (ls.setStatus) return ls.setStatus; ls.current[key('uti', unwrap(u))] = unwrap(b); return 0; };
+        $.NSWorkspace.sharedWorkspace.URLForApplicationWithBundleIdentifier = b => { const p = (ls.paths || {})[unwrap(b)]; return p ? { isNil: () => false, path: wrapper(p) } : nil; };
+    }
+    const ctx = vm.createContext({ $, ObjC: { import: () => {}, unwrap, deepUnwrap: unwrap, castRefToObject: v => v } });
     vm.runInContext(source, ctx, {filename: 'embedded-native-bridge.js'});
     return { run: () => JSON.parse(ctx.run(['/private/request.json'])), calls, nil, ctx };
 }
@@ -219,4 +234,31 @@ test('thumbnail batch isolates unreadable files and uses export fallback', () =>
 test('missing images produce an empty preview batch, not a global error', () => {
     const h=harness({noWorkspaceIcon:true,request:{action:'thumbnails',paths:['/Missing.app']}});
     assert.deepEqual(h.run(),{ok:true,result:{}});
+});
+
+test('defaults reads current handlers, candidates and app paths', () => {
+    const ls = {
+        current: {'scheme:https': 'com.example.alpha', 'uti:com.adobe.pdf': 'com.example.reader'},
+        candidates: {'scheme:https': ['com.example.alpha', 'com.example.beta'], 'uti:com.adobe.pdf': ['com.example.reader']},
+        paths: {'com.example.alpha': '/Applications/Alpha.app', 'com.example.beta': '/Applications/Beta.app', 'com.example.reader': '/Applications/Reader.app'}
+    };
+    const h = harness({ls, request: {action: 'defaults', categories: [
+        {id: 'browser', kind: 'scheme', scheme: 'https', schemes: ['https', 'http']},
+        {id: 'pdf', kind: 'uti', uti: 'com.adobe.pdf'}
+    ]}});
+    const r = h.run();
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.result[0], {id: 'browser', current: 'com.example.alpha', candidates: ['com.example.alpha', 'com.example.beta'], paths: {'com.example.alpha': '/Applications/Alpha.app', 'com.example.beta': '/Applications/Beta.app'}});
+    assert.equal(r.result[1].current, 'com.example.reader');
+});
+
+test('LaunchServices writes do not live in the bridge (macOS refuses them from unbundled processes)', () => {
+    // Writes moved to the bundled iconcraft-defaults helper; the bridge
+    // must stay read-only for defaults so nothing silently no-ops.
+    const ls = { current: {'uti:com.adobe.pdf': 'com.example.reader'}, candidates: {}, paths: {}, setStatus: 0 };
+    const h = harness({ls, request: {action: 'setdefault', bundleId: 'com.example.other', category: {id: 'pdf', kind: 'uti', uti: 'com.adobe.pdf'}}});
+    const r = h.run();
+    assert.equal(r.ok, false);
+    assert.match(r.error, /Unsupported native operation/);
+    assert.ok(!h.calls.some(c => c[0] === 'setUTI' || c[0] === 'setScheme'));
 });

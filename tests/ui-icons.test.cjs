@@ -63,3 +63,41 @@ test('real logo, version and PayPal support bar are in the page', () => {
   assert.match(html, /id="version"/);
   assert.match(fs.readFileSync(path.join(__dirname, '../internal/server/ui/logo.svg'), 'utf8'), /<svg/);
 });
+
+test('default apps tab, organise controls and relocated Add folder are wired', () => {
+  const html = ui('index.html');
+  const js = ui('app.js');
+  const css = ui('style.css');
+  assert.match(html, /id="tab-apps"/);
+  assert.match(html, /id="tab-defaults"/);
+  assert.match(html, /id="apps-view"/);
+  assert.match(html, /id="defaults-view"/);
+  assert.match(html, /id="defaults-list"/);
+  assert.match(html, /id="defaults-refresh"/);
+  assert.match(html, /id="sort"/);
+  assert.match(html, /id="group"/);
+  assert.match(html, /id="folder"/);
+  assert.match(html, /Add apps folder/);
+  assert.match(js, /api\('defaults'\)/);
+  assert.match(js, /api\('defaults\/set'/);
+  assert.match(js, /function setTab/);
+  assert.match(js, /function loadDefaults/);
+  assert.match(js, /function changeDefault/);
+  assert.match(js, /function compareApps/);
+  assert.match(js, /function groupOf/);
+  assert.match(js, /api\('organize'/);
+  assert.doesNotMatch(js, /localStorage/);
+  assert.match(css, /\.group-head/);
+  assert.match(css, /\.default-row/);
+  assert.match(css, /\.tab\[aria-selected=true\]/);
+});
+
+test('group headers lead every group under any sort order', () => {
+  const js = ui('app.js');
+  // A single reused header node per group is moved by append() whenever the
+  // groups interleave under a name sort, stranding the first run headerless.
+  assert.doesNotMatch(js, /groupHeads/);
+  assert.match(js, /groupHeadNodes/);
+  // Grouping clusters rows by group while keeping the chosen sort inside.
+  assert.match(js, /rank\.get\(groupOf\(x\)\)/);
+});

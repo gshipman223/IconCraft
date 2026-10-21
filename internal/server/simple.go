@@ -201,6 +201,21 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 			respond(w, 200, map[string]any{"opened": true})
 		}
 		return true
+	case "api/organize":
+		var b struct {
+			Sort  string `json:"sort"`
+			Group string `json:"group"`
+		}
+		if err := readJSON(w, r, &b); err != nil {
+			fail(w, err)
+			return true
+		}
+		if err := s.Engine.SetOrganize(b.Sort, b.Group); err != nil {
+			fail(w, err)
+		} else {
+			respond(w, 200, map[string]bool{"ok": true})
+		}
+		return true
 	case "api/theme":
 		var b struct {
 			Theme string `json:"theme"`
