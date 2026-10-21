@@ -18,6 +18,16 @@ document.documentElement.classList.add('js');
   };
   reveal();
 
+  var bar = document.querySelector('.sticky-cta');
+  var hero = document.querySelector('.hero');
+  if (bar && hero) {
+    var onScroll = function () {
+      bar.classList.toggle('show', window.scrollY > hero.offsetHeight - 200);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  }
+
   var fmt = function (n) { return n.toLocaleString('en-US'); };
   fetch('https://api.github.com/repos/gshipman223/IconCraft/releases?per_page=100', {
     headers: { 'Accept': 'application/vnd.github+json' }
