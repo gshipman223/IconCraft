@@ -42,7 +42,14 @@ maintainer's Developer ID and notarised by Apple.
   custom-icon choice of restored apps; English count strings have
   singular forms throughout; the full-skin confirm no longer squeezes
   its caption or hides the dialog buttons in CJK; dialog action footers
-  stay in view while long dialogs scroll.
+  stay in view while long dialogs scroll; the update check compares
+  versions as semver (prereleases sort before their release, malformed
+  tags are never offered) so an older release is never announced as an
+  update; **Restore all** finds apps by bundle ID or current path after a
+  partial restore and counts partially restored apps instead of
+  stalling; the Edit panel re-enables its buttons after choosing an
+  icon, previews icons taken from installed apps, opens at the top and
+  localises "<App> icon" labels.
 - **Tests**: new `internal/i18n` suite and `tests/i18n.test.cjs`; two
   timing-sensitive `internal/core` scan tests and the window-kill test
   made deterministic.
