@@ -15,9 +15,27 @@ function run(argv) {
         return function (key, fallback) { return typeof table[key] === 'string' && table[key] ? table[key] : fallback; };
     })();
     ObjC.import('Foundation');ObjC.import('AppKit');ObjC.import('WebKit');
+    stage = 'naming the process';
+    // The host process is /usr/bin/osascript, so AppKit would title the
+    // application menu and the Dock tile "osascript". The name must be in
+    // place *before* NSApplication registers with the window server, and
+    // AppKit reads it from the main bundle's info dictionary (mutable in
+    // practice) rather than from processName alone. Cosmetic: never fatal.
+    try { $.NSProcessInfo.processInfo.setProcessName($('IconCraft')); } catch (e) {}
+    try {
+        const info = $.NSBundle.mainBundle.infoDictionary;
+        if (info && !info.isNil()) { info.setObjectForKey($('IconCraft'), $('CFBundleName')); info.setObjectForKey($('IconCraft'), $('CFBundleDisplayName')); }
+    } catch (e) {}
     stage = 'creating the native application';
     const app=$.NSApplication.sharedApplication;
-    $.NSProcessInfo.processInfo.setProcessName($('IconCraft'));
+    // LaunchServices keeps its own display name for the running process
+    // (what the menu bar's app menu and the Dock label show). Ask it to use
+    // ours now that the process has an application record.
+    try {
+        ObjC.bindFunction('_LSGetCurrentApplicationASN', ['void *', []]);
+        ObjC.bindFunction('_LSSetApplicationInformationItem', ['int', ['int', 'void *', 'id', 'id', 'void *']]);
+        $._LSSetApplicationInformationItem(-2, $._LSGetCurrentApplicationASN(), $('LSDisplayName'), $('IconCraft'), null);
+    } catch (e) { console.log('IconCraft: LaunchServices display name unavailable'); }
     app.setActivationPolicy($.NSApplicationActivationPolicyRegular);
     stage = 'registering the close-window handler';
     ObjC.registerSubclass({name:'IconCraftWindowDelegate',superclass:'NSObject',protocols:['NSWindowDelegate'],methods:{

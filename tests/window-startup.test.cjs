@@ -68,3 +68,11 @@ test('UI appearance no longer depends on a native script-message bridge',()=>{
     assert.doesNotMatch(ui,/messageHandlers.*appearance/);
     assert.match(ui,/document\.documentElement\.dataset\.theme/);
 });
+test('Process is named before NSApplication registers, and naming failures are cosmetic',()=>{
+    const h=simulate();h.run();
+    assert.ok(h.calls.indexOf('name')<h.calls.indexOf('activation-policy'),'setProcessName must precede NSApplication setup');
+    // The mock has no NSBundle or LaunchServices bindings: both must fail soft.
+    assert.ok(h.calls.includes('show'));assert.ok(h.messages.some(s=>s.includes('LaunchServices display name unavailable')));
+    assert.match(source,/_LSSetApplicationInformationItem\(-2, \$\._LSGetCurrentApplicationASN\(\), \$\('LSDisplayName'\), \$\('IconCraft'\)/);
+    assert.match(source,/setObjectForKey\(\$\('IconCraft'\), \$\('CFBundleName'\)\)/);
+});
