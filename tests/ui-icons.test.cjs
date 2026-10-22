@@ -149,3 +149,10 @@ test('full-skin footer wraps and dialog action footers stay in view', () => {
   assert.match(css, /\.fullskin-actions button\{white-space:normal/);
   assert.match(css, /\.dialog-actions\{position:sticky;bottom:-24px/);
 });
+
+test('arming the full-skin confirm scrolls the button clear of the sticky footer', () => {
+  const js = ui('app.js');
+  const css = ui('style.css');
+  assert.match(js, /ib\.dataset\.armed='1';ib\.textContent=t\('rename\.confirmSkin'[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*\n\s*if\(ib\.scrollIntoView\)ib\.scrollIntoView\(\{block:'end'\}\);/);
+  assert.match(css, /\.fullskin-actions button\{[^}]*scroll-margin-bottom:104px/);
+});

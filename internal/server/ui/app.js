@@ -277,7 +277,12 @@ function openRename(a){if(busy)return;renameApp=a;$('rename-for').textContent=a.
 function closeRename(){if(!busy){$('rename-dialog').close();renameApp=null;}}
 async function saveName(restore=false){if(busy||!renameApp)return;const a=renameApp;busy=true;$('name-save').disabled=true;$('name-restore').disabled=true;render();try{const result=await api(restore?'restore-name':'rename',{appId:a.id,...(restore?{}:{name:$('name-input').value}),confirmed:true});await session();$('rename-dialog').close();renameApp=null;tell(t('rename.renamed',{name:result.app.name}));}catch(e){dialogError('rename-error',e.message);}finally{busy=false;$('name-save').disabled=false;$('name-restore').disabled=false;render();}}
 $('name-internal').addEventListener('click',async()=>{if(busy||!renameApp)return;const a=renameApp,ib=$('name-internal');
- if(!ib.dataset.armed){ib.dataset.armed='1';ib.textContent=t('rename.confirmSkin',{name:a.name});setTimeout(()=>{ib.dataset.armed='';ib.textContent=t('rename.applyFullSkin');},5000);return;}
+ if(!ib.dataset.armed){ib.dataset.armed='1';ib.textContent=t('rename.confirmSkin',{name:a.name});
+  /* The confirm label is taller (it wraps in CJK) and the sticky action
+     footer overlays whatever sits under it mid-scroll, so bring the armed
+     button fully above the footer (scroll-margin-bottom leaves room). */
+  if(ib.scrollIntoView)ib.scrollIntoView({block:'end'});
+  setTimeout(()=>{ib.dataset.armed='';ib.textContent=t('rename.applyFullSkin');},5000);return;}
  busy=true;ib.disabled=true;render();try{await api('rebrand',{appId:a.id,assetId:chosen(a),name:$('name-input').value,confirmed:true});await rescan();$('rename-dialog').close();renameApp=null;tell(t('rename.skinDone',{name:a.name}));}catch(e){dialogError('rename-error',e.message);}finally{busy=false;ib.disabled=false;ib.dataset.armed='';ib.textContent=t('rename.applyFullSkin');render();}});
 $('name-unskin').addEventListener('click',async()=>{if(busy||!renameApp)return;const a=renameApp;busy=true;render();try{await api('restore-rebrand',{appId:a.id,confirmed:true});await rescan();$('rename-dialog').close();renameApp=null;tell(t('rename.unskinDone',{name:a.name}));}catch(e){dialogError('rename-error',e.message);}finally{busy=false;render();}});
 $('name-original').addEventListener('click',()=>{if(renameApp)$('name-input').value=model.originals[renameApp.craftId]?.product||renameApp.equivalent.replace(' (suggested)','');});

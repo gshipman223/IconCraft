@@ -164,7 +164,7 @@ dialog::backdrop{background:#04060FD9;backdrop-filter:blur(6px)}
 .fullskin-footer{flex-wrap:wrap;align-items:center}
 #fullskin-state{flex:1 1 180px;min-width:0;line-height:1.5}
 .fullskin-actions{display:flex;flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end;gap:6px;margin-left:auto;max-width:100%}
-.fullskin-actions button{white-space:normal;text-align:center;line-height:1.35;max-width:100%}
+.fullskin-actions button{white-space:normal;text-align:center;line-height:1.35;max-width:100%;scroll-margin-bottom:104px}
 #rename-dialog{width:460px}.rename-presets{display:flex;align-items:center;gap:6px;margin-bottom:18px}
 .name-field{display:flex;align-items:center;padding:11px 12px;gap:10px;background:var(--soft);border-radius:11px}
 .name-field:focus-within{box-shadow:0 0 0 2px var(--ring)}
