@@ -12,6 +12,31 @@ type keeperStatusProvider interface {
 	KeepAgentStatus() native.KeepAgentStatus
 }
 
+type selfSignatureProvider interface {
+	SelfSignature(context.Context) native.SignatureInfo
+}
+
+// signatureCopy words the App Management and launch rows for how this
+// copy is actually signed. A Developer ID identity (notarised or not)
+// keeps TCC grants across updates; an ad-hoc build is a new app to macOS
+// every time; anything else gets neutral advice rather than a guess.
+func signatureCopy(sig native.SignatureInfo) (appManagement, launch string) {
+	switch {
+	case sig.DeveloperID() && sig.Notarized:
+		return i18n.T("This copy is signed with a Developer ID and notarised by Apple, so macOS recognises updates as the same app and keeps this permission across them."),
+			i18n.T("This copy of IconCraft launched successfully. It is signed with a Developer ID and notarised by Apple, so downloads open with a double-click and no Gatekeeper warning. Never disable Gatekeeper globally.")
+	case sig.DeveloperID():
+		return i18n.T("This copy is signed with a Developer ID, so macOS recognises updates as the same app and keeps this permission across them."),
+			i18n.T("This copy of IconCraft launched successfully. If a future downloaded copy is blocked, macOS may ask you to use Privacy & Security → Open Anyway once; never disable Gatekeeper globally.")
+	case sig.Kind == "adhoc":
+		return i18n.T("Because this copy is locally ad-hoc signed, macOS may treat an updated IconCraft copy as new: if changes stop working after an update, open App Management and check IconCraft again."),
+			i18n.T("This copy of IconCraft launched successfully. If a future downloaded copy is blocked, macOS may ask you to use Privacy & Security → Open Anyway once; never disable Gatekeeper globally.")
+	default:
+		return i18n.T("If changes stop working after an IconCraft update, open App Management and check IconCraft again."),
+			i18n.T("This copy of IconCraft launched successfully. If a future downloaded copy is blocked, macOS may ask you to use Privacy & Security → Open Anyway once; never disable Gatekeeper globally.")
+	}
+}
+
 func permissionCheck(id, title, state, label, detail string) map[string]any {
 	return map[string]any{"id": id, "title": title, "state": state, "label": label, "detail": detail}
 }
@@ -70,8 +95,14 @@ func (s *Server) permissionsPayload(ctx context.Context, runChecks bool, appID s
 	}
 	accessDetail := i18n.Text(access.Detail)
 	if accessDetail == "" {
-		accessDetail = i18n.T("macOS does not give ad-hoc apps a reliable global App Management readout, so IconCraft tests the real thing: a harmless create-and-remove file inside one installed app. Run the check before relying on changes to protected apps.")
+		accessDetail = i18n.T("macOS does not give apps a reliable global App Management readout, so IconCraft tests the real thing: a harmless create-and-remove file inside one installed app. Run the check before relying on changes to protected apps.")
 	}
+
+	sig := native.SignatureInfo{Kind: "unknown"}
+	if provider, ok := s.Engine.Native.(selfSignatureProvider); ok {
+		sig = provider.SelfSignature(ctx)
+	}
+	accessSigning, launchDetail := signatureCopy(sig)
 
 	keeperDesired, keeperSet := s.Engine.KeeperPreference()
 	agent := native.KeepAgentStatus{}
@@ -102,10 +133,10 @@ func (s *Server) permissionsPayload(ctx context.Context, runChecks bool, appID s
 	}
 
 	checks := []map[string]any{
-		permissionCheck("launch", i18n.T("Opening IconCraft"), "ready", i18n.T("Ready — app opened"), i18n.T("This copy of IconCraft launched successfully. If a future downloaded copy is blocked, macOS may ask you to use Privacy & Security → Open Anyway once; never disable Gatekeeper globally.")),
+		permissionCheck("launch", i18n.T("Opening IconCraft"), "ready", i18n.T("Ready — app opened"), launchDetail),
 		permissionCheck("storage", i18n.T("IconCraft data & backups"), dataState, dataLabel, dataDetail),
 		permissionCheck("discovery", i18n.T("Finding installed apps"), discoveryState, discoveryLabel, discoveryDetail),
-		permissionCheck("appManagement", i18n.T("App Management — changing other apps"), accessState, accessLabel, accessDetail+" "+i18n.T("Because this copy is locally ad-hoc signed, macOS may treat an updated IconCraft copy as new: if changes stop working after an update, open App Management and check IconCraft again.")),
+		permissionCheck("appManagement", i18n.T("App Management — changing other apps"), accessState, accessLabel, accessDetail+" "+accessSigning),
 		permissionCheck("background", i18n.T("Keep skins applied in the background"), keeperState, keeperLabel, keeperDetail),
 		permissionCheck("notRequired", i18n.T("Permissions IconCraft does not request"), "not-required", i18n.T("Not requested"), i18n.T("No Full Disk Access, Accessibility, Screen Recording, Automation, microphone or camera permission is needed for IconCraft's normal work. It does not ask for broad access to your files or control of other apps.")),
 	}
@@ -121,6 +152,7 @@ func (s *Server) permissionsPayload(ctx context.Context, runChecks bool, appID s
 		},
 		"appsFound": len(apps),
 		"checks":    checks,
+		"signature": sig,
 		"appAccess": access,
 		"keeper": map[string]any{
 			"desired":       keeperDesired,

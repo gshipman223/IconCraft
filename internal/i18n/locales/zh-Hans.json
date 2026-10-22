@@ -276,7 +276,6 @@
     "IconCraft could not create a temporary file in its own data folder: %v": "IconCraft 无法在自己的数据文件夹中创建临时文件：%v",
     "IconCraft can see %d installed apps. It reads app names, bundle IDs and icons; reading an app does not change it.": "IconCraft 可以看到 %d 个已安装的 App。它只读取 App 的名称、Bundle ID 和图标；读取不会更改 App。",
     "No apps have been loaded yet. Wait for the first scan to finish, then run the checks again.": "尚未载入任何 App。请等待首次扫描完成，然后再次运行检查。",
-    "macOS does not give ad-hoc apps a reliable global App Management readout, so IconCraft tests the real thing: a harmless create-and-remove file inside one installed app. Run the check before relying on changes to protected apps.": "macOS 不会向临时签名的 App 提供可靠的“App 管理”全局状态，因此 IconCraft 直接测试实际情况：在一个已安装的 App 内创建并删除一个无害的临时文件。在依赖对受保护 App 的更改之前，请先运行此检查。",
     "Optional. When on, a tiny background helper repairs icons or names that another app or updater reverts while IconCraft is closed. Your finished skins remain on disk either way.": "可选。开启后，一个小型后台守护程序会在 IconCraft 关闭期间修复被其他 App 或更新程序还原的图标或名称。无论是否开启，已完成的皮肤都保留在磁盘上。",
     "The keep-applied helper is disabled in macOS background-item settings. Turn it on again here, or allow IconCraft's background item in System Settings → General → Login Items.": "后台守护程序已在 macOS 的后台项目设置中被停用。请在这里重新开启，或在“系统设置”→“通用”→“登录项”中允许 IconCraft 的后台项目。",
     "On and loaded by macOS. It can keep repairing reverted icons and names after IconCraft closes.": "已开启并由 macOS 载入。IconCraft 关闭后，它仍可继续修复被还原的图标和名称。",
@@ -451,6 +450,11 @@
     "native operation failed": "原生操作失败",
     "re-sign failed": "重新签名失败",
     "notification failed": "通知失败",
-    "Recovered automatically: the app already matches its saved original icon, so there was nothing to roll back.": "已自动恢复：该 App 已与保存的原始图标一致，无需回滚。"
+    "Recovered automatically: the app already matches its saved original icon, so there was nothing to roll back.": "已自动恢复：该 App 已与保存的原始图标一致，无需回滚。",
+    "This copy is signed with a Developer ID and notarised by Apple, so macOS recognises updates as the same app and keeps this permission across them.": "这份副本已使用 Developer ID 签名并经 Apple 公证，因此 macOS 会把更新后的版本识别为同一个 App，并在更新后保留此权限。",
+    "This copy is signed with a Developer ID, so macOS recognises updates as the same app and keeps this permission across them.": "这份副本已使用 Developer ID 签名，因此 macOS 会把更新后的版本识别为同一个 App，并在更新后保留此权限。",
+    "If changes stop working after an IconCraft update, open App Management and check IconCraft again.": "如果 IconCraft 更新后无法再进行更改，请打开“App 管理”并重新勾选 IconCraft。",
+    "This copy of IconCraft launched successfully. It is signed with a Developer ID and notarised by Apple, so downloads open with a double-click and no Gatekeeper warning. Never disable Gatekeeper globally.": "这份 IconCraft 已成功启动。它已使用 Developer ID 签名并经 Apple 公证，因此下载后连按即可打开，不会出现 Gatekeeper 警告。切勿全局停用 Gatekeeper。",
+    "macOS does not give apps a reliable global App Management readout, so IconCraft tests the real thing: a harmless create-and-remove file inside one installed app. Run the check before relying on changes to protected apps.": "macOS 不会向 App 提供可靠的“App 管理”全局状态，因此 IconCraft 直接测试实际情况：在一个已安装的 App 内创建并删除一个无害的临时文件。在依赖对受保护 App 的更改之前，请先运行此检查。"
   }
 }

@@ -276,7 +276,6 @@
     "IconCraft could not create a temporary file in its own data folder: %v": "IconCraft가 자체 데이터 폴더에 임시 파일을 만들 수 없습니다: %v",
     "IconCraft can see %d installed apps. It reads app names, bundle IDs and icons; reading an app does not change it.": "IconCraft가 설치된 앱 %d개를 인식합니다. 앱 이름, 번들 ID, 아이콘만 읽으며, 읽는다고 해서 앱이 변경되지는 않습니다.",
     "No apps have been loaded yet. Wait for the first scan to finish, then run the checks again.": "아직 불러온 앱이 없습니다. 첫 스캔이 끝날 때까지 기다린 다음 검사를 다시 실행하세요.",
-    "macOS does not give ad-hoc apps a reliable global App Management readout, so IconCraft tests the real thing: a harmless create-and-remove file inside one installed app. Run the check before relying on changes to protected apps.": "macOS는 애드혹 서명된 앱에 신뢰할 수 있는 전역 앱 관리 상태를 제공하지 않으므로, IconCraft는 실제 동작을 테스트합니다. 설치된 앱 하나의 내부에서 무해한 임시 파일을 만들고 삭제합니다. 보호된 앱의 변경에 의존하기 전에 이 검사를 실행하세요.",
     "Optional. When on, a tiny background helper repairs icons or names that another app or updater reverts while IconCraft is closed. Your finished skins remain on disk either way.": "선택 사항입니다. 켜면 IconCraft가 닫혀 있는 동안 다른 앱이나 업데이터가 되돌린 아이콘 또는 이름을 작은 백그라운드 도우미가 복구합니다. 어느 쪽이든 완성된 스킨은 디스크에 남아 있습니다.",
     "The keep-applied helper is disabled in macOS background-item settings. Turn it on again here, or allow IconCraft's background item in System Settings → General → Login Items.": "백그라운드 도우미가 macOS 백그라운드 항목 설정에서 비활성화되어 있습니다. 여기에서 다시 켜거나, 시스템 설정 → 일반 → 로그인 항목에서 IconCraft의 백그라운드 항목을 허용하세요.",
     "On and loaded by macOS. It can keep repairing reverted icons and names after IconCraft closes.": "켜져 있으며 macOS가 로드했습니다. IconCraft를 닫은 뒤에도 되돌려진 아이콘과 이름을 계속 복구할 수 있습니다.",
@@ -451,6 +450,11 @@
     "native operation failed": "네이티브 작업에 실패했습니다",
     "re-sign failed": "다시 서명하지 못했습니다",
     "notification failed": "알림에 실패했습니다",
-    "Recovered automatically: the app already matches its saved original icon, so there was nothing to roll back.": "자동으로 복구됨: 앱이 이미 저장된 원본 아이콘과 일치하므로 롤백할 것이 없었습니다."
+    "Recovered automatically: the app already matches its saved original icon, so there was nothing to roll back.": "자동으로 복구됨: 앱이 이미 저장된 원본 아이콘과 일치하므로 롤백할 것이 없었습니다.",
+    "This copy is signed with a Developer ID and notarised by Apple, so macOS recognises updates as the same app and keeps this permission across them.": "이 사본은 Developer ID로 서명되고 Apple의 공증을 받았으므로, macOS가 업데이트를 같은 앱으로 인식하고 이 권한을 유지합니다.",
+    "This copy is signed with a Developer ID, so macOS recognises updates as the same app and keeps this permission across them.": "이 사본은 Developer ID로 서명되었으므로, macOS가 업데이트를 같은 앱으로 인식하고 이 권한을 유지합니다.",
+    "If changes stop working after an IconCraft update, open App Management and check IconCraft again.": "IconCraft 업데이트 후 변경이 되지 않으면 앱 관리를 열어 IconCraft를 다시 체크하세요.",
+    "This copy of IconCraft launched successfully. It is signed with a Developer ID and notarised by Apple, so downloads open with a double-click and no Gatekeeper warning. Never disable Gatekeeper globally.": "이 IconCraft는 정상적으로 실행되었습니다. Developer ID로 서명되고 Apple의 공증을 받았으므로 다운로드한 파일은 이중 클릭으로 열리며 Gatekeeper 경고가 나타나지 않습니다. Gatekeeper를 전역으로 비활성화하지 마세요.",
+    "macOS does not give apps a reliable global App Management readout, so IconCraft tests the real thing: a harmless create-and-remove file inside one installed app. Run the check before relying on changes to protected apps.": "macOS는 앱에 신뢰할 수 있는 전역 앱 관리 상태를 제공하지 않으므로, IconCraft는 실제 동작을 테스트합니다. 설치된 앱 하나의 내부에서 무해한 임시 파일을 만들고 삭제합니다. 보호된 앱의 변경에 의존하기 전에 이 검사를 실행하세요."
   }
 }
