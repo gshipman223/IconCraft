@@ -2,6 +2,8 @@ package native
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -65,6 +67,53 @@ func TestParseSpctlNotarized(t *testing.T) {
 	}
 	if ParseSpctlNotarized("/x/IconCraft.app: rejected\nsource=no usable signature\n") {
 		t.Fatal("rejected reported as notarised")
+	}
+}
+
+func TestNotarizationVerdictUsesSpctlThenStapledTicket(t *testing.T) {
+	confirmed := "/Applications/IconCraft.app: accepted\nsource=Notarized Developer ID\n"
+	if ok, src := NotarizationVerdict(confirmed, false); !ok || src != "spctl: Notarized Developer ID" {
+		t.Fatal(ok, src)
+	}
+	raw := "<key>assessment:authority:source</key>\n<string>Notarized Developer ID</string>\n"
+	if ok, _ := NotarizationVerdict(raw, false); !ok {
+		t.Fatal("--raw spelling not recognised")
+	}
+	// Gatekeeper could not reach the ticket service: a stapled ticket decides.
+	offline := "/Applications/IconCraft.app: accepted\nsource=Developer ID\n"
+	if ok, src := NotarizationVerdict(offline, true); !ok || src != "stapled ticket (spctl: Developer ID)" {
+		t.Fatal(ok, src)
+	}
+	if ok, src := NotarizationVerdict(offline, false); ok || src != "spctl: Developer ID" {
+		t.Fatal(ok, src)
+	}
+	// Timed out / empty output, but a ticket is stapled.
+	if ok, src := NotarizationVerdict("", true); !ok || src != "stapled ticket" {
+		t.Fatal(ok, src)
+	}
+	if ok, src := NotarizationVerdict("", false); ok || src != "spctl: no verdict" {
+		t.Fatal(ok, src)
+	}
+	// An explicit rejection is never overridden by a stray ticket file.
+	rejected := "/x/IconCraft.app: rejected\nsource=no usable signature\n"
+	if ok, _ := NotarizationVerdict(rejected, true); ok {
+		t.Fatal("rejected bundle reported as notarised")
+	}
+}
+
+func TestHasStapledTicket(t *testing.T) {
+	bundle := filepath.Join(t.TempDir(), "IconCraft.app")
+	if err := os.MkdirAll(filepath.Join(bundle, "Contents"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if hasStapledTicket(bundle) {
+		t.Fatal("no ticket yet")
+	}
+	if err := os.WriteFile(filepath.Join(bundle, "Contents", "CodeResources"), []byte("ticket"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if !hasStapledTicket(bundle) {
+		t.Fatal("ticket not seen")
 	}
 }
 

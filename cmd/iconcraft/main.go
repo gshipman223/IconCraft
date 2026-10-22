@@ -152,7 +152,7 @@ func run() (result error) {
 	// screen's signing copy is ready without blocking the first request.
 	go func() {
 		sig := m.SelfSignature(ctx)
-		log.Printf("own signature: %s notarized=%v team=%q", sig.Kind, sig.Notarized, sig.Team)
+		log.Printf("own signature: %s notarized=%v team=%q source=%q", sig.Kind, sig.Notarized, sig.Team, sig.Source)
 	}()
 	e.InitKeeperPreference(m.KeepAgentEnabled())
 	ensureKeeper(e, m)

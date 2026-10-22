@@ -22,45 +22,100 @@ type SignatureInfo struct {
 	Notarized bool   `json:"notarized"`
 	Team      string `json:"team,omitempty"`
 	Authority string `json:"authority,omitempty"`
+	// Source records how notarisation was established ("spctl: Notarized
+	// Developer ID", "stapled ticket") or what spctl answered instead, so a
+	// wrong verdict can be diagnosed from the log.
+	Source string `json:"source,omitempty"`
 }
 
 // DeveloperID reports whether the copy carries a Developer ID signature.
 func (s SignatureInfo) DeveloperID() bool { return s.Kind == "developer-id" }
 
-var (
-	selfSigOnce sync.Once
-	selfSig     SignatureInfo
-)
+// notarizationRecheck bounds how often an unconfirmed notarisation is asked
+// about again: Gatekeeper may need the network for an unstapled ticket, and
+// a slow first answer must not pin "not notarised" for the whole session.
+const notarizationRecheck = 5 * time.Minute
 
-// SelfSignature inspects the running app bundle once (codesign, then spctl
-// for the notarisation verdict) and caches the result for the process.
+var selfSig = struct {
+	sync.Mutex
+	once      sync.Once
+	info      SignatureInfo
+	bundle    string
+	lastSpctl time.Time
+}{}
+
+// SelfSignature inspects the running app bundle (codesign once; spctl for
+// the notarisation verdict, re-asked periodically until it confirms) and
+// returns the cached picture.
 func (m *Mac) SelfSignature(ctx context.Context) SignatureInfo {
-	selfSigOnce.Do(func() {
-		selfSig = inspectSelf(ctx)
+	selfSig.once.Do(func() {
+		exe, err := os.Executable()
+		if err != nil {
+			selfSig.info = SignatureInfo{Kind: "unknown"}
+			return
+		}
+		selfSig.bundle = bundlePath(exe)
+		if selfSig.bundle == "" {
+			selfSig.info = SignatureInfo{Kind: "unbundled"}
+			return
+		}
+		cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		defer cancel()
+		out, err := exec.CommandContext(cctx, "/usr/bin/codesign", "-dv", "--verbose=2", selfSig.bundle).CombinedOutput()
+		selfSig.info = ParseCodesign(string(out), err)
 	})
-	return selfSig
+	selfSig.Lock()
+	defer selfSig.Unlock()
+	info := selfSig.info
+	if !info.DeveloperID() || info.Notarized {
+		return info
+	}
+	if time.Since(selfSig.lastSpctl) < notarizationRecheck {
+		return info
+	}
+	selfSig.lastSpctl = time.Now()
+	sctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	out, _ := exec.CommandContext(sctx, "/usr/bin/spctl", "--assess", "--type", "execute", "--verbose=2", selfSig.bundle).CombinedOutput()
+	info.Notarized, info.Source = NotarizationVerdict(string(out), hasStapledTicket(selfSig.bundle))
+	selfSig.info = info
+	return info
 }
 
-func inspectSelf(ctx context.Context) SignatureInfo {
-	exe, err := os.Executable()
-	if err != nil {
-		return SignatureInfo{Kind: "unknown"}
+// NotarizationVerdict combines Gatekeeper's answer with the presence of a
+// stapled ticket. spctl is authoritative when it names a notarised source;
+// when it is silent or inconclusive (offline, slow, or an older spelling),
+// a ticket stapled into the bundle is accepted as evidence, because only
+// notarytool-issued tickets are ever stapled. An explicit rejection wins.
+func NotarizationVerdict(spctlOut string, stapled bool) (bool, string) {
+	if ParseSpctlNotarized(spctlOut) {
+		return true, "spctl: Notarized Developer ID"
 	}
-	bundle := bundlePath(exe)
-	if bundle == "" {
-		return SignatureInfo{Kind: "unbundled"}
+	source := spctlSource(spctlOut)
+	if strings.Contains(spctlOut, ": rejected") {
+		return false, "spctl: rejected" + optional(source)
 	}
-	cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
-	defer cancel()
-	out, err := exec.CommandContext(cctx, "/usr/bin/codesign", "-dv", "--verbose=2", bundle).CombinedOutput()
-	info := ParseCodesign(string(out), err)
-	if info.DeveloperID() {
-		sctx, scancel := context.WithTimeout(ctx, 30*time.Second)
-		defer scancel()
-		sout, _ := exec.CommandContext(sctx, "/usr/bin/spctl", "--assess", "--type", "execute", "--verbose=2", bundle).CombinedOutput()
-		info.Notarized = ParseSpctlNotarized(string(sout))
+	if stapled {
+		return true, "stapled ticket" + optional(source)
 	}
-	return info
+	if source == "" {
+		return false, "spctl: no verdict"
+	}
+	return false, "spctl: " + source
+}
+
+func optional(s string) string {
+	if s == "" {
+		return ""
+	}
+	return " (spctl: " + s + ")"
+}
+
+// hasStapledTicket reports whether `xcrun stapler staple` has attached a
+// notarisation ticket to the bundle (always Contents/CodeResources).
+func hasStapledTicket(bundle string) bool {
+	fi, err := os.Stat(filepath.Join(bundle, "Contents", "CodeResources"))
+	return err == nil && fi.Mode().IsRegular() && fi.Size() > 0
 }
 
 // bundlePath returns the .app enclosing an executable at
@@ -126,8 +181,19 @@ func ParseCodesign(out string, runErr error) SignatureInfo {
 	return info
 }
 
-// ParseSpctlNotarized reads the Gatekeeper assessment: only a stapled or
-// online-verified notarisation ticket yields "source=Notarized Developer ID".
+// ParseSpctlNotarized reads the Gatekeeper assessment, in its plain
+// ("source=Notarized Developer ID") or --raw plist spelling.
 func ParseSpctlNotarized(out string) bool {
-	return strings.Contains(out, "source=Notarized Developer ID")
+	return strings.Contains(out, "Notarized Developer ID")
+}
+
+// spctlSource extracts the `source=` line of a plain spctl assessment.
+func spctlSource(out string) string {
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "source=") {
+			return strings.TrimPrefix(line, "source=")
+		}
+	}
+	return ""
 }
