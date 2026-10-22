@@ -97,7 +97,7 @@ test('renamed or full-skinned rows show the original underlying app', () => {
   const css = ui('style.css');
   // A dedicated line under the installed app, fed by the saved original.
   assert.match(js, /orig-line/);
-  assert.match(js, /'Originally '\+origName/);
+  assert.match(js, /t\('row\.originally',\{name:origName\}\)/);
   assert.match(js, /model\.vault\[a\.bundleId\]/);
   assert.match(js, /saved\?\.iconAssetId/);
   // Only when the worn identity actually differs from the original.

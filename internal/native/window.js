@@ -2,6 +2,18 @@
 function run(argv) {
     var stage = 'loading macOS frameworks';
     try {
+    // Menu titles arrive from Go as an `i18n=<json>` argument, already in
+    // the UI language; the English literals below are the fallback so the
+    // window still opens if that argument is missing or malformed.
+    var L = (function () {
+        var table = {};
+        try {
+            for (var i = 0; i < argv.length; i++) {
+                if (typeof argv[i] === 'string' && argv[i].indexOf('i18n=') === 0) table = JSON.parse(argv[i].slice(5)) || {};
+            }
+        } catch (e) { table = {}; }
+        return function (key, fallback) { return typeof table[key] === 'string' && table[key] ? table[key] : fallback; };
+    })();
     ObjC.import('Foundation');ObjC.import('AppKit');ObjC.import('WebKit');
     stage = 'creating the native application';
     const app=$.NSApplication.sharedApplication;
@@ -14,11 +26,11 @@ function run(argv) {
     const menu=$.NSMenu.alloc.init;
     const top=$.NSMenuItem.alloc.init;
     const appMenu=$.NSMenu.alloc.initWithTitle($('IconCraft'));
-    appMenu.addItemWithTitleActionKeyEquivalent($('Quit IconCraft'),'terminate:',$('q'));
+    appMenu.addItemWithTitleActionKeyEquivalent($(L('menu.quit', 'Quit IconCraft')),'terminate:',$('q'));
     top.setSubmenu(appMenu);menu.addItem(top);
     const editTop=$.NSMenuItem.alloc.init;
-    const edit=$.NSMenu.alloc.initWithTitle($('Edit'));
-    [['Undo','undo:','z'],['Cut','cut:','x'],['Copy','copy:','c'],['Paste','paste:','v'],['Select All','selectAll:','a']].forEach(function(v){edit.addItemWithTitleActionKeyEquivalent($(v[0]),v[1],$(v[2]));});
+    const edit=$.NSMenu.alloc.initWithTitle($(L('menu.edit', 'Edit')));
+    [[L('menu.undo', 'Undo'),'undo:','z'],[L('menu.cut', 'Cut'),'cut:','x'],[L('menu.copy', 'Copy'),'copy:','c'],[L('menu.paste', 'Paste'),'paste:','v'],[L('menu.selectAll', 'Select All'),'selectAll:','a']].forEach(function(v){edit.addItemWithTitleActionKeyEquivalent($(v[0]),v[1],$(v[2]));});
     editTop.setSubmenu(edit);menu.addItem(editTop);app.setMainMenu(menu);
     // Menu bar (status) item with quick controls. The persistence keeper is
     // a LaunchAgent and keeps repairing skins even after IconCraft quits;
@@ -49,15 +61,15 @@ function run(argv) {
         // the status item vanish and its delegate stop responding.
         var statusDelegate = $.IconCraftStatusDelegate.alloc.init;
         var statusMenu = $.NSMenu.alloc.init;
-        const openItem = statusMenu.addItemWithTitleActionKeyEquivalent($('Open IconCraft'), 'openApp:', $('')); openItem.setTarget(statusDelegate);
-        const setupItem = statusMenu.addItemWithTitleActionKeyEquivalent($('Setup & Permissions…'), 'openSetup:', $('')); setupItem.setTarget(statusDelegate);
-        var keeperItem = statusMenu.addItemWithTitleActionKeyEquivalent($('Keep Skins Applied'), 'toggleKeeper:', $('')); keeperItem.setTarget(statusDelegate);
-        var keeperState = $.NSMenuItem.alloc.initWithTitleActionKeyEquivalent($('Background keeper status'), null, $('')); keeperState.setEnabled(false); statusMenu.addItem(keeperState);
+        const openItem = statusMenu.addItemWithTitleActionKeyEquivalent($(L('menu.open', 'Open IconCraft')), 'openApp:', $('')); openItem.setTarget(statusDelegate);
+        const setupItem = statusMenu.addItemWithTitleActionKeyEquivalent($(L('menu.setup', 'Setup & Permissions…')), 'openSetup:', $('')); setupItem.setTarget(statusDelegate);
+        var keeperItem = statusMenu.addItemWithTitleActionKeyEquivalent($(L('menu.keep', 'Keep Skins Applied')), 'toggleKeeper:', $('')); keeperItem.setTarget(statusDelegate);
+        var keeperState = $.NSMenuItem.alloc.initWithTitleActionKeyEquivalent($(L('menu.keeperStatus', 'Background keeper status')), null, $('')); keeperState.setEnabled(false); statusMenu.addItem(keeperState);
         statusMenu.addItem($.NSMenuItem.separatorItem);
-        const settingsItem = statusMenu.addItemWithTitleActionKeyEquivalent($('App Management Settings…'), 'openSettings:', $('')); settingsItem.setTarget(statusDelegate);
-        const supportItem = statusMenu.addItemWithTitleActionKeyEquivalent($('Support IconCraft ♥'), 'openSupport:', $('')); supportItem.setTarget(statusDelegate);
+        const settingsItem = statusMenu.addItemWithTitleActionKeyEquivalent($(L('menu.appManagement', 'App Management Settings…')), 'openSettings:', $('')); settingsItem.setTarget(statusDelegate);
+        const supportItem = statusMenu.addItemWithTitleActionKeyEquivalent($(L('menu.support', 'Support IconCraft ♥')), 'openSupport:', $('')); supportItem.setTarget(statusDelegate);
         statusMenu.addItem($.NSMenuItem.separatorItem);
-        statusMenu.addItemWithTitleActionKeyEquivalent($('Quit IconCraft'), 'terminate:', $('q'));
+        statusMenu.addItemWithTitleActionKeyEquivalent($(L('menu.quit', 'Quit IconCraft')), 'terminate:', $('q'));
         statusMenu.setDelegate(statusDelegate);
         var refreshKeeper = function() {
             try {
@@ -72,9 +84,9 @@ function run(argv) {
                     try { statusItem.setVisible(!!s.settings.showMenuBarIcon); } catch (e) {}
                 }
             } catch (e) {}
-            keeperItem.setTitle($(keeperOn ? 'Keep Skins Applied: On' : 'Keep Skins Applied: Off'));
+            keeperItem.setTitle($(keeperOn ? L('menu.keepOn', 'Keep Skins Applied: On') : L('menu.keepOff', 'Keep Skins Applied: Off')));
             keeperItem.setState(keeperOn ? 1 : 0);
-            keeperState.setTitle($(keeperOn ? 'Background keeper: on — works with IconCraft closed' : 'Background keeper: off'));
+            keeperState.setTitle($(keeperOn ? L('menu.keeperOn', 'Background keeper: on — works with IconCraft closed') : L('menu.keeperOff', 'Background keeper: off')));
         };
         // Icon first: if the button can't be dressed, bail before installing.
         var statusItem = $.NSStatusBar.systemStatusBar.statusItemWithLength(-1);
