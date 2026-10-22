@@ -91,7 +91,7 @@ No accounts, no telemetry, no diagnostics maze. One screen:
 | **Originals Vault** | Before anything changes, your app's original name (folder + internal) and icon are saved under its stable bundle ID. Restore rebuilds from the vault — even after the app updates, moves, or is renamed again. |
 | **Full skin (running identity)** | Optionally write the name + icon *inside* a cloned/third-party app (re-signed, fully backed up and reversible) so it keeps your identity in the Dock/menu bar while running. Apps that set their own Dock icon at launch from artwork embedded in the executable (e.g. Rust/eframe clones) get that embedded copy swapped in place too — same byte length, originals backed up — and IconCraft says so plainly when an app's running icon can't be replaced safely. Bundle ID and links never change. |
 | **Skins that stick** | Third-party apps/updaters love reverting Finder icons and names on launch. Turn on **Keep skins applied** and a tiny background agent re-applies yours automatically — nothing inside any app is ever edited. |
-| **Rename apps** | Rename in Finder (the outer `.app`, exactly like Finder does) with *Use original name* / *Restore name*. Running, protected, or colliding apps are refused. |
+| **Edit in one panel** | The pencil opens a single editor: name, icon choice, an optional full skin, a live before/after preview, one **Save changes** that performs the steps in the right order (and says exactly which step failed if one does), and **Restore original**. Renames happen in Finder (the outer `.app`, exactly like Finder does); running, protected, or colliding apps are refused. |
 | **Fast** | Cached inventory paints instantly; scans, thumbnails and original-icon checks continue in the background. Content-addressed previews, single-flight native calls. |
 | **Native & private** | Go backend on an authenticated loopback port + a native AppKit/WebKit window. Nothing leaves your Mac except publisher icon lookups. No analytics. Ever. |
 | **Looks the part** | Modern dark-first UI with System / Light / Dark, following your Mac live. |
@@ -133,7 +133,10 @@ Then open IconCraft and complete **Finish setup**:
    **Replace selected**.
 3. Want a different look? Click the **grid icon** to borrow any installed
    app's icon, or *Choose image file…* for your own PNG/ICNS.
-4. Click the **pencil** to rename the app, use its original name, or restore it.
+4. Click the **pencil** to edit the app in one panel: type a new name, pick
+   the icon, optionally switch on the full skin (name and icon inside the
+   app, for the Dock and menu bar while it runs), preview the result and
+   **Save changes** — or **Restore original** from the same panel.
 5. Changed your mind? **Restore** (per app) or **Restore all** puts back the
    exact original icon and name.
 

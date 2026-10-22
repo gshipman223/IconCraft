@@ -23,7 +23,7 @@ function localizeDocument(){
 const model={apps:[],assets:{},originals:{},choices:{},records:[],renames:[],rebrands:{},rebrandRuntime:{},vault:{},keepAlive:false,setupRequired:false,settings:null,loginAgent:false};
 const rows=new Map(), rowState=new Map(), selected=new Set();
 let scanning=false, busy=false, firstLoad=true, selectFuture=false, query='',theme='system',themeTouched=false;
-let generation=0,workerCount=0,queue=[],seen=new Set(),controllers=new Set(),pickerApp=null,renameApp=null;
+let generation=0,workerCount=0,queue=[],seen=new Set(),controllers=new Set(),pickerApp=null,editApp=null;
 let setupData=null,setupChecking=false,setupOpening=false,setupWanted=false;
 let tab='apps',defaultsData=null,defaultsBusy=false;
 /* Sort/group persist server-side (the journal): this page is served from
@@ -251,7 +251,7 @@ async function finishSetup(){
  finally{setupChecking=false;drawSetup();}
 }
 function closeSetup(){if(!setupChecking)$('setup-dialog').close();}
-function closePicker(){if(!busy){$('picker').close();pickerApp=null;}}
+function closePicker(){if(!busy){$('picker').close();pickerApp=null;if(editApp)drawEdit();}}
 function openPicker(a){if(busy)return;pickerApp=a;$('picker-for').textContent=t('picker.for',{name:a.name});$('picker-search').value='';dialogError('picker-error','');drawPicker();$('picker').showModal();$('picker-search').focus();}
 function drawPicker(){
  if(!pickerApp)return;const a=pickerApp,original=model.originals[a.craftId];$('picker-original').replaceChildren();
@@ -263,31 +263,106 @@ function drawPicker(){
  }
  $('picker-grid').replaceChildren(frag);if(!frag.childNodes.length&&!$('picker-grid').children.length)$('picker-grid').append(node('p','row-note',t('picker.noMatches')));
 }
-async function pickChoice(action,update){if(busy)return;busy=true;$('picker').querySelectorAll('button').forEach(b=>b.disabled=true);render();try{const result=await action();if(!result.cancelled){update(result);$('picker').close();pickerApp=null;tell(t('picker.selected'));}}catch(e){dialogError('picker-error',e.message);}finally{busy=false;$('picker').querySelectorAll('button').forEach(b=>b.disabled=false);render();}}
+async function pickChoice(action,update){if(busy)return;busy=true;$('picker').querySelectorAll('button').forEach(b=>b.disabled=true);render();try{const result=await action();if(!result.cancelled){update(result);$('picker').close();pickerApp=null;if(editApp){editIconMode='apply';disarmEdit();drawEdit();}else tell(t('picker.selected'));}}catch(e){dialogError('picker-error',e.message);}finally{busy=false;$('picker').querySelectorAll('button').forEach(b=>b.disabled=false);render();}}
 $('browse').addEventListener('click',()=>{if(!pickerApp)return;const a=pickerApp;pickChoice(()=>api('custom',{appId:a.id}),r=>{model.assets[r.asset.id]=r.asset;model.choices[a.bundleId]=r.asset.id;});});
+/* ---- Edit app: one panel for name, icon and the optional full skin ----
+   A single Save performs the steps in the order the engine needs: rename
+   the folder first (ids are path-derived), then either write the full skin
+   inside the bundle or set the Finder icon. Each step reports separately,
+   so a failure after a success is shown as exactly that. */
+let editIconMode='keep',editArmed=0,editViews=null;
 function vaultText(sv){
- if(!sv)return t('rename.vaultNone');
- return t('rename.vaultSaved',{name:sv.appName,folder:sv.folderName,internal:sv.internalName?t('rename.vaultInternal',{name:sv.internalName}):'',icon:sv.iconAssetId?t('rename.vaultIcon'):''});
+ if(!sv)return t('edit.vaultNone');
+ return t('edit.vaultSaved',{name:sv.appName});
 }
-function openRename(a){if(busy)return;renameApp=a;$('rename-for').textContent=a.name;$('name-input').value=a.name;$('name-original').disabled=!(model.originals[a.craftId]?.product||a.equivalent);$('name-restore').hidden=!a.renamed;dialogError('rename-error','');
- $('vault-state').textContent=vaultText(model.vault[a.bundleId]);
- const skinned=!!model.rebrands[a.bundleId];$('name-unskin').hidden=!skinned;$('fullskin-state').textContent=skinned?(model.rebrandRuntime[a.bundleId]==='own'?t('rename.skinOwn',{name:model.rebrands[a.bundleId]}):t('rename.skinApplied',{name:model.rebrands[a.bundleId]})):(chosen(a)?t('rename.usesChosen'):t('rename.chooseFirst'));
- const ib=$('name-internal');ib.dataset.armed='';ib.textContent=t('rename.applyFullSkin');ib.disabled=!chosen(a);
+function editState(){
+ const a=editApp;if(!a)return null;
+ const live=model.records.some(r=>r.appId===a.id&&live_(r));
+ const asset=chosen(a),skinned=model.rebrands[a.bundleId]||'';
+ const name=$('name-input').value.trim();
+ const nameChanged=!!name&&name!==a.name;
+ const iconApply=editIconMode==='apply'&&!!asset;
+ const full=$('edit-fullskin').checked&&!!asset;
+ const fullAction=full&&(!skinned||nameChanged||iconApply);
+ return {a,live,asset,skinned,name,nameChanged,iconApply,full,fullAction,any:nameChanged||(iconApply&&!full)||fullAction};
+}
+function live_(r){return live(r);}
+function iconLabel(a){const custom=!!model.choices[a.bundleId],orig=model.originals[a.craftId];return custom?model.assets[chosen(a)]?.name||t('row.customIcon'):orig?.product||a.equivalent?.replace(' (suggested)','')||t('row.original');}
+function drawEdit(){
+ const s=editState();if(!s)return;const a=s.a;
+ $('rename-for').textContent=a.path;
+ /* preview */
+ const saved=model.vault[a.bundleId],origName=saved?.appName||model.renames.find(r=>r.bundleId===a.bundleId)?.oldName||'';
+ if(!editViews){editViews={now:imageView(),after:imageView()};$('edit-now-icon').replaceChildren(editViews.now.wrap);$('edit-after-icon').replaceChildren(editViews.after.wrap);}
+ setImage(editViews.now,appIcon(a),t('row.currentIconAlt',{name:a.name}));
+ $('edit-now-name').textContent=a.name;
+ $('edit-now-sub').textContent=origName&&origName!==a.name?t('row.originally',{name:origName}):(a.version?t('row.version',{version:a.version}):t('row.installed'));
+ const afterAsset=(s.iconApply||s.full)&&s.asset;
+ setImage(editViews.after,afterAsset?assetIcon(s.asset):appIcon(a),t('row.iconAlt',{name:s.name||a.name}));
+ $('edit-after-name').textContent=s.name||a.name;
+ const parts=[];if(s.nameChanged)parts.push(t('edit.sumName'));if(s.iconApply&&!s.full)parts.push(t('edit.sumIcon'));if(s.fullAction)parts.push(t('edit.sumFull'));
+ $('edit-after-sub').textContent=parts.length?parts.join(SEP):t('edit.sumNone');
+ /* name */
+ $('name-original').hidden=!(model.originals[a.craftId]?.product||a.equivalent);
+ /* icon */
+ const applyRadio=$('edit-icon-apply'),keepRadio=$('edit-icon-keep');
+ applyRadio.disabled=!s.asset;
+ $('edit-icon-apply-title').textContent=s.asset?iconLabel(a):t('edit.noIcon');
+ $('edit-icon-apply-sub').textContent=s.asset?(s.live&&!model.choices[a.bundleId]?t('edit.iconApplied'):t('edit.iconFinder')):t('edit.noIconHint');
+ keepRadio.checked=editIconMode!=='apply'||!s.asset;applyRadio.checked=editIconMode==='apply'&&!!s.asset;
+ $('edit-radio-keep').classList.toggle('selected',keepRadio.checked);$('edit-radio-apply').classList.toggle('selected',applyRadio.checked);
+ /* full skin */
+ const fs=$('edit-fullskin');fs.disabled=!s.asset;if(!s.asset)fs.checked=false;
+ $('fullskin-state').textContent=!s.asset?t('edit.fullSkinNeedsIcon'):s.skinned?(model.rebrandRuntime[a.bundleId]==='own'?t('rename.skinOwn',{name:s.skinned}):t('rename.skinApplied',{name:s.skinned})):'';
+ $('fullskin-state').hidden=!$('fullskin-state').textContent;
+ /* vault + actions */
+ $('vault-state').textContent=vaultText(saved);
+ const restorable=active(a)||!!s.skinned||!!model.choices[a.bundleId];
+ $('name-restore').hidden=!restorable;$('name-restore').disabled=busy;
+ const save=$('name-save');save.disabled=busy||!s.any;
+ save.classList.toggle('armed',!!editArmed);
+ save.textContent=editArmed?t('edit.confirmSkin',{name:s.name||a.name}):t('edit.save');
+ $('edit-change-icon').disabled=busy;
+}
+function disarmEdit(){if(editArmed){clearTimeout(editArmed);editArmed=0;}}
+function openRename(a){if(busy)return;editApp=a;editArmed=0;const live=model.records.some(r=>r.appId===a.id&&live_(r));
+ editIconMode=chosen(a)&&(!live||!!model.choices[a.bundleId])?'apply':'keep';
+ $('name-input').value=a.name;$('edit-fullskin').checked=!!model.rebrands[a.bundleId];dialogError('rename-error','');drawEdit();
  $('rename-dialog').showModal();$('name-input').focus();$('name-input').select();}
-function closeRename(){if(!busy){$('rename-dialog').close();renameApp=null;}}
-async function saveName(restore=false){if(busy||!renameApp)return;const a=renameApp;busy=true;$('name-save').disabled=true;$('name-restore').disabled=true;render();try{const result=await api(restore?'restore-name':'rename',{appId:a.id,...(restore?{}:{name:$('name-input').value}),confirmed:true});await session();$('rename-dialog').close();renameApp=null;tell(t('rename.renamed',{name:result.app.name}));}catch(e){dialogError('rename-error',e.message);}finally{busy=false;$('name-save').disabled=false;$('name-restore').disabled=false;render();}}
-$('name-internal').addEventListener('click',async()=>{if(busy||!renameApp)return;const a=renameApp,ib=$('name-internal');
- if(!ib.dataset.armed){ib.dataset.armed='1';ib.textContent=t('rename.confirmSkin',{name:a.name});
-  /* The confirm label is taller (it wraps in CJK) and the sticky action
-     footer overlays whatever sits under it mid-scroll, so bring the armed
-     button fully above the footer (scroll-margin-bottom leaves room). */
-  if(ib.scrollIntoView)ib.scrollIntoView({block:'end'});
-  setTimeout(()=>{ib.dataset.armed='';ib.textContent=t('rename.applyFullSkin');},5000);return;}
- busy=true;ib.disabled=true;render();try{await api('rebrand',{appId:a.id,assetId:chosen(a),name:$('name-input').value,confirmed:true});await rescan();$('rename-dialog').close();renameApp=null;tell(t('rename.skinDone',{name:a.name}));}catch(e){dialogError('rename-error',e.message);}finally{busy=false;ib.disabled=false;ib.dataset.armed='';ib.textContent=t('rename.applyFullSkin');render();}});
-$('name-unskin').addEventListener('click',async()=>{if(busy||!renameApp)return;const a=renameApp;busy=true;render();try{await api('restore-rebrand',{appId:a.id,confirmed:true});await rescan();$('rename-dialog').close();renameApp=null;tell(t('rename.unskinDone',{name:a.name}));}catch(e){dialogError('rename-error',e.message);}finally{busy=false;render();}});
-$('name-original').addEventListener('click',()=>{if(renameApp)$('name-input').value=model.originals[renameApp.craftId]?.product||renameApp.equivalent.replace(' (suggested)','');});
-$('name-save').addEventListener('click',()=>saveName());$('name-restore').addEventListener('click',()=>saveName(true));$('name-input').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveName();}});
+function closeRename(){if(!busy){disarmEdit();$('rename-dialog').close();editApp=null;}}
+async function saveEdit(){
+ if(busy||!editApp)return;const s=editState();if(!s.any)return;const a=s.a;
+ if(s.fullAction&&!editArmed){
+  /* Safety confirm for writing inside the app, folded into the one button:
+     a second click within five seconds performs it. */
+  editArmed=setTimeout(()=>{editArmed=0;drawEdit();},5000);drawEdit();return;
+ }
+ disarmEdit();busy=true;dialogError('rename-error','');drawEdit();render();
+ const done=[];let cur=a,failed='';
+ try{
+  if(s.nameChanged){const r=await api('rename',{appId:cur.id,name:s.name,confirmed:true});cur=r.app||cur;done.push(t('edit.stepName'));}
+  if(s.fullAction){await api('rebrand',{appId:cur.id,assetId:s.asset,name:s.name||cur.name,confirmed:true});done.push(t('edit.stepFull'));}
+  else if(s.iconApply){await api('apply',{appId:cur.id,assetId:s.asset,confirmed:true});rs(cur).revision++;done.push(t('edit.stepIcon'));}
+ }catch(e){failed=e.message;}
+ await rescan();busy=false;
+ const fresh=model.apps.find(x=>x.bundleId===a.bundleId&&(x.id===cur.id||x.path===cur.path))||model.apps.find(x=>x.bundleId===a.bundleId);
+ if(failed){
+  if(fresh)editApp=fresh;$('name-input').value=s.name||(fresh?fresh.name:a.name);
+  dialogError('rename-error',done.length?t('edit.partial',{done:done.join(SEP),error:failed}):failed);drawEdit();render();if($('rename-error').scrollIntoView)$('rename-error').scrollIntoView({block:'end'});return;
+ }
+ $('rename-dialog').close();editApp=null;
+ tell(t('edit.saved',{name:fresh?fresh.name:(s.name||a.name),steps:done.join(SEP)}));render();
+}
+async function restoreFromEdit(){if(busy||!editApp)return;const a=editApp;disarmEdit();$('rename-dialog').close();editApp=null;await restoreOne(a);}
+$('edit-fullskin').addEventListener('change',()=>{disarmEdit();drawEdit();});
+$('edit-icon-keep').addEventListener('change',()=>{editIconMode='keep';disarmEdit();drawEdit();});
+$('edit-icon-apply').addEventListener('change',()=>{editIconMode='apply';disarmEdit();drawEdit();});
+$('name-input').addEventListener('input',()=>{disarmEdit();drawEdit();});
+$('edit-change-icon').addEventListener('click',()=>{if(editApp)openPicker(editApp);});
+$('name-original').addEventListener('click',()=>{if(editApp){$('name-input').value=model.originals[editApp.craftId]?.product||editApp.equivalent.replace(' (suggested)','');disarmEdit();drawEdit();}});
+$('name-save').addEventListener('click',saveEdit);$('name-restore').addEventListener('click',restoreFromEdit);$('name-input').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveEdit();}});
 $('rename-close').addEventListener('click',closeRename);$('rename-cancel').addEventListener('click',closeRename);$('picker-close').addEventListener('click',closePicker);$('picker-search').addEventListener('input',drawPicker);
+$('rename-dialog').addEventListener('close',()=>{disarmEdit();editApp=null;});
 for(const id of ['picker','rename-dialog']){$(id).addEventListener('cancel',e=>{if(busy)e.preventDefault();});$(id).addEventListener('click',e=>{if(e.target===$(id)&&!busy){const r=$(id).getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$(id).close();}});}
 async function openSupport(target){try{const r=await api('support',{target});if(!r.opened&&r.url)window.open(r.url,'_blank');else if(r.opened)tell(target==='paypal'?t('support.openingPaypal'):t('support.openingGithub'));}catch(e){tell((target==='paypal'?t('support.paypalFallback'):t('support.githubFallback')),true);}}
 $('keepalive').addEventListener('click',async()=>{if(busy)return;busy=true;render();try{const r=await api('keepalive',{enabled:!model.keepAlive});model.keepAlive=!!r.enabled;tell(model.keepAlive?t('keepalive.on'):t('keepalive.off'));}catch(e){tell(e.message,true);}finally{busy=false;render();}});

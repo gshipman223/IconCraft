@@ -122,8 +122,10 @@ test('restores and full-skin changes rescan the inventory instead of trusting th
   assert.match(js, /async function rescan\(\)\{try\{await api\('scan',\{\}\);\}catch\(_\)\{\}await session\(\);\}/);
   assert.match(js, /api\('restore-all',\{confirmed:true\}\);[^\n]*await rescan\(\)/);
   assert.match(js, /api\('restore-app',\{appId:a\.id,confirmed:true\}\);[^\n]*await rescan\(\)/);
-  assert.match(js, /api\('rebrand',[^\n]*await rescan\(\)/);
-  assert.match(js, /api\('restore-rebrand',[^\n]*await rescan\(\)/);
+  // The editor's single Save (rename / rebrand / apply) rescans once after its steps.
+  const save = js.slice(js.indexOf('async function saveEdit()'), js.indexOf('async function restoreFromEdit()'));
+  assert.match(save, /api\('rebrand'/);
+  assert.match(save, /await rescan\(\)/);
 });
 
 test('notification and update toggles each carry a visible label', () => {
@@ -138,21 +140,37 @@ test('notification and update toggles each carry a visible label', () => {
   assert.match(css, /\.switch-row\{display:flex/);
 });
 
-test('full-skin footer wraps and dialog action footers stay in view', () => {
+test('dialog action footers stay in view while long dialogs scroll', () => {
   const html = ui('index.html');
   const css = ui('style.css');
-  assert.match(html, /<div class="dialog-footer fullskin-footer"><span id="fullskin-state"><\/span><span class="fullskin-actions">/);
   for (const id of ['rename-cancel', 'settings-cancel', 'setup-later']) {
-    assert.match(html, new RegExp(`<div class="dialog-footer dialog-actions"><button id="${id}"`), `${id} footer is sticky`);
+    assert.match(html, new RegExp(`<div class="dialog-footer dialog-actions[^"]*">(?:(?!</div>)[\\s\\S]){0,160}id="${id}"`), `${id} footer is sticky`);
   }
-  assert.match(css, /#fullskin-state\{flex:1 1 180px;min-width:0/);
-  assert.match(css, /\.fullskin-actions button\{white-space:normal/);
   assert.match(css, /\.dialog-actions\{position:sticky;bottom:-24px/);
 });
 
-test('arming the full-skin confirm scrolls the button clear of the sticky footer', () => {
+test('Edit app is one panel: preview, name, icon choice, full-skin switch, single Save, restore path', () => {
+  const html = ui('index.html');
   const js = ui('app.js');
-  const css = ui('style.css');
-  assert.match(js, /ib\.dataset\.armed='1';ib\.textContent=t\('rename\.confirmSkin'[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*\n\s*if\(ib\.scrollIntoView\)ib\.scrollIntoView\(\{block:'end'\}\);/);
-  assert.match(css, /\.fullskin-actions button\{[^}]*scroll-margin-bottom:104px/);
+  // Sections and controls.
+  for (const id of ['edit-now-icon', 'edit-after-icon', 'edit-after-sub', 'name-input', 'name-original', 'edit-change-icon', 'edit-icon-keep', 'edit-icon-apply', 'edit-fullskin', 'fullskin-state', 'vault-state', 'name-restore', 'name-save', 'rename-cancel']) {
+    assert.match(html, new RegExp(`id="${id}"`), id);
+  }
+  // The two old separate actions are gone.
+  assert.doesNotMatch(html, /id="name-internal"|id="name-unskin"/);
+  // One Save performs rename → full skin, or rename → Finder icon, in order.
+  const save = js.slice(js.indexOf('async function saveEdit()'), js.indexOf('async function restoreFromEdit()'));
+  const order = ['api(\'rename\'', 'api(\'rebrand\'', 'api(\'apply\''].map(k => save.indexOf(k));
+  assert.ok(order.every(i => i >= 0) && order[0] < order[1] && order[1] < order[2], 'rename before rebrand before apply');
+  // The full-skin safety confirm is folded into the Save button (arm, then confirm within 5 s).
+  assert.match(save, /if\(s\.fullAction&&!editArmed\)\{/);
+  assert.match(save, /editArmed=setTimeout\(\(\)=>\{editArmed=0;drawEdit\(\);\},5000\)/);
+  assert.match(js, /save\.textContent=editArmed\?t\('edit\.confirmSkin',\{name:s\.name\|\|a\.name\}\):t\('edit\.save'\)/);
+  // Partial failure is reported as such, and the inventory is rescanned either way.
+  assert.match(save, /t\('edit\.partial',\{done:done\.join\(SEP\),error:failed\}\)/);
+  assert.match(save, /await rescan\(\);busy=false;/);
+  // Restore is one click from the editor and uses the vault restore.
+  assert.match(js, /async function restoreFromEdit\(\)\{[^\n]*await restoreOne\(a\);/);
+  // Choosing an icon from inside the editor selects it and refreshes the preview.
+  assert.match(js, /if\(editApp\)\{editIconMode='apply';disarmEdit\(\);drawEdit\(\);\}/);
 });
