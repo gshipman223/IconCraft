@@ -43,11 +43,27 @@ func TestSaveSettingsPreservesUpdateCache(t *testing.T) {
 	}
 }
 
-func TestCompareVersions(t *testing.T) {
-	if compareVersions("0.11.0", "0.10.1") <= 0 || compareVersions("1.0.0", "0.99.9") <= 0 {
-		t.Fatal("newer versions must compare greater")
+func TestNewerVersionIsStrictSemver(t *testing.T) {
+	newer := []struct{ latest, current string }{
+		{"0.11.0", "0.10.1"}, {"1.0.0", "0.99.9"}, {"0.14.0", "0.13.3"}, {"v0.14.1", "0.14.0"},
+		{"0.14.0", "0.14.0-beta.2"}, {"0.14.0-beta.2", "0.14.0-beta.1"}, {"0.14.0-rc.1", "0.14.0-beta.9"},
+		{"0.14.0-beta.10", "0.14.0-beta.9"}, {"0.15", "0.14.9"},
 	}
-	if compareVersions("0.11.0", "0.11.0") != 0 || compareVersions("0.9.0", "0.11.0") >= 0 {
-		t.Fatal("equal/older versions mis-compared")
+	for _, c := range newer {
+		if !NewerVersion(c.latest, c.current) {
+			t.Errorf("%s should be newer than %s", c.latest, c.current)
+		}
+	}
+	notNewer := []struct{ latest, current string }{
+		{"0.13.3", "0.14.0"},         // the round-4 bug: an older release must never be offered
+		{"0.14.0", "0.14.0"},         // same version
+		{"0.14.0-beta.1", "0.14.0"},  // prerelease of the running release
+		{"0.14.0+build.7", "0.14.0"}, // build metadata is ignored
+		{"latest", "0.14.0"}, {"", "0.14.0"}, {"0.14.0", "dev"}, {"1.2.3.4", "0.14.0"}, {"0.14.x", "0.14.0"},
+	}
+	for _, c := range notNewer {
+		if NewerVersion(c.latest, c.current) {
+			t.Errorf("%s must not be offered over %s", c.latest, c.current)
+		}
 	}
 }

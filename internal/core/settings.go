@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -116,10 +117,13 @@ func (e *Engine) CheckForUpdate(ctx context.Context) (UpdateCheck, error) {
 	if latest == "" {
 		return UpdateCheck{}, errors.New("GitHub did not name a latest release")
 	}
+	if _, ok := parseVersion(latest); !ok {
+		return UpdateCheck{}, fmt.Errorf("GitHub named release %q, which is not a version IconCraft can compare", body.TagName)
+	}
 	out := UpdateCheck{
 		Current:         Version,
 		Latest:          latest,
-		UpdateAvailable: compareVersions(latest, Version) > 0,
+		UpdateAvailable: NewerVersion(latest, Version),
 		ReleaseURL:      body.HTMLURL,
 		CheckedAt:       now(),
 	}
@@ -131,22 +135,92 @@ func (e *Engine) CheckForUpdate(ctx context.Context) (UpdateCheck, error) {
 	return out, nil
 }
 
-// compareVersions compares dotted numeric versions (1.10.0 > 1.9.9).
-func compareVersions(a, b string) int {
-	pa, pb := strings.Split(a, "."), strings.Split(b, ".")
-	for i := 0; i < len(pa) || i < len(pb); i++ {
-		var na, nb int
-		if i < len(pa) {
-			na, _ = strconv.Atoi(pa[i])
+// NewerVersion reports whether latest is a strictly newer release than
+// current. Both must be well-formed semantic versions (an optional "v"
+// prefix, MAJOR.MINOR[.PATCH], optional -prerelease and +build); a
+// prerelease sorts before its release (0.14.0-beta.1 < 0.14.0), and a tag
+// IconCraft cannot parse is never offered as an update.
+func NewerVersion(latest, current string) bool {
+	l, okL := parseVersion(latest)
+	c, okC := parseVersion(current)
+	return okL && okC && compareParsed(l, c) > 0
+}
+
+type parsedVersion struct {
+	nums [3]int
+	pre  []string
+}
+
+var versionRE = regexp.MustCompile(`^v?(\d+)\.(\d+)(?:\.(\d+))?(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$`)
+
+func parseVersion(s string) (parsedVersion, bool) {
+	m := versionRE.FindStringSubmatch(strings.TrimSpace(s))
+	if m == nil {
+		return parsedVersion{}, false
+	}
+	var v parsedVersion
+	for i, part := range m[1:4] {
+		if part == "" {
+			continue
 		}
-		if i < len(pb) {
-			nb, _ = strconv.Atoi(pb[i])
+		n, err := strconv.Atoi(part)
+		if err != nil {
+			return parsedVersion{}, false
 		}
-		if na != nb {
-			if na > nb {
+		v.nums[i] = n
+	}
+	if m[4] != "" {
+		v.pre = strings.Split(m[4], ".")
+	}
+	return v, true
+}
+
+func compareParsed(a, b parsedVersion) int {
+	for i := 0; i < 3; i++ {
+		if a.nums[i] != b.nums[i] {
+			if a.nums[i] > b.nums[i] {
 				return 1
 			}
 			return -1
+		}
+	}
+	switch {
+	case len(a.pre) == 0 && len(b.pre) == 0:
+		return 0
+	case len(a.pre) == 0:
+		return 1 // release beats its prerelease
+	case len(b.pre) == 0:
+		return -1
+	}
+	for i := 0; i < len(a.pre) || i < len(b.pre); i++ {
+		if i >= len(a.pre) {
+			return -1
+		}
+		if i >= len(b.pre) {
+			return 1
+		}
+		pa, pb := a.pre[i], b.pre[i]
+		na, errA := strconv.Atoi(pa)
+		nb, errB := strconv.Atoi(pb)
+		switch {
+		case errA == nil && errB == nil:
+			if na != nb {
+				if na > nb {
+					return 1
+				}
+				return -1
+			}
+		case errA == nil:
+			return -1 // numeric identifiers sort before alphanumeric ones
+		case errB == nil:
+			return 1
+		default:
+			if pa != pb {
+				if pa > pb {
+					return 1
+				}
+				return -1
+			}
 		}
 	}
 	return 0

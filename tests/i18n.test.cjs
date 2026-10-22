@@ -157,3 +157,21 @@ test('bridge.js uses the localised open-panel title supplied by Go', () => {
   assert.match(bridge, /r\.title/);
   for (const k of ['Choose a folder', 'Choose an IconCraft profile', 'Choose an original icon']) assert.ok(k in en.messages, k);
 });
+
+test('update status uses strict semver: an older or malformed remote tag is never an update', () => {
+  const { ctx } = helpers({}, 'en');
+  const n = (a, b) => ctx.newerVersion(a, b);
+  assert.equal(n('0.13.3', '0.14.0'), false, 'the round-4 bug');
+  assert.equal(n('0.14.0', '0.14.0'), false);
+  assert.equal(n('0.14.1', '0.14.0'), true);
+  assert.equal(n('v1.0.0', '0.99.9'), true);
+  assert.equal(n('0.14.0', '0.14.0-beta.2'), true, 'release beats its prerelease');
+  assert.equal(n('0.14.0-beta.1', '0.14.0'), false);
+  assert.equal(n('0.14.0-beta.10', '0.14.0-beta.9'), true, 'numeric prerelease identifiers compare numerically');
+  assert.equal(n('0.14.0-rc.1', '0.14.0-beta.9'), true);
+  assert.equal(n('0.14.0+build.7', '0.14.0'), false, 'build metadata ignored');
+  for (const bad of ['latest', '', undefined, '1.2.3.4', '0.14.x', 'dev']) assert.equal(n(bad, '0.14.0'), false, String(bad));
+  assert.equal(n('0.15.0', 'dev'), false, 'unparseable current version: never claim an update');
+  const js = fs.readFileSync(path.join(root, 'internal/server/ui/app.js'), 'utf8');
+  assert.match(js, /newerVersion\(s\.latestVersion,current\)\?t\('settings\.available'/);
+});

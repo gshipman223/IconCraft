@@ -473,6 +473,7 @@
     "If changes stop working after an IconCraft update, open App Management and check IconCraft again.": "If changes stop working after an IconCraft update, open App Management and check IconCraft again.",
     "This copy of IconCraft launched successfully. It is signed with a Developer ID and notarised by Apple, so downloads open with a double-click and no Gatekeeper warning. Never disable Gatekeeper globally.": "This copy of IconCraft launched successfully. It is signed with a Developer ID and notarised by Apple, so downloads open with a double-click and no Gatekeeper warning. Never disable Gatekeeper globally.",
     "macOS does not give apps a reliable global App Management readout, so IconCraft tests the real thing: a harmless create-and-remove file inside one installed app. Run the check before relying on changes to protected apps.": "macOS does not give apps a reliable global App Management readout, so IconCraft tests the real thing: a harmless create-and-remove file inside one installed app. Run the check before relying on changes to protected apps.",
-    "IconCraft can see 1 installed app. It reads app names, bundle IDs and icons; reading an app does not change it.": "IconCraft can see 1 installed app. It reads app names, bundle IDs and icons; reading an app does not change it."
+    "IconCraft can see 1 installed app. It reads app names, bundle IDs and icons; reading an app does not change it.": "IconCraft can see 1 installed app. It reads app names, bundle IDs and icons; reading an app does not change it.",
+    "GitHub named release %q, which is not a version IconCraft can compare": "GitHub named release %q, which is not a version IconCraft can compare"
   }
 }
