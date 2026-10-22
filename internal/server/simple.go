@@ -515,23 +515,79 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 		}
 		restored := 0
 		failures := []string{}
-		for _, a := range s.Engine.InstalledApps() {
-			rep, err := s.Engine.RestoreFromVault(ctx, a.ID)
-			if err != nil {
-				failures = append(failures, fmt.Sprintf("%s: %s", a.Name, i18n.Error(err)))
+		used := map[string]bool{}
+		for _, snap := range s.Engine.InstalledApps() {
+			// Earlier restores in this pass rename folders, which changes
+			// path-derived ids: resolve each app against the live inventory
+			// rather than trusting the snapshot taken before the loop.
+			a, ok := resolveForRestore(s.Engine.InstalledApps(), snap, used)
+			if !ok {
 				continue
 			}
+			used[a.ID], used[a.Path] = true, true
+			rep, err := s.Engine.RestoreFromVault(ctx, a.ID)
+			if err != nil && rep.Restored == 0 && staleApp(err) {
+				// The inventory moved under us (a partial restore earlier
+				// renamed the app); find it again and retry once.
+				if again, ok := resolveForRestore(s.Engine.InstalledApps(), a, used); ok {
+					used[again.ID], used[again.Path] = true, true
+					rep, err = s.Engine.RestoreFromVault(ctx, again.ID)
+				}
+			}
 			// rep.Restored counts steps (icon, internal identity, folder
-			// name); the banner counts apps.
+			// name); the banner counts apps. A partial restore (some steps
+			// done, one refused) still counts, and its refusal is reported
+			// so the next pass can finish the job instead of stalling.
 			if rep.Restored > 0 {
 				restored++
 				s.forgetChoice(a.BundleID)
+			}
+			if err != nil {
+				failures = append(failures, fmt.Sprintf("%s: %s", a.Name, i18n.Error(err)))
 			}
 		}
 		respond(w, 200, map[string]any{"restored": restored, "errors": failures})
 		return true
 	}
 	return false
+}
+
+// staleApp reports whether err says the app id a caller holds no longer
+// matches the inventory — the normal outcome when an earlier step renamed
+// the app — so the caller can re-resolve it and try again.
+func staleApp(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "application is not in the current scan") || strings.Contains(msg, "application not found; rescan")
+}
+
+// resolveForRestore finds the live inventory entry for an app seen earlier
+// in a restore pass: by id, then by current path, then by bundle ID (an
+// app that was just renamed back keeps its bundle ID but gets a new
+// path-derived id). Apps already handled in this pass are skipped, so a
+// bundle-ID match never re-targets a clone that shares the identifier.
+func resolveForRestore(live []core.App, snap core.App, used map[string]bool) (core.App, bool) {
+	for _, a := range live {
+		if a.ID == snap.ID && !used[a.ID] {
+			return a, true
+		}
+	}
+	for _, a := range live {
+		if a.Path == snap.Path && !used[a.ID] {
+			return a, true
+		}
+	}
+	if snap.BundleID == "" {
+		return core.App{}, false
+	}
+	for _, a := range live {
+		if a.BundleID == snap.BundleID && !used[a.ID] && !used[a.Path] {
+			return a, true
+		}
+	}
+	return core.App{}, false
 }
 
 // forgetChoice drops a remembered custom/donor icon choice once the app has
