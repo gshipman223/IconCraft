@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/gshipman223/IconCraft/internal/core"
+	"github.com/gshipman223/IconCraft/internal/i18n"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -70,26 +71,31 @@ func reportLaunchFailure(err error) {
 	if runtime.GOOS != "darwin" {
 		return
 	}
-	message := privateSession.ReplaceAllString(err.Error(), "[private local interface]")
+	message := i18n.Text(privateSession.ReplaceAllString(err.Error(), "[private local interface]"))
 	if len([]rune(message)) > 1000 {
 		message = string([]rune(message)[:1000]) + "\n…"
 	}
-	message += "\n\nYour icons and backups were not reset."
+	message += "\n\n" + i18n.T("Your icons and backups were not reset.")
+	showLabel, closeLabel := i18n.T("Show error"), i18n.T("Close")
 	if path != "" {
-		message += "\n\nUse Show error to open the full launch error."
+		message += "\n\n" + i18n.T("Use %s to open the full launch error.", showLabel)
 	}
-	// Fixed AppleScript, with all variable content passed as arguments. No
+	// Fixed AppleScript, with all variable content (including the
+	// localised title and button labels) passed as arguments. No
 	// interpolation, administrator privileges, security changes, or extra UI page.
 	script := `on run argv
         set msg to item 1 of argv
+        set ttl to item 2 of argv
+        set closeLabel to item 3 of argv
+        set showLabel to item 4 of argv
         activate
-        set choice to display dialog msg with title "IconCraft couldn't open" buttons {"Close", "Show error"} default button "Show error" with icon caution
+        set choice to display dialog msg with title ttl buttons {closeLabel, showLabel} default button showLabel with icon caution
         return button returned of choice
     end run`
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	out, e := exec.CommandContext(ctx, "/usr/bin/osascript", "-e", script, message).Output()
-	if e == nil && strings.TrimSpace(string(out)) == "Show error" && path != "" {
+	out, e := exec.CommandContext(ctx, "/usr/bin/osascript", "-e", script, message, i18n.T("IconCraft couldn't open"), closeLabel, showLabel).Output()
+	if e == nil && strings.TrimSpace(string(out)) == showLabel && path != "" {
 		openCtx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 		defer stop()
 		_ = exec.CommandContext(openCtx, "/usr/bin/open", "-t", path).Run()

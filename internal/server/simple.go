@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gshipman223/IconCraft/internal/core"
+	"github.com/gshipman223/IconCraft/internal/i18n"
 	"github.com/gshipman223/IconCraft/internal/originals"
 )
 
@@ -488,9 +489,9 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 			fail(w, err)
 			return true
 		}
-		out := map[string]any{"restored": rep.Restored, "steps": rep.Steps}
+		out := map[string]any{"restored": rep.Restored, "steps": translateAll(rep.Steps)}
 		if err != nil {
-			out["error"] = err.Error() // partial restore: report what did get rebuilt
+			out["error"] = i18n.Error(err) // partial restore: report what did get rebuilt
 		}
 		respond(w, 200, out)
 		return true
@@ -513,7 +514,7 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 		for _, a := range s.Engine.InstalledApps() {
 			rep, err := s.Engine.RestoreFromVault(ctx, a.ID)
 			if err != nil {
-				failures = append(failures, fmt.Sprintf("%s: %v", a.Name, err))
+				failures = append(failures, fmt.Sprintf("%s: %s", a.Name, i18n.Error(err)))
 				continue
 			}
 			restored += rep.Restored
@@ -522,4 +523,16 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 		return true
 	}
 	return false
+}
+
+// translateAll localises a list of English status lines for the page.
+func translateAll(lines []string) []string {
+	if len(lines) == 0 {
+		return lines
+	}
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		out[i] = i18n.Text(l)
+	}
+	return out
 }
