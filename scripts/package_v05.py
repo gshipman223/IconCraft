@@ -6,7 +6,7 @@ import hashlib, json, os, plistlib, re, shutil, struct, subprocess, zipfile
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / 'build'
 OUT = Path(os.environ.get('ICONCRAFT_OUTPUT_DIR', str(BUILD / 'packages')))
-VERSION = '0.13.3'
+VERSION = '0.14.0'
 # 'developer-id' when scripts/release-macos.sh packaged a signed + notarized
 # build; default stays honest for CI/ad-hoc builds.
 DIST = os.environ.get('ICONCRAFT_DISTRIBUTION', 'ad-hoc')
@@ -70,15 +70,20 @@ pretends that merely opening System Settings proves a permission was granted.
 Full Disk Access, Accessibility and Screen Recording are not requested.
 
 WHAT'S NEW IN {VERSION}
+- Speaks your language: English, Simplified Chinese, Japanese and Korean,
+  chosen from your macOS language preferences. Window, menu bar item,
+  Setup & Permissions, notifications and error messages are all included;
+  dates follow your Region setting.
+- Edit in one panel: the pencil now opens a single editor with a
+  before/after preview, name, icon choice, an optional full skin and one
+  Save that performs the steps in the right order and says exactly which
+  step failed if one does. Restore original is one click away.
+- Setup & Permissions describes how this copy is really signed (Developer
+  ID and notarised, or ad-hoc) instead of assuming.
+- Restore all refreshes the list straight away, counts apps correctly and
+  clears the custom-icon choice of restored apps; notification toggles are
+  labelled; the app is named IconCraft in the menu bar and Dock.
 - Signed with a Developer ID and notarised by Apple (this build).
-- Default apps tab: browser, email, PDF, images, movies, audio, text,
-  source code, HTML, ZIP and calendar defaults in one place.
-- Sort and group the app list (remembered between launches); group
-  headers now lead every group under every sort order.
-- Cleaner, calmer design; "Add apps folder" explained in the toolbar.
-- Settings for launch at login, menu-bar-only start, Dock/menu-bar
-  visibility, notifications and update checks; first-run Setup &
-  Permissions with a genuine App Management test.
 
 @SIGNING_NOTE@
 '''.replace('@SIGNING_NOTE@', signing_note))
@@ -169,7 +174,7 @@ summary = {
     'version': VERSION,
     'goTestsPassed': passed,
     'bridgeChecksPassed': checks,
-    'race': 'passed (5 packages)',
+    'race': 'passed (6 packages)',
     'vet': 'clean',
     'nativeSelfTest': 'passed on the build Mac (see docs/BUILD-VALIDATION.json)',
     'appIcons': 'verified live: installed apps scanned, real icon PNGs served and rendered',

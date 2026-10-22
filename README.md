@@ -15,7 +15,7 @@
 
 <p align="center">
   <a href="https://github.com/gshipman223/IconCraft/releases"><img alt="Release" src="https://img.shields.io/github/v/release/gshipman223/IconCraft?display_name=tag&style=flat-square"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-0.13.1-blueviolet?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.14.0-blueviolet?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/macOS-12.3%2B%20%C2%B7%20Apple%20Silicon%20%2B%20Intel-black?style=flat-square&logo=apple">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green?style=flat-square">
   <a href="https://github.com/gshipman223/IconCraft/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/gshipman223/IconCraft/total?label=downloads&style=flat-square&color=6d5cff"></a>
@@ -27,8 +27,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.3.dmg"><img alt="Download IconCraft for macOS (disk image)" src="https://img.shields.io/badge/⬇%20Download%20for%20macOS-Disk%20image%20.dmg-7C3AED?style=for-the-badge"></a>
-  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.3.zip"><img alt="Download IconCraft ZIP" src="https://img.shields.io/badge/ZIP%20archive-4F46E5?style=for-the-badge"></a>
+  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.14.0.dmg"><img alt="Download IconCraft for macOS (disk image)" src="https://img.shields.io/badge/⬇%20Download%20for%20macOS-Disk%20image%20.dmg-7C3AED?style=for-the-badge"></a>
+  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.14.0.zip"><img alt="Download IconCraft ZIP" src="https://img.shields.io/badge/ZIP%20archive-4F46E5?style=for-the-badge"></a>
 </p>
 
 <p align="center">
@@ -103,12 +103,12 @@ No accounts, no telemetry, no diagnostics maze. One screen:
 Homebrew or VM needed.**
 
 **Option A — disk image (recommended):** download
-[`IconCraft-Mac-0.13.3.dmg`](https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.3.dmg),
+[`IconCraft-Mac-0.14.0.dmg`](https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.14.0.dmg),
 open it, and drag IconCraft into Applications. The DMG and the app inside
 it are both signed and notarised, so macOS opens them without a Gatekeeper
 approval detour.
 
-**Option B — ZIP:** download `IconCraft-Mac-0.13.3.zip` from the
+**Option B — ZIP:** download `IconCraft-Mac-0.14.0.zip` from the
 [latest release](https://github.com/gshipman223/IconCraft/releases/latest),
 extract it, and drag `IconCraft.app` into Applications yourself.
 
@@ -225,7 +225,7 @@ notarised releases):
 </p>
 
 The same contribution bar lives at the bottom of the app window.
-`v0.13.1 · by Gavin Shipman · MIT`
+`v0.14.0 · by Gavin Shipman · MIT`
 
 ## 📄 License
 
