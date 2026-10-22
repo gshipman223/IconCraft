@@ -64,6 +64,7 @@ func run() (result error) {
 	// Chosen once per process: the window, the page and notifications all
 	// read it from here. Logs and the journal stay English regardless.
 	i18n.Set(i18n.Detect())
+	i18n.SetFormatLocale(i18n.DetectFormatLocale(i18n.Current()))
 	if runtime.GOOS != "darwin" && !*headless && !*self {
 		return fmt.Errorf("this application requires macOS; current system is %s", runtime.GOOS)
 	}
@@ -84,7 +85,7 @@ func run() (result error) {
 	}
 	defer logfile.Close()
 	log.SetOutput(logfile)
-	log.Printf("starting %s on %s/%s (ui language %s)", core.Version, runtime.GOOS, runtime.GOARCH, i18n.Current())
+	log.Printf("starting %s on %s/%s (ui language %s, formats %s)", core.Version, runtime.GOOS, runtime.GOARCH, i18n.Current(), i18n.FormatLocale())
 	defer func() {
 		if result != nil {
 			log.Printf("startup/exit error: %v", result)
@@ -147,6 +148,12 @@ func run() (result error) {
 	// Keep skins applied even while the main app is open: apps/updaters that
 	// revert a Finder icon or folder name on launch get repaired in the
 	// background. When the app is closed, the LaunchAgent (--reapply) does it.
+	// Warm the one-off codesign/spctl inspection of this copy so the Setup
+	// screen's signing copy is ready without blocking the first request.
+	go func() {
+		sig := m.SelfSignature(ctx)
+		log.Printf("own signature: %s notarized=%v team=%q", sig.Kind, sig.Notarized, sig.Team)
+	}()
 	e.InitKeeperPreference(m.KeepAgentEnabled())
 	ensureKeeper(e, m)
 	ensureLoginAgent(e, m)

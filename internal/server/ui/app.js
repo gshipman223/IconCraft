@@ -4,9 +4,13 @@ const $=id=>document.getElementById(id);
    Go side) defines window.ICONCRAFT_I18N; English is always complete. */
 const I18N=window.ICONCRAFT_I18N||{locale:'en',strings:{}};
 const LOCALE=I18N.locale||'en';
+/* Dates follow the macOS Region setting (e.g. en-AU → 22/10/2026), which Go
+   sends separately from the UI language; a tag Intl rejects falls back to
+   the UI locale, then to the browser default. */
+const FORMAT_LOCALE=(()=>{for(const tag of [I18N.format,LOCALE]){if(!tag)continue;try{new Intl.DateTimeFormat(tag);return tag;}catch(_){}}return undefined;})();
 function t(key,vars){let s=I18N.strings[key];if(s===undefined)s=key;if(vars)for(const k in vars)s=s.split('{'+k+'}').join(String(vars[k]));return s;}
 function tn(n,key,vars){return t(key+(n===1?'.one':'.other'),Object.assign({n},vars||{}));}
-function fmtDate(v){const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleString(LOCALE);}
+function fmtDate(v){const d=new Date(v);if(Number.isNaN(d.getTime()))return String(v);try{return d.toLocaleString(FORMAT_LOCALE);}catch(_){return d.toLocaleString();}}
 function rich(el,s){el.replaceChildren();s.split('**').forEach((part,i)=>{if(!part)return;if(i%2)el.append(node('strong','',part));else el.append(document.createTextNode(part));});}
 function localizeDocument(){
  if(!window.ICONCRAFT_I18N)return; /* no catalogue (dev harness): keep the authored English */
@@ -31,7 +35,7 @@ const paths={grid:'M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3zM12 12h5v5h-5z',restore:'
 function svg(key){const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('viewBox','0 0 20 20');s.setAttribute('aria-hidden','true');const p=document.createElementNS(s.namespaceURI,'path');p.setAttribute('d',paths[key]||paths.grid);s.append(p);return s;}
 function node(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;}
 function button(label,cls,fn,icon){const b=node('button',cls);b.title=label;b.setAttribute('aria-label',label);if(icon)b.append(svg(icon));else b.textContent=label;b.addEventListener('click',fn);return b;}
-function compareNames(a,b){return a.localeCompare(b,LOCALE);}
+function compareNames(a,b){try{return a.localeCompare(b,FORMAT_LOCALE||LOCALE);}catch(_){return a.localeCompare(b);}}
 const SEP=' · ';
 async function api(path,body,signal){const opts={signal};if(body!==undefined){opts.method='POST';opts.headers={'Content-Type':'application/json'};opts.body=JSON.stringify(body);}const res=await fetch('api/'+path,opts);let data;try{data=await res.json();}catch(_){throw Error(t('api.unreadable'));}if(!res.ok)throw Error(data.error||t('api.failed'));return data;}
 function mentionsAppManagement(text){return /App Management/.test(text||'')||(text||'').includes(t('term.appManagement'));}
@@ -63,6 +67,10 @@ function imageView(small=false){const wrap=node('span','icon-wrap'+(small?' smal
 function setImage(view,src,alt){view.img.alt=alt;if(view.src===src)return;view.src=src;view.wrap.classList.remove('has-image');if(src)view.img.src=src;else view.img.removeAttribute('src');}
 function updateModel(data){if(data.organize){organize={sort:data.organize.sort||'name-asc',group:data.organize.group||'none'};const so=$('sort'),gr=$('group');if(so)so.value=organize.sort;if(gr)gr.value=organize.group;}model.apps=data.apps||model.apps;Object.assign(model.assets,data.assets||{});Object.assign(model.originals,data.originals||{});model.choices=data.choices||{};model.records=data.records||[];model.renames=data.renames||[];if(typeof data.keepAlive==='boolean')model.keepAlive=data.keepAlive;if(typeof data.setupRequired==='boolean')model.setupRequired=data.setupRequired;if(data.settings)model.settings=data.settings;if(typeof data.loginAgent==='boolean')model.loginAgent=data.loginAgent;model.rebrands=data.rebrands||{};model.rebrandRuntime=data.rebrandRuntime||{};model.vault=data.vault||{};$('version').textContent=data.version||'0.13.1';const v2=$('version-2');if(v2)v2.textContent=data.version||'0.13.1';selected.forEach(id=>{if(!model.apps.some(a=>a.id===id))selected.delete(id);});}
 async function session(){updateModel(await api('session'));render();}
+/* Restores and full skins change names written inside app bundles; the
+   inventory only re-reads those on a scan, so follow such actions with
+   one instead of trusting the cached session. */
+async function rescan(){try{await api('scan',{});}catch(_){}await session();}
 function makeRow(a){
  const currentApp=()=>model.apps.find(x=>x.id===a.id)||a;
  const root=node('div','app-row');root.dataset.app=a.id;
@@ -184,8 +192,8 @@ async function applyApps(list){
  try{await session();}catch(e){errors.push(e.message);}busy=false;selectFuture=false;
  tell(tn(done,'apply.done')+(errors.length?'\n'+errors.join('\n'):''),errors.length>0);render();
 }
-async function restoreOne(a){if(busy)return;busy=true;rs(a).actionError='';render();try{const r=await api('restore-app',{appId:a.id,confirmed:true});rs(a).revision++;await session();tell(r.steps&&r.steps.length?t('restore.doneSteps',{name:a.name,steps:r.steps.join('; ')}):t('restore.done',{name:a.name}));}catch(e){rs(a).actionError=e.message;tell(e.message,true);}finally{busy=false;render();}}
-async function restoreAll(){if(busy)return;busy=true;render();try{const r=await api('restore-all',{confirmed:true});rowState.forEach(s=>{s.revision++;s.actionError='';});await session();tell(t('restore.all',{n:r.restored})+(r.errors?.length?'\n'+r.errors.join('\n'):''),!!r.errors?.length);}catch(e){tell(e.message,true);}finally{busy=false;render();}}
+async function restoreOne(a){if(busy)return;busy=true;rs(a).actionError='';render();try{const r=await api('restore-app',{appId:a.id,confirmed:true});rs(a).revision++;await rescan();tell(r.steps&&r.steps.length?t('restore.doneSteps',{name:a.name,steps:r.steps.join('; ')}):t('restore.done',{name:a.name}));}catch(e){rs(a).actionError=e.message;tell(e.message,true);}finally{busy=false;render();}}
+async function restoreAll(){if(busy)return;busy=true;render();try{const r=await api('restore-all',{confirmed:true});rowState.forEach(s=>{s.revision++;s.actionError='';});await rescan();tell(t('restore.all',{n:r.restored})+(r.errors?.length?'\n'+r.errors.join('\n'):''),!!r.errors?.length);}catch(e){tell(e.message,true);}finally{busy=false;render();}}
 function dialogError(id,text){$(id).textContent=text;$(id).hidden=!text;}
 function setupMessage(text){const m=$('setup-message');m.textContent=text;m.hidden=!text;}
 function setupCheck(id){return setupData?.checks?.find(c=>c.id===id);}
@@ -270,8 +278,8 @@ function closeRename(){if(!busy){$('rename-dialog').close();renameApp=null;}}
 async function saveName(restore=false){if(busy||!renameApp)return;const a=renameApp;busy=true;$('name-save').disabled=true;$('name-restore').disabled=true;render();try{const result=await api(restore?'restore-name':'rename',{appId:a.id,...(restore?{}:{name:$('name-input').value}),confirmed:true});await session();$('rename-dialog').close();renameApp=null;tell(t('rename.renamed',{name:result.app.name}));}catch(e){dialogError('rename-error',e.message);}finally{busy=false;$('name-save').disabled=false;$('name-restore').disabled=false;render();}}
 $('name-internal').addEventListener('click',async()=>{if(busy||!renameApp)return;const a=renameApp,ib=$('name-internal');
  if(!ib.dataset.armed){ib.dataset.armed='1';ib.textContent=t('rename.confirmSkin',{name:a.name});setTimeout(()=>{ib.dataset.armed='';ib.textContent=t('rename.applyFullSkin');},5000);return;}
- busy=true;ib.disabled=true;render();try{await api('rebrand',{appId:a.id,assetId:chosen(a),name:$('name-input').value,confirmed:true});await session();$('rename-dialog').close();renameApp=null;tell(t('rename.skinDone',{name:a.name}));}catch(e){dialogError('rename-error',e.message);}finally{busy=false;ib.disabled=false;ib.dataset.armed='';ib.textContent=t('rename.applyFullSkin');render();}});
-$('name-unskin').addEventListener('click',async()=>{if(busy||!renameApp)return;const a=renameApp;busy=true;render();try{await api('restore-rebrand',{appId:a.id,confirmed:true});await session();$('rename-dialog').close();renameApp=null;tell(t('rename.unskinDone',{name:a.name}));}catch(e){dialogError('rename-error',e.message);}finally{busy=false;render();}});
+ busy=true;ib.disabled=true;render();try{await api('rebrand',{appId:a.id,assetId:chosen(a),name:$('name-input').value,confirmed:true});await rescan();$('rename-dialog').close();renameApp=null;tell(t('rename.skinDone',{name:a.name}));}catch(e){dialogError('rename-error',e.message);}finally{busy=false;ib.disabled=false;ib.dataset.armed='';ib.textContent=t('rename.applyFullSkin');render();}});
+$('name-unskin').addEventListener('click',async()=>{if(busy||!renameApp)return;const a=renameApp;busy=true;render();try{await api('restore-rebrand',{appId:a.id,confirmed:true});await rescan();$('rename-dialog').close();renameApp=null;tell(t('rename.unskinDone',{name:a.name}));}catch(e){dialogError('rename-error',e.message);}finally{busy=false;render();}});
 $('name-original').addEventListener('click',()=>{if(renameApp)$('name-input').value=model.originals[renameApp.craftId]?.product||renameApp.equivalent.replace(' (suggested)','');});
 $('name-save').addEventListener('click',()=>saveName());$('name-restore').addEventListener('click',()=>saveName(true));$('name-input').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveName();}});
 $('rename-close').addEventListener('click',closeRename);$('rename-cancel').addEventListener('click',closeRename);$('picker-close').addEventListener('click',closePicker);$('picker-search').addEventListener('input',drawPicker);

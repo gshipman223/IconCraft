@@ -71,6 +71,11 @@ var catalogs = map[Locale]*catalog{}
 
 var current atomic.Value
 
+// format holds the BCP-47 tag used for dates and numbers (macOS "Region"),
+// which may differ from the UI language: an en-AU user reads English but
+// expects 22/10/2026, not 10/22/2026.
+var format atomic.Value
+
 func init() {
 	for _, l := range Supported {
 		b, err := files.ReadFile("locales/" + string(l) + ".json")
@@ -102,6 +107,7 @@ func init() {
 		catalogs[l] = c
 	}
 	current.Store(English)
+	format.Store("")
 }
 
 // Set fixes the process-wide UI locale; unknown locales fall back to English.
@@ -114,6 +120,18 @@ func Set(l Locale) {
 
 // Current returns the active UI locale.
 func Current() Locale { return current.Load().(Locale) }
+
+// SetFormatLocale fixes the tag used for date and number formatting.
+// Empty means "same as the UI locale".
+func SetFormatLocale(tag string) { format.Store(cleanTag(tag)) }
+
+// FormatLocale returns the formatting tag, defaulting to the UI locale.
+func FormatLocale() string {
+	if f, _ := format.Load().(string); f != "" {
+		return f
+	}
+	return string(Current())
+}
 
 // Detect chooses the UI locale from the environment: ICONCRAFT_LANG,
 // then the macOS preferred-language lists, then POSIX locale variables.
@@ -129,6 +147,83 @@ func Detect() Locale {
 		}
 	}
 	return Match(PosixTags(os.Getenv))
+}
+
+// DetectFormatLocale chooses the formatting tag the way macOS does: the
+// Region setting (AppleLocale, e.g. en_AU) first, then the first preferred
+// language when it carries a region (en-AU), then POSIX LC_TIME/LANG, and
+// finally the UI locale itself. An ICONCRAFT_LANG override with a region
+// (en-AU) applies to formatting too.
+func DetectFormatLocale(ui Locale) string {
+	var apple string
+	var tags []string
+	if runtime.GOOS == "darwin" {
+		apple = appleLocale()
+		tags = appleLanguages()
+	}
+	return FormatTag(os.Getenv(EnvOverride), apple, tags, PosixTags(func(k string) string {
+		if k == "LC_MESSAGES" {
+			k = "LC_TIME"
+		}
+		return os.Getenv(k)
+	}), ui)
+}
+
+// FormatTag is the pure selection behind DetectFormatLocale.
+func FormatTag(override, appleLocale string, languages, posix []string, ui Locale) string {
+	if t := cleanTag(override); hasRegion(t) {
+		return t
+	}
+	if t := cleanTag(appleLocale); t != "" {
+		return t
+	}
+	for _, list := range [][]string{languages, posix} {
+		for _, raw := range list {
+			if t := cleanTag(raw); hasRegion(t) {
+				return t
+			}
+		}
+	}
+	return string(ui)
+}
+
+// cleanTag turns en_AU.UTF-8, en_AU@calendar=gregorian or "en-AU" into a
+// BCP-47 tag Intl accepts; junk becomes "".
+func cleanTag(tag string) string {
+	tag = strings.TrimSpace(tag)
+	if i := strings.IndexAny(tag, ".@"); i >= 0 {
+		tag = tag[:i]
+	}
+	tag = strings.ReplaceAll(tag, "_", "-")
+	if tag == "" || strings.EqualFold(tag, "C") || strings.EqualFold(tag, "POSIX") {
+		return ""
+	}
+	for _, r := range tag {
+		if !(r == '-' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')) {
+			return ""
+		}
+	}
+	return tag
+}
+
+func hasRegion(tag string) bool {
+	parts := strings.Split(tag, "-")
+	for _, p := range parts[1:] {
+		if len(p) == 2 || (len(p) == 3 && p[0] >= '0' && p[0] <= '9') {
+			return true
+		}
+	}
+	return false
+}
+
+func appleLocale() string {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "/usr/bin/defaults", "read", "-g", "AppleLocale").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // Match returns the first supported locale in a preference-ordered list
@@ -374,8 +469,9 @@ func UIStrings(l Locale) map[string]string {
 func Script(l Locale) []byte {
 	payload := struct {
 		Locale  Locale            `json:"locale"`
+		Format  string            `json:"format"`
 		Strings map[string]string `json:"strings"`
-	}{l, UIStrings(l)}
+	}{l, FormatLocale(), UIStrings(l)}
 	b, _ := json.Marshal(payload)
 	return []byte("window.ICONCRAFT_I18N=" + string(b) + ";\n")
 }

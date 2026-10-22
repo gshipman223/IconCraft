@@ -73,6 +73,52 @@ func TestDetectHonoursOverride(t *testing.T) {
 	}
 }
 
+func TestFormatTagFollowsRegionNotLanguage(t *testing.T) {
+	cases := []struct {
+		override, apple string
+		langs, posix    []string
+		ui              Locale
+		want            string
+	}{
+		// macOS Region wins: English UI, Australian dates.
+		{"", "en_AU", []string{"en-AU", "ja-JP"}, nil, English, "en-AU"},
+		// Region with calendar suffix as `defaults` prints it.
+		{"", "en_GB@calendar=gregorian", nil, nil, English, "en-GB"},
+		// No Region recorded: first preferred language carrying a region.
+		{"", "", []string{"en", "en-NZ"}, nil, English, "en-NZ"},
+		// Language-only preferences fall through to POSIX, then the UI tag.
+		{"", "", []string{"ja"}, []string{"de_DE.UTF-8"}, Japanese, "de-DE"},
+		{"", "", []string{"ja"}, []string{"C"}, Japanese, "ja"},
+		{"", "", nil, nil, ChineseSimplified, "zh-Hans"},
+		// A regional override applies to formatting; a bare one does not.
+		{"en-AU", "ja_JP", nil, nil, English, "en-AU"},
+		{"ko", "ja_JP", nil, nil, Korean, "ja-JP"},
+		// Junk never reaches Intl.
+		{"", "en_AU;rm -rf", nil, nil, English, "en"},
+	}
+	for _, c := range cases {
+		if got := FormatTag(c.override, c.apple, c.langs, c.posix, c.ui); got != c.want {
+			t.Errorf("FormatTag(%q,%q,%v,%v,%s) = %q, want %q", c.override, c.apple, c.langs, c.posix, c.ui, got, c.want)
+		}
+	}
+}
+
+func TestFormatLocaleDefaultsToUILocale(t *testing.T) {
+	defer SetFormatLocale("")
+	defer Set(English)
+	Set(Japanese)
+	if FormatLocale() != "ja" {
+		t.Fatal(FormatLocale())
+	}
+	SetFormatLocale("en_AU.UTF-8")
+	if FormatLocale() != "en-AU" {
+		t.Fatal(FormatLocale())
+	}
+	if s := string(Script(Japanese)); !strings.Contains(s, `"format":"en-AU"`) {
+		t.Fatal(s[:120])
+	}
+}
+
 func TestSetRejectsUnknownLocale(t *testing.T) {
 	Set(Locale("tlh"))
 	defer Set(English)
