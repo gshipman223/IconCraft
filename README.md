@@ -95,6 +95,7 @@ No accounts, no telemetry, no diagnostics maze. One screen:
 | **Fast** | Cached inventory paints instantly; scans, thumbnails and original-icon checks continue in the background. Content-addressed previews, single-flight native calls. |
 | **Native & private** | Go backend on an authenticated loopback port + a native AppKit/WebKit window. Nothing leaves your Mac except publisher icon lookups. No analytics. Ever. |
 | **Looks the part** | Modern dark-first UI with System / Light / Dark, following your Mac live. |
+| **Speaks your language** | English, 简体中文, 日本語 and 한국어, chosen from your macOS language preferences — the window, menu bar item, permissions screen, notifications and error messages included. |
 
 ## 📦 Install
 

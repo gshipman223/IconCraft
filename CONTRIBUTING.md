@@ -37,6 +37,28 @@ node --test tests/*.test.cjs          # bridge + UI contract tests
 - For icon-resolver changes, add tests proving both acceptance of the genuine
   source *and* rejection of knockoffs/lookalikes (seller/name/bundle checks).
 
+## UI text and translations
+
+IconCraft ships in English (default), Simplified Chinese, Japanese and
+Korean; the language follows the macOS preferred-language list. All
+user-facing text lives in `internal/i18n/locales/<locale>.json`:
+
+- `ui` — page, dialog and menu-bar strings, keyed by short IDs. The HTML
+  keeps the English text as its authored default and tags each element
+  with `data-i18n="key"` (or `data-i18n-title`/`-aria`/`-placeholder`);
+  `app.js` uses `t('key', {vars})`. Add the key to **every** locale file.
+- `messages` — Go-side strings (permission rows, default-app categories,
+  notifications, dialogs) and engine error messages, keyed by their
+  English text. Core packages stay English-only; translation happens at
+  the presentation boundary (`i18n.T`, `i18n.Text`, the HTTP `fail`).
+
+`go test ./internal/i18n` and `node --test tests/i18n.test.cjs` fail on a
+missing key, a mismatched placeholder, or HTML text that drifts from
+`en.json`. To try another language on one Mac without changing System
+Settings: `defaults write io.iconcraft.mac AppleLanguages '(ja)'`
+(remove with `defaults delete io.iconcraft.mac AppleLanguages`), or set
+`ICONCRAFT_LANG=ko` when launching from a terminal.
+
 ## Adding a product mapping
 
 Open a PR touching `internal/originals/originals.go` (+ catalogue in
