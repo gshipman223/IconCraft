@@ -114,3 +114,38 @@ test('group headers lead every group under any sort order', () => {
   // Grouping clusters rows by group while keeping the chosen sort inside.
   assert.match(js, /rank\.get\(groupOf\(x\)\)/);
 });
+
+test('restores and full-skin changes rescan the inventory instead of trusting the cached session', () => {
+  const js = ui('app.js');
+  // Names written inside a bundle (full skin / its restore) only change in
+  // the inventory on a scan; a plain session() left the old name on screen.
+  assert.match(js, /async function rescan\(\)\{try\{await api\('scan',\{\}\);\}catch\(_\)\{\}await session\(\);\}/);
+  assert.match(js, /api\('restore-all',\{confirmed:true\}\);[^\n]*await rescan\(\)/);
+  assert.match(js, /api\('restore-app',\{appId:a\.id,confirmed:true\}\);[^\n]*await rescan\(\)/);
+  assert.match(js, /api\('rebrand',[^\n]*await rescan\(\)/);
+  assert.match(js, /api\('restore-rebrand',[^\n]*await rescan\(\)/);
+});
+
+test('notification and update toggles each carry a visible label', () => {
+  const html = ui('index.html');
+  const css = ui('style.css');
+  for (const id of ['set-notify-repaired', 'set-notify-attention', 'set-autoupdate']) {
+    // <label class="switch-row"><span>text</span><span class="switch"><input id=…>
+    const re = new RegExp(`<label class="switch-row"><span[^>]*>[^<]+</span><span class="switch"><input type="checkbox" id="${id}">`);
+    assert.match(html, re, `${id} has its own labelled row`);
+  }
+  assert.doesNotMatch(html, /<label class="switch" title=/, 'tooltip-only switches are gone');
+  assert.match(css, /\.switch-row\{display:flex/);
+});
+
+test('full-skin footer wraps and dialog action footers stay in view', () => {
+  const html = ui('index.html');
+  const css = ui('style.css');
+  assert.match(html, /<div class="dialog-footer fullskin-footer"><span id="fullskin-state"><\/span><span class="fullskin-actions">/);
+  for (const id of ['rename-cancel', 'settings-cancel', 'setup-later']) {
+    assert.match(html, new RegExp(`<div class="dialog-footer dialog-actions"><button id="${id}"`), `${id} footer is sticky`);
+  }
+  assert.match(css, /#fullskin-state\{flex:1 1 180px;min-width:0/);
+  assert.match(css, /\.fullskin-actions button\{white-space:normal/);
+  assert.match(css, /\.dialog-actions\{position:sticky;bottom:-24px/);
+});

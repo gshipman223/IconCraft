@@ -114,6 +114,29 @@ test('localizeDocument applies text, attributes and ** emphasis from the served 
   assert.ok(!rich.children.some(c => (c.text || c.textContent || '').includes('**')), 'markers stripped');
 });
 
+test('dates follow the region format locale sent by Go, not the UI language', () => {
+  const when = new Date(Date.UTC(2026, 9, 22, 1, 2, 3)); // 22 Oct 2026
+  assert.equal(new Intl.DateTimeFormat('en-AU').resolvedOptions().locale.slice(0, 5), 'en-AU', 'Node needs full ICU for this check');
+  const { ctx } = (() => {
+    const src = fs.readFileSync(path.join(root, 'internal/server/ui/app.js'), 'utf8');
+    const end = src.indexOf('const model=');
+    const c = vm.createContext({ window: { ICONCRAFT_I18N: { locale: 'en', format: 'en-AU', strings: {} } }, document: { documentElement: {}, querySelectorAll: () => [], createElement: () => ({}), createTextNode: () => ({}) }, Date, Intl, Number, String, Object, JSON });
+    vm.runInContext(src.slice(0, end), c, { filename: 'app.js' });
+    return { ctx: c };
+  })();
+  assert.equal(vm.runInContext('FORMAT_LOCALE', ctx), 'en-AU');
+  const text = ctx.fmtDate(when.toISOString());
+  // Australian order is day first; US order would read 10/22/2026.
+  assert.match(text, /22\/10\/2026/, text);
+  assert.doesNotMatch(text, /10\/22\/2026/);
+  // Garbage from Go must not throw: fall back to the UI locale.
+  const bad = vm.createContext({ window: { ICONCRAFT_I18N: { locale: 'ja', format: 'not a tag!!', strings: {} } }, document: { documentElement: {}, querySelectorAll: () => [], createElement: () => ({}), createTextNode: () => ({}) }, Date, Intl, Number, String, Object, JSON });
+  const src = fs.readFileSync(path.join(root, 'internal/server/ui/app.js'), 'utf8');
+  vm.runInContext(src.slice(0, src.indexOf('const model=')), bad, { filename: 'app.js' });
+  assert.equal(vm.runInContext('FORMAT_LOCALE', bad), 'ja');
+  assert.equal(typeof bad.fmtDate(when.toISOString()), 'string');
+});
+
 test('window.js reads menu titles from the i18n argument and falls back to English', () => {
   const win = read('internal/native/window.js');
   assert.match(win, /indexOf\('i18n='\)/);
