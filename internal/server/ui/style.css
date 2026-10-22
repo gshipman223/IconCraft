@@ -156,7 +156,16 @@ dialog::backdrop{background:#04060FD9;backdrop-filter:blur(6px)}
 .original-tile small{color:var(--muted);font-size:10px;font-weight:400}
 .dialog-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid var(--line);padding-top:15px;margin-top:16px}
 .dialog-footer>span{font-size:10px;color:var(--muted)}
-#rename-dialog{width:420px}.rename-presets{display:flex;align-items:center;gap:6px;margin-bottom:18px}
+/* Action footers stay in view while a long dialog scrolls (CJK prose makes
+   the rename and setup dialogs taller than the default window). */
+.dialog-actions{position:sticky;bottom:-24px;z-index:2;background:var(--surface);margin:16px -24px -24px;padding:15px 24px 24px}
+/* Full-skin row: caption and buttons share the width and wrap instead of
+   the nowrap confirm button squeezing the caption to a column of glyphs. */
+.fullskin-footer{flex-wrap:wrap;align-items:center}
+#fullskin-state{flex:1 1 180px;min-width:0;line-height:1.5}
+.fullskin-actions{display:flex;flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end;gap:6px;margin-left:auto;max-width:100%}
+.fullskin-actions button{white-space:normal;text-align:center;line-height:1.35;max-width:100%}
+#rename-dialog{width:460px}.rename-presets{display:flex;align-items:center;gap:6px;margin-bottom:18px}
 .name-field{display:flex;align-items:center;padding:11px 12px;gap:10px;background:var(--soft);border-radius:11px}
 .name-field:focus-within{box-shadow:0 0 0 2px var(--ring)}
 .name-field input{flex:1;width:100%;font-size:14px}.name-field span{color:var(--quiet);font-size:12px}
@@ -187,6 +196,11 @@ dialog::backdrop{background:#04060FD9;backdrop-filter:blur(6px)}
 .status-pill.off{color:var(--muted)}.status-pill.not-required{color:var(--muted)}
 .setup-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .setup-actions button{font-size:11px;padding:7px 9px}
+/* Each toggle carries its own visible label; the button sits beneath. */
+.switch-list{align-items:flex-end;gap:8px}
+.switch-row{display:flex;align-items:center;justify-content:flex-end;gap:10px;font-size:11px;color:var(--muted);cursor:pointer;text-align:right;max-width:100%}
+.switch-row>span:first-child{min-width:0;line-height:1.35}
+.switch-list button{font-size:11px;padding:7px 9px;margin-top:2px}
 .setup-note{font-size:11px;line-height:1.6;color:var(--muted);margin:15px 0 0}
 .setup-message{background:var(--tint);border-radius:9px;padding:10px 12px;font-size:11px;line-height:1.5;margin-top:12px}
 .setup-footer-actions{display:flex;gap:8px;align-items:center}
