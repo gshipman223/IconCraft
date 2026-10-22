@@ -484,10 +484,14 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 		// Vault restore: strict journalled undo first; if the app changed
 		// since skinning (update/move = new identifier), the saved original
 		// name and icon are rebuilt onto the current app by bundle ID.
+		before, _ := s.Engine.GetApp(b.AppID)
 		rep, err := s.Engine.RestoreFromVault(ctx, b.AppID)
 		if err != nil && rep.Restored == 0 {
 			fail(w, err)
 			return true
+		}
+		if rep.Restored > 0 {
+			s.forgetChoice(before.BundleID)
 		}
 		out := map[string]any{"restored": rep.Restored, "steps": translateAll(rep.Steps)}
 		if err != nil {
@@ -517,12 +521,34 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 				failures = append(failures, fmt.Sprintf("%s: %s", a.Name, i18n.Error(err)))
 				continue
 			}
-			restored += rep.Restored
+			// rep.Restored counts steps (icon, internal identity, folder
+			// name); the banner counts apps.
+			if rep.Restored > 0 {
+				restored++
+				s.forgetChoice(a.BundleID)
+			}
 		}
 		respond(w, 200, map[string]any{"restored": restored, "errors": failures})
 		return true
 	}
 	return false
+}
+
+// forgetChoice drops a remembered custom/donor icon choice once the app has
+// been put back to its original: leaving it would keep the row saying
+// "Custom icon · Your choice" and offering to re-apply the very skin the
+// user just removed. Choices are keyed by bundle ID, and the restore may
+// have changed the app's path-derived ID, so look the app up afresh.
+func (s *Server) forgetChoice(bundleID string) {
+	if bundleID == "" {
+		return
+	}
+	for _, cur := range s.Engine.InstalledApps() {
+		if cur.BundleID == bundleID {
+			_ = s.Engine.RememberChoice(cur.ID, "")
+			return
+		}
+	}
 }
 
 // translateAll localises a list of English status lines for the page.

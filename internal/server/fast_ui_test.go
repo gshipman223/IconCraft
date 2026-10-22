@@ -251,3 +251,52 @@ func TestRenameHTTPMovesBundleAndRestoreAllRestoresName(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Restore all reports apps, not restore steps, and drops the remembered
+// custom-icon choice of every app it put back.
+func TestRestoreAllCountsAppsAndForgetsChoices(t *testing.T) {
+	s := testServer(t)
+	root := t.TempDir()
+	a := previewApp(t, root, "PhotoCraft")
+	b := previewApp(t, root, "VectorCraft")
+	s.Engine.Apps[a.ID] = a
+	s.Engine.Apps[b.ID] = b
+	asset, err := s.Engine.ImportPNG("custom", "fixture", originalPNG())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, app := range []core.App{a, b} {
+		if err := s.Engine.RememberChoice(app.ID, asset.ID); err != nil {
+			t.Fatal(err)
+		}
+		w := request(s, "POST", "/"+s.Token+"/api/rename", "", `{"appId":"`+app.ID+`","name":"`+app.Name+` Pro","confirmed":true}`)
+		if w.Code != 200 {
+			t.Fatal(w.Code, w.Body.String())
+		}
+	}
+	if len(s.Engine.SnapshotState().Choices) != 2 {
+		t.Fatal("choices not recorded")
+	}
+	w := request(s, "POST", "/"+s.Token+"/api/restore-all", "", `{"confirmed":true}`)
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	var out struct {
+		Restored int      `json:"restored"`
+		Errors   []string `json:"errors"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Restored != 2 || len(out.Errors) != 0 {
+		t.Fatalf("two apps restored, got %+v", out)
+	}
+	if left := s.Engine.SnapshotState().Choices; len(left) != 0 {
+		t.Fatalf("custom-icon choices survived the restore: %v", left)
+	}
+	// A single-app restore with nothing left to do must not count or fail.
+	w = request(s, "POST", "/"+s.Token+"/api/restore-all", "", `{"confirmed":true}`)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"restored":0`) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+}
