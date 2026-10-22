@@ -174,3 +174,21 @@ test('Edit app is one panel: preview, name, icon choice, full-skin switch, singl
   // Choosing an icon from inside the editor selects it and refreshes the preview.
   assert.match(js, /if\(editApp\)\{editIconMode='apply';disarmEdit\(\);drawEdit\(\);\}/);
 });
+
+test('round 4: editor redraws after the picker, previews donor icons, resets scroll, localises asset labels', () => {
+  const js = ui('app.js');
+  // 1) pickChoice redraws the editor after busy is cleared (not only while busy), and every render keeps it in step.
+  const pick = js.slice(js.indexOf('async function pickChoice('), js.indexOf('$(\'browse\')'));
+  assert.match(pick, /finally\{busy=false;[^\n]*render\(\);if\(editApp\)drawEdit\(\);\}/);
+  assert.match(js, /if\(editApp&&\$\('rename-dialog'\)\.open\)drawEdit\(\);/);
+  // 5) asset previews fall back to the source app's live icon and honour already-complete images.
+  assert.match(js, /function assetFallback\(id\)\{const donor=donorFor\(model\.assets\[id\]\);return donor\?appIcon\(donor\):'';\}/);
+  assert.match(js, /setImage\(editViews\.after,[^\n]*afterAsset\?assetFallback\(s\.asset\):''\)/);
+  assert.match(js, /if\(view\.img\.complete&&view\.img\.naturalWidth>0\)view\.wrap\.classList\.add\('has-image'\)/);
+  assert.match(js, /if\(view\.fallback&&view\.fallback!==view\.src\)\{view\.src=view\.fallback;img\.src=view\.fallback;\}/);
+  // 6) the dialog opens at the top.
+  assert.match(js, /\$\('rename-dialog'\)\.showModal\(\);\$\('rename-dialog'\)\.scrollTop=0;/);
+  // 4) '<App> icon' donor assets are labelled through the localised row.iconAlt key.
+  assert.match(js, /function assetLabel\(asset\)\{[^\n]*t\('row\.iconAlt',\{name:donor\.name\}\)/);
+  assert.match(js, /custom\?assetLabel\(model\.assets\[chosen\(a\)\]\)/);
+});
