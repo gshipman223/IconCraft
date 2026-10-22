@@ -205,7 +205,8 @@ function run(argv) {
             panel.setCanChooseDirectories(r.kind === 'folder');
             panel.setCanChooseFiles(r.kind !== 'folder');
             panel.setResolvesAliases(true);
-            panel.setTitle(r.kind === 'folder' ? 'Choose a folder' : r.kind === 'profile' ? 'Choose an IconCraft profile' : 'Choose an original icon');
+            // Go supplies the title in the UI language; English is the fallback.
+            panel.setTitle(typeof r.title === 'string' && r.title ? r.title : (r.kind === 'folder' ? 'Choose a folder' : r.kind === 'profile' ? 'Choose an IconCraft profile' : 'Choose an original icon'));
             if (r.kind === 'profile') panel.setAllowedFileTypes($(['json']));
             else if (r.kind !== 'folder') panel.setAllowedFileTypes($(['png', 'icns']));
             result = Number(panel.runModal) === Number($.NSModalResponseOK) ? ObjC.unwrap(panel.URL.path) : '';

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"github.com/gshipman223/IconCraft/internal/core"
 	"github.com/gshipman223/IconCraft/internal/originals"
 	"image"
@@ -189,5 +190,52 @@ func TestKeepAliveEndpointFailsGracefullyWithoutAgentSupport(t *testing.T) {
 	w = request(s, "GET", "/"+s.Token+"/api/session", "", "")
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"keepAlive":false`) {
 		t.Fatal(w.Code, w.Body.String())
+	}
+}
+
+// Restore all must find each app in the live inventory even after earlier
+// restores in the same pass renamed it (new path-derived id), and must never
+// re-target a clone that merely shares the bundle ID.
+func TestResolveForRestoreFollowsRenamedAppsWithoutStealingClones(t *testing.T) {
+	a := core.App{ID: "a", Path: "/Applications/Figma.app", BundleID: "com.figma.Desktop"}
+	clone := core.App{ID: "c", Path: "/Applications/Figma Clone.app", BundleID: "com.figma.Desktop"}
+	other := core.App{ID: "o", Path: "/Applications/Other.app", BundleID: "com.other"}
+	live := []core.App{a, clone, other}
+	used := map[string]bool{}
+	// Exact id wins.
+	if got, ok := resolveForRestore(live, a, used); !ok || got.ID != "a" {
+		t.Fatalf("by id: %+v %v", got, ok)
+	}
+	// After a's folder was renamed back, the inventory holds it under a new id and path.
+	renamed := core.App{ID: "a2", Path: "/Applications/Figma Original.app", BundleID: "com.figma.Desktop"}
+	live = []core.App{renamed, clone, other}
+	used = map[string]bool{"a": true, "/Applications/Figma.app": true}
+	got, ok := resolveForRestore(live, a, used)
+	if !ok || got.ID != "a2" {
+		t.Fatalf("by bundle after rename: %+v %v", got, ok)
+	}
+	used[got.ID], used[got.Path] = true, true
+	// The clone's own snapshot still resolves to the clone, not to a2.
+	if got, ok := resolveForRestore(live, clone, used); !ok || got.ID != "c" {
+		t.Fatalf("clone: %+v %v", got, ok)
+	}
+	used["c"], used[clone.Path] = true, true
+	// A stale snapshot whose bundle has been fully handled is skipped, not retried forever.
+	if _, ok := resolveForRestore(live, core.App{ID: "zz", Path: "/gone/Figma.app", BundleID: "com.figma.Desktop"}, used); ok {
+		t.Fatal("stale snapshot must not re-target an app already restored in this pass")
+	}
+	if _, ok := resolveForRestore(live, core.App{ID: "x", Path: "/gone/X.app", BundleID: ""}, used); ok {
+		t.Fatal("no bundle id, nothing to match")
+	}
+}
+
+func TestStaleAppRecognisesInventoryMismatch(t *testing.T) {
+	for _, msg := range []string{"application is not in the current scan", "application not found; rescan"} {
+		if !staleApp(errors.New(msg)) {
+			t.Fatal(msg)
+		}
+	}
+	if staleApp(nil) || staleApp(errors.New("quit this application before restoring its name")) {
+		t.Fatal("only inventory mismatches are stale")
 	}
 }

@@ -15,7 +15,7 @@
 
 <p align="center">
   <a href="https://github.com/gshipman223/IconCraft/releases"><img alt="Release" src="https://img.shields.io/github/v/release/gshipman223/IconCraft?display_name=tag&style=flat-square"></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-0.13.1-blueviolet?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.14.0-blueviolet?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/macOS-12.3%2B%20%C2%B7%20Apple%20Silicon%20%2B%20Intel-black?style=flat-square&logo=apple">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green?style=flat-square">
   <a href="https://github.com/gshipman223/IconCraft/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/gshipman223/IconCraft/total?label=downloads&style=flat-square&color=6d5cff"></a>
@@ -27,8 +27,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.3.dmg"><img alt="Download IconCraft for macOS (disk image)" src="https://img.shields.io/badge/⬇%20Download%20for%20macOS-Disk%20image%20.dmg-7C3AED?style=for-the-badge"></a>
-  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.3.zip"><img alt="Download IconCraft ZIP" src="https://img.shields.io/badge/ZIP%20archive-4F46E5?style=for-the-badge"></a>
+  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.14.0.dmg"><img alt="Download IconCraft for macOS (disk image)" src="https://img.shields.io/badge/⬇%20Download%20for%20macOS-Disk%20image%20.dmg-7C3AED?style=for-the-badge"></a>
+  <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.14.0.zip"><img alt="Download IconCraft ZIP" src="https://img.shields.io/badge/ZIP%20archive-4F46E5?style=for-the-badge"></a>
 </p>
 
 <p align="center">
@@ -91,10 +91,11 @@ No accounts, no telemetry, no diagnostics maze. One screen:
 | **Originals Vault** | Before anything changes, your app's original name (folder + internal) and icon are saved under its stable bundle ID. Restore rebuilds from the vault — even after the app updates, moves, or is renamed again. |
 | **Full skin (running identity)** | Optionally write the name + icon *inside* a cloned/third-party app (re-signed, fully backed up and reversible) so it keeps your identity in the Dock/menu bar while running. Apps that set their own Dock icon at launch from artwork embedded in the executable (e.g. Rust/eframe clones) get that embedded copy swapped in place too — same byte length, originals backed up — and IconCraft says so plainly when an app's running icon can't be replaced safely. Bundle ID and links never change. |
 | **Skins that stick** | Third-party apps/updaters love reverting Finder icons and names on launch. Turn on **Keep skins applied** and a tiny background agent re-applies yours automatically — nothing inside any app is ever edited. |
-| **Rename apps** | Rename in Finder (the outer `.app`, exactly like Finder does) with *Use original name* / *Restore name*. Running, protected, or colliding apps are refused. |
+| **Edit in one panel** | The pencil opens a single editor: name, icon choice, an optional full skin, a live before/after preview, one **Save changes** that performs the steps in the right order (and says exactly which step failed if one does), and **Restore original**. Renames happen in Finder (the outer `.app`, exactly like Finder does); running, protected, or colliding apps are refused. |
 | **Fast** | Cached inventory paints instantly; scans, thumbnails and original-icon checks continue in the background. Content-addressed previews, single-flight native calls. |
 | **Native & private** | Go backend on an authenticated loopback port + a native AppKit/WebKit window. Nothing leaves your Mac except publisher icon lookups. No analytics. Ever. |
 | **Looks the part** | Modern dark-first UI with System / Light / Dark, following your Mac live. |
+| **Speaks your language** | English, 简体中文, 日本語 and 한국어, chosen from your macOS language preferences — the window, menu bar item, permissions screen, notifications and error messages included. |
 
 ## 📦 Install
 
@@ -102,12 +103,12 @@ No accounts, no telemetry, no diagnostics maze. One screen:
 Homebrew or VM needed.**
 
 **Option A — disk image (recommended):** download
-[`IconCraft-Mac-0.13.3.dmg`](https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.13.3.dmg),
+[`IconCraft-Mac-0.14.0.dmg`](https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.14.0.dmg),
 open it, and drag IconCraft into Applications. The DMG and the app inside
 it are both signed and notarised, so macOS opens them without a Gatekeeper
 approval detour.
 
-**Option B — ZIP:** download `IconCraft-Mac-0.13.3.zip` from the
+**Option B — ZIP:** download `IconCraft-Mac-0.14.0.zip` from the
 [latest release](https://github.com/gshipman223/IconCraft/releases/latest),
 extract it, and drag `IconCraft.app` into Applications yourself.
 
@@ -132,7 +133,10 @@ Then open IconCraft and complete **Finish setup**:
    **Replace selected**.
 3. Want a different look? Click the **grid icon** to borrow any installed
    app's icon, or *Choose image file…* for your own PNG/ICNS.
-4. Click the **pencil** to rename the app, use its original name, or restore it.
+4. Click the **pencil** to edit the app in one panel: type a new name, pick
+   the icon, optionally switch on the full skin (name and icon inside the
+   app, for the Dock and menu bar while it runs), preview the result and
+   **Save changes** — or **Restore original** from the same panel.
 5. Changed your mind? **Restore** (per app) or **Restore all** puts back the
    exact original icon and name.
 
@@ -221,7 +225,7 @@ notarised releases):
 </p>
 
 The same contribution bar lives at the bottom of the app window.
-`v0.13.1 · by Gavin Shipman · MIT`
+`v0.14.0 · by Gavin Shipman · MIT`
 
 ## 📄 License
 

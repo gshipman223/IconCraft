@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/gshipman223/IconCraft/internal/i18n"
 )
 
 // Default-app categories: the things macOS lets a user point at another
@@ -82,6 +84,8 @@ type defaultReading struct {
 
 // DefaultApps reads every category's current default and candidate apps
 // from LaunchServices, resolving names from the app bundles themselves.
+// Category labels are localised here; the table above keeps the English
+// message identifiers.
 func (m *Mac) DefaultApps(ctx context.Context) ([]DefaultCategoryState, error) {
 	specs := make([]defaultCategorySpec, 0, len(defaultCategories))
 	for _, c := range defaultCategories {
@@ -120,7 +124,7 @@ func (m *Mac) DefaultApps(ctx context.Context) ([]DefaultCategoryState, error) {
 	out := make([]DefaultCategoryState, 0, len(defaultCategories))
 	for _, c := range defaultCategories {
 		r := byID[c.ID]
-		state := DefaultCategoryState{ID: c.ID, Label: c.Label, Detail: c.Detail, Current: r.Current, Candidates: []DefaultCandidate{}}
+		state := DefaultCategoryState{ID: c.ID, Label: i18n.T(c.Label), Detail: i18n.T(c.Detail), Current: r.Current, Candidates: []DefaultCandidate{}}
 		for _, bid := range r.Candidates {
 			p := r.Paths[bid]
 			name := names[p]

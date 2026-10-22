@@ -4,6 +4,56 @@ All notable changes to IconCraft. Builds are Universal (Apple Silicon +
 Intel) for macOS 12.3+. From 0.13.1, release builds are signed with the
 maintainer's Developer ID and notarised by Apple.
 
+## [0.14.0] — 2026-10-22 · Speaks your language; edit in one panel
+
+- **Simplified Chinese, Japanese and Korean**, alongside English. The
+  language follows your macOS preferred-language list (per-app override
+  with `defaults write io.iconcraft.mac AppleLanguages '(ja)'` for
+  testing); English stays the default and Traditional Chinese falls
+  through to your next preference rather than being mapped to
+  Simplified. The window, menu bar item, Setup & Permissions, Default
+  apps, notifications, open panels, the launch-failure dialog and error
+  messages are all localised; the app name stays "IconCraft". Dates
+  follow your Region setting (en-AU reads 22/10/2026), not just the
+  language. Logs, the journal and `--self-test` output remain English.
+  Catalogues live in `internal/i18n/locales/`; tests fail on a missing
+  key or a mismatched placeholder in any language.
+- **Edit in one panel**: the pencil opens a single editor — before/after
+  preview, name (with *Use original name*), icon choice (keep current or
+  the chosen icon, *Change…* opens the picker and returns), a switch for
+  writing the name and icon inside the app with a plain explanation, the
+  vault status, and one **Save changes**. Save performs rename → full
+  skin, or rename → Finder icon, in that order; if a later step fails
+  after an earlier one succeeded, the dialog says exactly that and stays
+  open. The full-skin safety confirm is folded into the Save button.
+  **Restore original** is in the same footer. Replaces the separate
+  *Rename app* / *Apply full skin…* / *Restore name* / *Restore internal
+  original* actions.
+- **Honest signing copy**: Setup › App Management now describes how this
+  copy is actually signed — Developer ID and notarised (TCC grants
+  survive updates), Developer ID only, ad-hoc (each build is new to
+  macOS), or unknown — instead of always saying "ad-hoc". The
+  notarisation verdict comes from `spctl`, re-asked until confirmed, with
+  a stapled ticket accepted when Gatekeeper is offline.
+- **Fixes**: the menu bar app menu and Dock label read "IconCraft", not
+  "osascript"; Settings › Notifications shows a label beside each toggle;
+  **Restore all** refreshes the list immediately, reports "1 app
+  restored" (apps, not steps, and proper singular/plural), and clears the
+  custom-icon choice of restored apps; English count strings have
+  singular forms throughout; the full-skin confirm no longer squeezes
+  its caption or hides the dialog buttons in CJK; dialog action footers
+  stay in view while long dialogs scroll; the update check compares
+  versions as semver (prereleases sort before their release, malformed
+  tags are never offered) so an older release is never announced as an
+  update; **Restore all** finds apps by bundle ID or current path after a
+  partial restore and counts partially restored apps instead of
+  stalling; the Edit panel re-enables its buttons after choosing an
+  icon, previews icons taken from installed apps, opens at the top and
+  localises "<App> icon" labels.
+- **Tests**: new `internal/i18n` suite and `tests/i18n.test.cjs`; two
+  timing-sensitive `internal/core` scan tests and the window-kill test
+  made deterministic.
+
 ## [0.13.1] — 2026-10-21 · Production release: signed, notarised, new home
 
 - **Signed & notarised**: release builds are now signed with a Developer

@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/gshipman223/IconCraft/internal/core"
+	"github.com/gshipman223/IconCraft/internal/i18n"
 	"github.com/gshipman223/IconCraft/internal/native"
 	"github.com/gshipman223/IconCraft/internal/server"
 	"log"
@@ -59,6 +60,11 @@ func run() (result error) {
 		fmt.Println(core.Version)
 		return nil
 	}
+	// UI language follows the macOS preferred languages (English default).
+	// Chosen once per process: the window, the page and notifications all
+	// read it from here. Logs and the journal stay English regardless.
+	i18n.Set(i18n.Detect())
+	i18n.SetFormatLocale(i18n.DetectFormatLocale(i18n.Current()))
 	if runtime.GOOS != "darwin" && !*headless && !*self {
 		return fmt.Errorf("this application requires macOS; current system is %s", runtime.GOOS)
 	}
@@ -79,7 +85,7 @@ func run() (result error) {
 	}
 	defer logfile.Close()
 	log.SetOutput(logfile)
-	log.Printf("starting %s on %s/%s", core.Version, runtime.GOOS, runtime.GOARCH)
+	log.Printf("starting %s on %s/%s (ui language %s, formats %s)", core.Version, runtime.GOOS, runtime.GOARCH, i18n.Current(), i18n.FormatLocale())
 	defer func() {
 		if result != nil {
 			log.Printf("startup/exit error: %v", result)
@@ -142,6 +148,12 @@ func run() (result error) {
 	// Keep skins applied even while the main app is open: apps/updaters that
 	// revert a Finder icon or folder name on launch get repaired in the
 	// background. When the app is closed, the LaunchAgent (--reapply) does it.
+	// Warm the one-off codesign/spctl inspection of this copy so the Setup
+	// screen's signing copy is ready without blocking the first request.
+	go func() {
+		sig := m.SelfSignature(ctx)
+		log.Printf("own signature: %s notarized=%v team=%q source=%q", sig.Kind, sig.Notarized, sig.Team, sig.Source)
+	}()
 	e.InitKeeperPreference(m.KeepAgentEnabled())
 	ensureKeeper(e, m)
 	ensureLoginAgent(e, m)
@@ -244,7 +256,7 @@ func autoUpdateCheck(ctx context.Context, e *core.Engine, m *native.Mac) {
 		return
 	}
 	if res.UpdateAvailable && s.NotifyAttention {
-		_ = m.NotifyUser(ctx, "IconCraft "+res.Latest+" is available", "You have "+res.Current+". Open IconCraft → Settings to get the new version.")
+		_ = m.NotifyUser(ctx, i18n.T("IconCraft %s is available", res.Latest), i18n.T("You have %s. Open IconCraft → Settings to get the new version.", res.Current))
 	}
 }
 
@@ -269,14 +281,14 @@ func keepAppliedLoop(ctx context.Context, e *core.Engine, m *native.Mac) {
 			log.Printf("keep-applied repaired %d icon(s), %d name(s); skipped: %v", res.IconFixed, res.NameFixed, res.Skipped)
 			settings := e.Settings()
 			if settings.NotifyRepaired {
-				_ = m.NotifyUser(ctx, "IconCraft re-applied your skins", fmt.Sprintf("%d icon(s) and %d name(s) had been reverted and are fixed.", res.IconFixed, res.NameFixed))
+				_ = m.NotifyUser(ctx, i18n.T("IconCraft re-applied your skins"), i18n.T("%d icon(s) and %d name(s) had been reverted and are fixed.", res.IconFixed, res.NameFixed))
 			}
 		} else if len(res.Skipped) > 0 {
 			// At most one attention banner every 6 hours: a skipped
 			// app (often just a running one) must not nag.
 			if e.Settings().NotifyAttention && time.Since(lastAttention) > 6*time.Hour {
 				lastAttention = time.Now()
-				_ = m.NotifyUser(ctx, "Some skins need your attention", "Open IconCraft to review — an app may have updated or be running.")
+				_ = m.NotifyUser(ctx, i18n.T("Some skins need your attention"), i18n.T("Open IconCraft to review — an app may have updated or be running."))
 			}
 		}
 		select {

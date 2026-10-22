@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gshipman223/IconCraft/internal/core"
+	"github.com/gshipman223/IconCraft/internal/i18n"
 	"log"
 	"os"
 	"os/exec"
@@ -162,7 +163,14 @@ func (m *Mac) Normalize(ctx context.Context, path string) ([]byte, error) {
 }
 func (m *Mac) Choose(ctx context.Context, kind string) (string, error) {
 	var p string
-	err := m.call(ctx, map[string]string{"action": "choose", "kind": kind}, &p)
+	title := i18n.T("Choose an original icon")
+	switch kind {
+	case "folder":
+		title = i18n.T("Choose a folder")
+	case "profile":
+		title = i18n.T("Choose an IconCraft profile")
+	}
+	err := m.call(ctx, map[string]string{"action": "choose", "kind": kind, "title": title}, &p)
 	return p, err
 }
 
@@ -378,9 +386,24 @@ func (m *Mac) Window(ctx context.Context, url, icon string, menuOnly bool) error
 	if menuOnly {
 		args = append(args, "menu-only")
 	}
+	args = append(args, "i18n="+string(MenuStrings()))
 	cmd := exec.CommandContext(ctx, "/usr/bin/osascript", args...)
 	cmd.Stdout = os.Stdout
 	return runWindowCommand(cmd, log.Writer())
+}
+
+// MenuStrings is the JSON table of localised menu titles handed to
+// window.js (the `menu.*` keys of the UI catalogue). The window host is
+// a separate osascript process and cannot see the page's strings.js.
+func MenuStrings() []byte {
+	table := map[string]string{}
+	for k, v := range i18n.UIStrings(i18n.Current()) {
+		if strings.HasPrefix(k, "menu.") {
+			table[k] = v
+		}
+	}
+	b, _ := json.Marshal(table)
+	return b
 }
 
 // ExportThumbnails obtains many small, current icons with one AppKit startup.

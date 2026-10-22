@@ -8,8 +8,10 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
+	"time"
 )
 
 func TestWindowHelperProcess(t *testing.T) {
@@ -21,10 +23,13 @@ func TestWindowHelperProcess(t *testing.T) {
 		fmt.Fprintln(os.Stderr, "execution error: IconCraft could not open (creating the WebKit view): fixture-native-error")
 		os.Exit(1)
 	}
-	if mode == "kill" {
-		fmt.Fprintln(os.Stderr, "IconCraft: native window created")
-		_ = syscall.Kill(syscall.Getpid(), syscall.SIGKILL)
-		os.Exit(0)
+	if mode == "hang" {
+		// Stay alive until the parent test kills us (a self-kill could race
+		// our own exit under load). Exit 3 if that never happens so the
+		// parent fails instead of hanging.
+		fmt.Fprintln(os.Stderr, windowReadyMarker)
+		time.Sleep(30 * time.Second)
+		os.Exit(3)
 	}
 	fmt.Fprintln(os.Stderr, "IconCraft: native window created")
 	os.Exit(0)
@@ -44,14 +49,43 @@ func TestWindowFailureRetainsNativeErrorNotJustExitStatus(t *testing.T) {
 		t.Fatal("not logged")
 	}
 }
-func TestWindowKilledBySignalIsCleanCloseNotFailure(t *testing.T) {
-	var log bytes.Buffer
-	err := runWindowCommand(windowHelper("kill"), &log)
-	if !errors.Is(err, ErrWindowKilled) {
-		t.Fatalf("killed window should be ErrWindowKilled, got: %v", err)
+
+const windowReadyMarker = "IconCraft: native window created"
+
+// signalOnMarker is the window log sink for the kill test: the moment the
+// helper reports its window, the parent delivers the signal. cmd.Process is
+// assigned by Start before the stderr copier that calls Write is launched,
+// so reading it here is ordered and race-free.
+type signalOnMarker struct {
+	cmd  *exec.Cmd
+	sig  syscall.Signal
+	once sync.Once
+	seen bytes.Buffer
+	err  error
+}
+
+func (k *signalOnMarker) Write(p []byte) (int, error) {
+	k.seen.Write(p)
+	if bytes.Contains(k.seen.Bytes(), []byte(windowReadyMarker)) {
+		k.once.Do(func() { k.err = k.cmd.Process.Signal(k.sig) })
 	}
-	if strings.Contains(err.Error(), "native window failed") {
-		t.Fatalf("killed window misreported as failure: %v", err)
+	return len(p), nil
+}
+
+func TestWindowKilledBySignalIsCleanCloseNotFailure(t *testing.T) {
+	for _, sig := range []syscall.Signal{syscall.SIGKILL, syscall.SIGTERM} {
+		cmd := windowHelper("hang")
+		killer := &signalOnMarker{cmd: cmd, sig: sig}
+		err := runWindowCommand(cmd, killer)
+		if killer.err != nil {
+			t.Fatalf("%v: could not signal helper: %v", sig, killer.err)
+		}
+		if !errors.Is(err, ErrWindowKilled) {
+			t.Fatalf("%v: killed window should be ErrWindowKilled, got: %v", sig, err)
+		}
+		if strings.Contains(err.Error(), "native window failed") {
+			t.Fatalf("%v: killed window misreported as failure: %v", sig, err)
+		}
 	}
 }
 

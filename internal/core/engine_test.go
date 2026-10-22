@@ -569,7 +569,10 @@ func (n *warningNative) InspectWithWarnings(ctx context.Context, paths []string)
 func TestScanKeepsValidApplicationsAndMetadataWarnings(t *testing.T) {
 	e, n, a, _ := fixture(t)
 	e.Native = &warningNative{fakeNative: n, warning: "Broken.app: unreadable Info.plist"}
-	_ = os.WriteFile(filepath.Join(a.Path, "Contents/Info.plist"), []byte("changed metadata"), 0600)
+	// A different *length*, not just different bytes: the inventory stamp is
+	// mtime+size, and two writes inside one filesystem timestamp tick would
+	// otherwise look unchanged and skip the native inspect this test needs.
+	_ = os.WriteFile(filepath.Join(a.Path, "Contents/Info.plist"), []byte("changed metadata (longer)"), 0600)
 	apps, warnings, err := e.Scan(context.Background())
 	if err != nil || len(apps) != 1 || apps[0].ID != a.ID {
 		t.Fatalf("valid application was lost: apps=%v err=%v", apps, err)
@@ -582,7 +585,10 @@ func TestScanKeepsValidApplicationsAndMetadataWarnings(t *testing.T) {
 func TestScanBridgeFailureDoesNotErasePriorInventory(t *testing.T) {
 	e, n, a, _ := fixture(t)
 	e.Native = &warningNative{fakeNative: n, warning: "metadata read", failure: errors.New("bridge unavailable")}
-	_ = os.WriteFile(filepath.Join(a.Path, "Contents/Info.plist"), []byte("changed metadata"), 0600)
+	// A different *length*, not just different bytes: the inventory stamp is
+	// mtime+size, and two writes inside one filesystem timestamp tick would
+	// otherwise look unchanged and skip the native inspect this test needs.
+	_ = os.WriteFile(filepath.Join(a.Path, "Contents/Info.plist"), []byte("changed metadata (longer)"), 0600)
 	if _, _, err := e.Scan(context.Background()); err == nil {
 		t.Fatal("bridge failure reported as success")
 	}

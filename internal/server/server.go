@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
@@ -10,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gshipman223/IconCraft/internal/core"
+	"github.com/gshipman223/IconCraft/internal/i18n"
 	"github.com/gshipman223/IconCraft/internal/native"
 	"github.com/gshipman223/IconCraft/internal/originals"
 	"io"
@@ -88,7 +90,13 @@ func respond(w http.ResponseWriter, status int, v any) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }
-func fail(w http.ResponseWriter, err error) { respond(w, 400, map[string]string{"error": err.Error()}) }
+
+// fail is the presentation boundary for errors: the engine and native
+// layer speak English (and log that way); the page receives the message
+// in the UI language where a translation exists.
+func fail(w http.ResponseWriter, err error) {
+	respond(w, 400, map[string]string{"error": i18n.Error(err)})
+}
 func readJSON(w http.ResponseWriter, r *http.Request, v any) error {
 	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 		return errors.New("JSON content type required")
@@ -127,6 +135,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if p == "" {
 			p = "index.html"
 		}
+		if p == "strings.js" {
+			// The UI catalogue for the detected system language. A
+			// same-origin script keeps the page's CSP (no inline scripts).
+			w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+			_, _ = w.Write(i18n.Script(i18n.Current()))
+			return
+		}
 		if p != "index.html" && p != "app.js" && p != "style.css" && p != "logo.svg" {
 			http.NotFound(w, r)
 			return
@@ -136,6 +151,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.NotFound(w, r)
 			return
+		}
+		if p == "index.html" {
+			b = bytes.Replace(b, []byte(`<html lang="en"`), []byte(`<html lang="`+string(i18n.Current())+`"`), 1)
 		}
 		if strings.HasSuffix(p, ".js") {
 			w.Header().Set("Content-Type", "application/javascript")
@@ -197,7 +215,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			LoginAgentEnabled() bool
 		}); ok {
 			if err := agent.SetLoginAgent(saved.LaunchAtLogin, saved.StartInMenuBar); err != nil {
-				out["warning"] = "Preference saved, but macOS could not update the launch-at-login item: " + err.Error()
+				out["warning"] = i18n.T("Preference saved, but macOS could not update the launch-at-login item: %s", i18n.Error(err))
 			}
 			out["loginAgent"] = agent.LoginAgentEnabled()
 		}
@@ -298,7 +316,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			fail(w, errors.New("notifications require the macOS native layer"))
 			return
 		}
-		if err := notifier.NotifyUser(ctx, "IconCraft notifications are on", "Skin repairs and items needing attention will arrive like this."); err != nil {
+		if err := notifier.NotifyUser(ctx, i18n.T("IconCraft notifications are on"), i18n.T("Skin repairs and items needing attention will arrive like this.")); err != nil {
 			fail(w, err)
 			return
 		}
