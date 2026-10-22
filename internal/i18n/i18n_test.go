@@ -145,6 +145,40 @@ func TestTTranslatesAndFormats(t *testing.T) {
 	}
 }
 
+func TestTNPicksSingularForOne(t *testing.T) {
+	defer Set(English)
+	one, other := "IconCraft can see 1 installed app. It reads app names, bundle IDs and icons; reading an app does not change it.", "IconCraft can see %d installed apps. It reads app names, bundle IDs and icons; reading an app does not change it."
+	if got := TN(1, one, other, 1); !strings.HasPrefix(got, "IconCraft can see 1 installed app.") {
+		t.Fatal(got)
+	}
+	if got := TN(2, one, other, 2); !strings.HasPrefix(got, "IconCraft can see 2 installed apps.") {
+		t.Fatal(got)
+	}
+	Set(Japanese)
+	if got := TN(1, one, other, 1); !strings.Contains(got, "1 個") {
+		t.Fatal(got)
+	}
+}
+
+func TestEnglishCountStringsHaveSingularForms(t *testing.T) {
+	ui, _ := Catalogue(English)
+	for k, v := range ui {
+		plural := regexp.MustCompile(`\{n\} (apps|items|icons|names)\b`)
+		if strings.HasSuffix(k, ".one") {
+			if plural.MatchString(v) {
+				t.Errorf("%s still reads as a plural: %q", k, v)
+			}
+			if _, ok := ui[strings.TrimSuffix(k, ".one")+".other"]; !ok {
+				t.Errorf("%s has no .other form", k)
+			}
+		}
+		// A count followed by a plural noun without a singular variant.
+		if !strings.HasSuffix(k, ".one") && !strings.HasSuffix(k, ".other") && plural.MatchString(v) {
+			t.Errorf("%s needs .one/.other forms: %q", k, v)
+		}
+	}
+}
+
 func TestTextTranslatesFormattedErrors(t *testing.T) {
 	defer Set(English)
 	Set(ChineseSimplified)
@@ -271,11 +305,20 @@ func TestSourceReferencesMatchCatalogue(t *testing.T) {
 	root := filepath.Join("..", "..")
 	goSrc := readAll(t, root, []string{"cmd", "internal"}, ".go", "_test.go")
 	tCall := regexp.MustCompile(`i18n\.T\("((?:[^"\\]|\\.)*)"`)
+	tnCall := regexp.MustCompile(`i18n\.TN\([^,]+, "((?:[^"\\]|\\.)*)", "((?:[^"\\]|\\.)*)"`)
 	_, enMsgs := Catalogue(English)
 	for _, m := range tCall.FindAllSubmatch(goSrc, -1) {
 		id := unquote(string(m[1]))
 		if _, ok := enMsgs[id]; !ok {
 			t.Errorf("i18n.T msgid not in en.json: %q", id)
+		}
+	}
+	for _, m := range tnCall.FindAllSubmatch(goSrc, -1) {
+		for _, raw := range m[1:] {
+			id := unquote(string(raw))
+			if _, ok := enMsgs[id]; !ok {
+				t.Errorf("i18n.TN msgid not in en.json: %q", id)
+			}
 		}
 	}
 	// Default-app category table and vault/restore steps are translated

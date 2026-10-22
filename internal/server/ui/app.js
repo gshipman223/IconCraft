@@ -148,7 +148,7 @@ function render(){
  $('scan').disabled=scanning||busy;$('scan').classList.toggle('refreshing',scanning);$('folder').disabled=busy||scanning;
  $('keepalive').textContent=t('footer.keepalive',{state:model.keepAlive?t('common.on'):t('common.off')});$('keepalive').classList.toggle('on',model.keepAlive);
  const checks=all.filter(a=>rs(a).checking).length;$('activity').classList.toggle('updating',checks>0||scanning);
- $('status').textContent=scanning?(all.length?t('status.scanningCount',{n:all.length}):t('status.scanning')):checks?t('status.refreshing',{n:all.length,checks}):t('status.ready',{n:all.length,ready:all.filter(ready).length});
+ $('status').textContent=scanning?(all.length?tn(all.length,'status.scanningCount'):t('status.scanning')):checks?tn(all.length,'status.refreshing',{checks}):tn(all.length,'status.ready',{ready:all.filter(ready).length});
  $('loading').hidden=!firstLoad||all.length>0;$('empty').hidden=firstLoad||filtered.length>0;
 }
 function applyTheme(mode,persist=false){
@@ -193,14 +193,14 @@ async function applyApps(list){
  tell(tn(done,'apply.done')+(errors.length?'\n'+errors.join('\n'):''),errors.length>0);render();
 }
 async function restoreOne(a){if(busy)return;busy=true;rs(a).actionError='';render();try{const r=await api('restore-app',{appId:a.id,confirmed:true});rs(a).revision++;await rescan();tell(r.steps&&r.steps.length?t('restore.doneSteps',{name:a.name,steps:r.steps.join('; ')}):t('restore.done',{name:a.name}));}catch(e){rs(a).actionError=e.message;tell(e.message,true);}finally{busy=false;render();}}
-async function restoreAll(){if(busy)return;busy=true;render();try{const r=await api('restore-all',{confirmed:true});rowState.forEach(s=>{s.revision++;s.actionError='';});await rescan();tell(t('restore.all',{n:r.restored})+(r.errors?.length?'\n'+r.errors.join('\n'):''),!!r.errors?.length);}catch(e){tell(e.message,true);}finally{busy=false;render();}}
+async function restoreAll(){if(busy)return;busy=true;render();try{const r=await api('restore-all',{confirmed:true});rowState.forEach(s=>{s.revision++;s.actionError='';});await rescan();tell(tn(r.restored,'restore.all')+(r.errors?.length?'\n'+r.errors.join('\n'):''),!!r.errors?.length);}catch(e){tell(e.message,true);}finally{busy=false;render();}}
 function dialogError(id,text){$(id).textContent=text;$(id).hidden=!text;}
 function setupMessage(text){const m=$('setup-message');m.textContent=text;m.hidden=!text;}
 function setupCheck(id){return setupData?.checks?.find(c=>c.id===id);}
 function setupActionButton(label,fn,primary=false){const b=node('button',primary?'primary':'secondary',label);b.disabled=setupChecking||busy;b.addEventListener('click',fn);return b;}
 function drawSetup(){
  const checks=setupData?.checks||[],blocked=checks.filter(c=>c.state==='blocked').length,unchecked=checks.filter(c=>c.state==='unknown').length,ready=checks.filter(c=>c.state==='ready').length;
- $('setup-summary').textContent=blocked?tn(blocked,'setup.summaryBlocked'):unchecked?t('setup.summaryUnchecked'):t('setup.summaryReady',{n:ready});
+ $('setup-summary').textContent=blocked?tn(blocked,'setup.summaryBlocked'):unchecked?t('setup.summaryUnchecked'):tn(ready,'setup.summaryReady');
  const list=$('setup-checks');list.replaceChildren();
  for(const check of checks){
   const row=node('section','setup-row'),copy=node('div'),side=node('div','setup-side'),pill=node('span','status-pill '+check.state,check.label),actions=node('div','setup-actions');

@@ -39,9 +39,6 @@
     "folder.add": "Add apps folder",
     "status.opening": "Opening your workspace…",
     "status.scanning": "Scanning this Mac…",
-    "status.scanningCount": "{n} apps · scanning",
-    "status.refreshing": "{n} apps · {checks} refreshing",
-    "status.ready": "{n} apps · {ready} ready",
     "list.aria": "Installed applications",
     "list.selectAllTitle": "Select all visible eligible apps",
     "list.selectAllAria": "Select all visible apps",
@@ -109,7 +106,6 @@
     "apply.done.other": "{n} icons replaced.",
     "restore.done": "Restored {name}.",
     "restore.doneSteps": "Restored {name}: {steps}.",
-    "restore.all": "{n} apps restored.",
     "keepalive.on": "Keep-applied is on. If an app or updater reverts your icon or name, IconCraft will quietly re-apply it (checks at login, every few minutes, and when apps change). While an app is running, macOS shows its own Dock/menu identity — IconCraft never edits inside apps, so that part is the app’s, by design.",
     "keepalive.off": "Keep-applied is off. Icons and names stay as-is; nothing will re-apply them if an app reverts them.",
     "defaults.aria": "Default applications",
@@ -219,7 +215,6 @@
     "setup.summaryBlocked.one": "{n} item needs attention. Open the highlighted macOS setting, allow IconCraft, then run the checks again. You can still finish setup and return later.",
     "setup.summaryBlocked.other": "{n} items need attention. Open the highlighted macOS setting, allow IconCraft, then run the checks again. You can still finish setup and return later.",
     "setup.summaryUnchecked": "Some permissions have not been tested yet. Run the checks, then allow anything macOS is blocking.",
-    "setup.summaryReady": "{n} essential items are ready. Optional items are labelled clearly below.",
     "setup.lastChecked": "Last checked {when}",
     "setup.testedApp": "Tested app: {name}",
     "setup.openAppManagement": "Open App Management",
@@ -251,7 +246,17 @@
     "menu.keeperOn": "Background keeper: on — works with IconCraft closed",
     "menu.keeperOff": "Background keeper: off",
     "menu.appManagement": "App Management Settings…",
-    "menu.support": "Support IconCraft ♥"
+    "menu.support": "Support IconCraft ♥",
+    "restore.all.one": "{n} app restored.",
+    "restore.all.other": "{n} apps restored.",
+    "status.scanningCount.one": "{n} app · scanning",
+    "status.scanningCount.other": "{n} apps · scanning",
+    "status.refreshing.one": "{n} app · {checks} refreshing",
+    "status.refreshing.other": "{n} apps · {checks} refreshing",
+    "status.ready.one": "{n} app · {ready} ready",
+    "status.ready.other": "{n} apps · {ready} ready",
+    "setup.summaryReady.one": "{n} essential item is ready. Optional items are labelled clearly below.",
+    "setup.summaryReady.other": "{n} essential items are ready. Optional items are labelled clearly below."
   },
   "messages": {
     "Ready": "Ready",
@@ -455,6 +460,7 @@
     "This copy is signed with a Developer ID, so macOS recognises updates as the same app and keeps this permission across them.": "This copy is signed with a Developer ID, so macOS recognises updates as the same app and keeps this permission across them.",
     "If changes stop working after an IconCraft update, open App Management and check IconCraft again.": "If changes stop working after an IconCraft update, open App Management and check IconCraft again.",
     "This copy of IconCraft launched successfully. It is signed with a Developer ID and notarised by Apple, so downloads open with a double-click and no Gatekeeper warning. Never disable Gatekeeper globally.": "This copy of IconCraft launched successfully. It is signed with a Developer ID and notarised by Apple, so downloads open with a double-click and no Gatekeeper warning. Never disable Gatekeeper globally.",
-    "macOS does not give apps a reliable global App Management readout, so IconCraft tests the real thing: a harmless create-and-remove file inside one installed app. Run the check before relying on changes to protected apps.": "macOS does not give apps a reliable global App Management readout, so IconCraft tests the real thing: a harmless create-and-remove file inside one installed app. Run the check before relying on changes to protected apps."
+    "macOS does not give apps a reliable global App Management readout, so IconCraft tests the real thing: a harmless create-and-remove file inside one installed app. Run the check before relying on changes to protected apps.": "macOS does not give apps a reliable global App Management readout, so IconCraft tests the real thing: a harmless create-and-remove file inside one installed app. Run the check before relying on changes to protected apps.",
+    "IconCraft can see 1 installed app. It reads app names, bundle IDs and icons; reading an app does not change it.": "IconCraft can see 1 installed app. It reads app names, bundle IDs and icons; reading an app does not change it."
   }
 }

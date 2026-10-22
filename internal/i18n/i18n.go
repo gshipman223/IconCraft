@@ -329,6 +329,16 @@ func T(msgid string, args ...any) string {
 	return fmt.Sprintf(normaliseVerbs(s), args...)
 }
 
+// TN picks the singular or plural English message identifier for n and
+// formats it like T. Both forms are catalogue entries, so languages that
+// do not inflect for number simply translate them identically.
+func TN(n int, one, other string, args ...any) string {
+	if n == 1 {
+		return T(one, args...)
+	}
+	return T(other, args...)
+}
+
 // Text translates an already-formatted English message, such as an
 // error produced deep in the engine. Exact messages, templated messages
 // (with their captured values translated in turn) and "context: cause"

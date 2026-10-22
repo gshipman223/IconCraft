@@ -79,7 +79,7 @@ func (s *Server) permissionsPayload(ctx context.Context, runChecks bool, appID s
 	}
 
 	discoveryState, discoveryLabel := "ready", i18n.T("Ready")
-	discoveryDetail := i18n.T("IconCraft can see %d installed apps. It reads app names, bundle IDs and icons; reading an app does not change it.", len(apps))
+	discoveryDetail := i18n.TN(len(apps), "IconCraft can see 1 installed app. It reads app names, bundle IDs and icons; reading an app does not change it.", "IconCraft can see %d installed apps. It reads app names, bundle IDs and icons; reading an app does not change it.", len(apps))
 	if len(apps) == 0 {
 		discoveryState, discoveryLabel = "unknown", i18n.T("Checking")
 		discoveryDetail = i18n.T("No apps have been loaded yet. Wait for the first scan to finish, then run the checks again.")
