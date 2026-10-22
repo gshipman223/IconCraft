@@ -24,7 +24,7 @@ checks = int(m.group(1))
 assert ('# fail 0' in tap) or ('ℹ fail 0' in tap)
 assert not (BUILD / 'vet-current.txt').read_text().strip()
 race = (BUILD / 'race-current.txt').read_text()
-assert 'FAIL' not in race and len([l for l in race.splitlines() if l.startswith('ok')]) == 5
+assert 'FAIL' not in race and len([l for l in race.splitlines() if l.startswith('ok')]) == 6
 
 app = BUILD / 'IconCraft.app'
 exe = app / 'Contents/MacOS/IconCraft'
