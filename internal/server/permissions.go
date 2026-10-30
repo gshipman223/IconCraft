@@ -89,7 +89,12 @@ func (s *Server) permissionsPayload(ctx context.Context, runChecks bool, appID s
 	if accessState == "" {
 		accessState = "unknown"
 	}
-	accessLabel := map[string]string{"ready": i18n.T("Granted — tested"), "blocked": i18n.T("Blocked"), "unknown": i18n.T("Not checked yet")}[accessState]
+	accessLabel := map[string]string{
+		"ready":       i18n.T("Granted — tested"),
+		"blocked":     i18n.T("Blocked"),
+		"unknown":     i18n.T("Not checked yet"),
+		"unavailable": i18n.T("Could not test"),
+	}[accessState]
 	if accessLabel == "" {
 		accessLabel, accessState = i18n.T("Not checked yet"), "unknown"
 	}

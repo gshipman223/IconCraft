@@ -207,8 +207,8 @@ function setupMessage(text){const m=$('setup-message');m.textContent=text;m.hidd
 function setupCheck(id){return setupData?.checks?.find(c=>c.id===id);}
 function setupActionButton(label,fn,primary=false){const b=node('button',primary?'primary':'secondary',label);b.disabled=setupChecking||busy;b.addEventListener('click',fn);return b;}
 function drawSetup(){
- const checks=setupData?.checks||[],blocked=checks.filter(c=>c.state==='blocked').length,unchecked=checks.filter(c=>c.state==='unknown').length,ready=checks.filter(c=>c.state==='ready').length;
- $('setup-summary').textContent=blocked?tn(blocked,'setup.summaryBlocked'):unchecked?t('setup.summaryUnchecked'):tn(ready,'setup.summaryReady');
+ const checks=setupData?.checks||[],blocked=checks.filter(c=>c.state==='blocked').length,unavailable=checks.filter(c=>c.state==='unavailable').length,unchecked=checks.filter(c=>c.state==='unknown').length,ready=checks.filter(c=>c.state==='ready').length;
+ $('setup-summary').textContent=blocked?tn(blocked,'setup.summaryBlocked'):unavailable?t('setup.summaryUnavailable'):unchecked?t('setup.summaryUnchecked'):tn(ready,'setup.summaryReady');
  const list=$('setup-checks');list.replaceChildren();
  for(const check of checks){
   const row=node('section','setup-row'),copy=node('div'),side=node('div','setup-side'),pill=node('span','status-pill '+check.state,check.label),actions=node('div','setup-actions');
@@ -236,7 +236,7 @@ async function openSetup(){
 }
 async function runSetupChecks(){
  if(setupChecking)return;setupChecking=true;dialogError('setup-error','');setupMessage('');drawSetup();
- try{setupData=await api('permissions/check',{});const access=setupCheck('appManagement');setupMessage(access?.state==='ready'?t('setup.checksPassed'):access?.state==='blocked'?t('setup.checksBlocked'):t('setup.checksReview'));}
+ try{setupData=await api('permissions/check',{});const access=setupCheck('appManagement');setupMessage(access?.state==='ready'?t('setup.checksPassed'):access?.state==='blocked'?t('setup.checksBlocked'):access?.state==='unavailable'?t('setup.checksUnavailable'):t('setup.checksReview'));}
  catch(e){dialogError('setup-error',e.message);}
  finally{setupChecking=false;drawSetup();render();}
 }

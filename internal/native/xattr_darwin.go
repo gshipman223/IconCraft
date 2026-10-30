@@ -169,12 +169,13 @@ func (m *Mac) Restore(ctx context.Context, path string, s core.Snapshot) error {
 	if s.Exists {
 		f, err := os.CreateTemp(path, ".iconcraft-restore-")
 		if err != nil {
-			if !errors.Is(err, os.ErrPermission) {
+			if !core.AppManagementRefusal(err) {
 				return err
 			}
-			// App Management protection can refuse temp files inside the
-			// bundle while still allowing the icon file itself to be
-			// written. Fall back to a direct write rather than failing a
+			// App Management (EPERM / "operation not permitted") can refuse
+			// a temp file inside the bundle while still allowing the icon
+			// file itself to be written. EACCES and EROFS are not that
+			// case. Fall back to a direct write rather than failing a
 			// rollback that would otherwise leave recovery blocked.
 			if werr := os.WriteFile(p, s.Data, 0644); werr != nil {
 				return werr

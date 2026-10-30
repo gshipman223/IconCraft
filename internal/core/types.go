@@ -157,11 +157,14 @@ type Original struct {
 	Checked string `json:"checked"`
 }
 
-// PermissionCheck is the last user-run, app-specific App Management probe.
+// PermissionCheck is the last user-run, app-specific bundle write probe.
 // macOS does not publish one global "IconCraft may modify apps" answer that
 // an ad-hoc app can rely on, so IconCraft records what it actually tested:
 // whether creating/removing a harmless temporary file inside one chosen
-// installed app was allowed. Status is ready, blocked or unknown.
+// installed app was allowed. Status is ready (the write worked), blocked
+// (EPERM / operation not permitted, reported as App Management),
+// unavailable (the write failed for another reason, such as EACCES or a
+// read-only disk), or unknown.
 type PermissionCheck struct {
 	AppID     string `json:"appId,omitempty"`
 	AppName   string `json:"appName,omitempty"`

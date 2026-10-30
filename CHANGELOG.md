@@ -4,6 +4,17 @@ All notable changes to IconCraft. Builds are Universal (Apple Silicon +
 Intel) for macOS 12.3+. From 0.13.1, release builds are signed with the
 maintainer's Developer ID and notarised by Apple.
 
+## [Unreleased]
+
+- **App Management errors are no longer one message.** A write probe that
+  fails with “operation not permitted” (EPERM) still points at System
+  Settings → Privacy & Security → App Management. “Permission denied”
+  (EACCES), including an app owned by root, and a read-only disk (EROFS)
+  now say so, and do not offer the App Management button. Setup’s
+  automatic check skips root-owned apps and keeps looking when an app
+  fails with permission denied, instead of stopping on the first app in
+  alphabetical order. This has not been run on macOS 27.
+
 ## [0.14.0] — 2026-10-22 · Speaks your language; edit in one panel
 
 - **Simplified Chinese, Japanese and Korean**, alongside English. The

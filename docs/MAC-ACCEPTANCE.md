@@ -23,3 +23,26 @@
 Interactive Finder/Dock behavior, local permissions, Gatekeeper prompts,
 accessibility and live publisher availability cannot be proven by Linux mock
 checks or a cross-compiled Mach-O bundle. Run these on the target Mac.
+
+## App Management error split — NOT RUN
+
+Linux tests classify injected errno values. They do not show what macOS 27
+returns. On a Mac (the maintainer’s machine is macOS 27.0.1, Apple Silicon;
+issue #10 was macOS 27.2 beta RC):
+
+1. App Management off, user-owned app: the message must say “operation not
+   permitted” and offer Open App Management settings.
+2. App Management on for this exact IconCraft binary, same app, after a
+   full quit: record whether the probe then succeeds. If it still says
+   operation not permitted, this change does not unblock that Mac. Compare
+   `CreateTemp` inside the bundle with `NSWorkspace.setIcon` on a
+   disposable app — the probe is a temp file, the real change is setIcon,
+   and those can disagree.
+3. Root-owned app (`ls -ld` uid 0), App Management off and on: record
+   EACCES versus EPERM. Do not assume root ownership is EACCES until this
+   Mac says so.
+4. Setup’s automatic check skips a root-owned app that sorts first and
+   can pass on a later user-owned app that is not running. The row names
+   the app that was tested.
+5. An app on a read-only disk image says it is on a read-only disk and
+   does not offer the App Management button.

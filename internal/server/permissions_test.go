@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/gshipman223/IconCraft/internal/core"
@@ -53,9 +54,9 @@ func TestPermissionCheckAndSetupCompletion(t *testing.T) {
 		t.Fatalf("successful permission probe was not recorded: %q", got)
 	}
 
-	s.Engine.Native = permissionNative{probeErr: os.ErrPermission}
+	s.Engine.Native = permissionNative{probeErr: &os.PathError{Op: "open", Path: appPath, Err: syscall.EPERM}}
 	w = request(s, "POST", "/"+s.Token+"/api/permissions/check", "", `{"appId":"fixture"}`)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), `"state":"blocked"`) {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"state":"blocked"`) || !strings.Contains(w.Body.String(), "operation not permitted") {
 		t.Fatal(w.Code, w.Body.String())
 	}
 
@@ -70,5 +71,27 @@ func TestPermissionCheckAndSetupCompletion(t *testing.T) {
 	w = request(s, "GET", "/"+s.Token+"/api/session", "", "")
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"setupRequired":false`) {
 		t.Fatal(w.Code, w.Body.String())
+	}
+}
+
+func TestPermissionCheckDoesNotCallEACCESAppManagement(t *testing.T) {
+	s := testServer(t)
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	appPath := filepath.Join(root, "PhotoCraft.app")
+	if err := os.MkdirAll(appPath, 0700); err != nil {
+		t.Fatal(err)
+	}
+	s.Engine.Apps["fixture"] = core.App{ID: "fixture", Name: "PhotoCraft", Path: appPath, BundleID: "ai.storyteller.photocraft", Executable: "photocraft"}
+	s.Engine.Native = permissionNative{probeErr: &os.PathError{Op: "open", Path: appPath, Err: syscall.EACCES}}
+	w := request(s, "POST", "/"+s.Token+"/api/permissions/check", "", `{"appId":"fixture"}`)
+	body := w.Body.String()
+	if w.Code != 200 || !strings.Contains(body, `"state":"unavailable"`) || !strings.Contains(body, `"label":"Could not test"`) || !strings.Contains(body, "permission denied") {
+		t.Fatal(w.Code, body)
+	}
+	if strings.Contains(body, "switch IconCraft on") || strings.Contains(body, "operation not permitted") {
+		t.Fatal("EACCES was described as App Management:", body)
 	}
 }

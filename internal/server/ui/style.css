@@ -222,6 +222,7 @@ dialog::backdrop{background:#04060FD9;backdrop-filter:blur(6px)}
 .status-pill.ready{color:var(--good)}.status-pill.ready::before{background:var(--good);box-shadow:0 0 7px var(--good)}
 .status-pill.blocked{color:var(--danger);background:var(--danger-bg)}.status-pill.blocked::before{background:var(--danger)}
 .status-pill.unknown{color:var(--accent)}.status-pill.unknown::before{background:var(--accent)}
+.status-pill.unavailable{color:var(--muted)}.status-pill.unavailable::before{background:var(--muted)}
 .status-pill.off{color:var(--muted)}.status-pill.not-required{color:var(--muted)}
 .setup-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .setup-actions button{font-size:11px;padding:7px 9px}

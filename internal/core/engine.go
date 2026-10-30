@@ -433,19 +433,16 @@ func (e *Engine) CopyDonor(ctx context.Context, id string) (Asset, error) {
 
 type writeProber interface{ WriteProbe(string) error }
 
-// probeWritable fails early — before anything is journalled — when macOS
-// App Management protection (or plain permissions) will refuse writes
-// inside this app's bundle, with guidance instead of a half-finished change.
+// probeWritable fails early — before anything is journalled — when a write
+// inside this app's bundle will be refused. EPERM, EACCES and EROFS get
+// different messages; only EPERM is described as App Management.
 func (e *Engine) probeWritable(a App) error {
 	p, ok := e.Native.(writeProber)
 	if !ok {
 		return nil
 	}
 	if err := p.WriteProbe(a.Path); err != nil {
-		if errors.Is(err, os.ErrPermission) {
-			return fmt.Errorf("macOS is blocking IconCraft from changing %s (App Management protection). Open System Settings → Privacy & Security → App Management, switch IconCraft on, then try again. Nothing was changed", a.Name)
-		}
-		return fmt.Errorf("could not write inside %s: %w", a.Name, err)
+		return writeProbeError(a.Name, a.Path, err)
 	}
 	return nil
 }

@@ -2,9 +2,11 @@ package core
 
 import (
 	"context"
+	"errors"
 	"image/color"
 	"os"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -59,14 +61,18 @@ func TestAtomicRefusalSkipsRollbackWrite(t *testing.T) {
 	}
 }
 
+func pathErrno(errno syscall.Errno) error {
+	return &os.PathError{Op: "open", Path: "Example.app/.iconcraft-write-check", Err: errno}
+}
+
 func TestProbeFailureBlocksBeforeJournal(t *testing.T) {
 	e, n, a, asset := fixture(t)
-	n.probeErr = os.ErrPermission
+	n.probeErr = pathErrno(syscall.EPERM)
 	before := len(e.SnapshotState().Records)
 	if _, err := e.Apply(context.Background(), a.ID, asset.ID); err == nil {
 		t.Fatal("probe failure must block apply")
-	} else if !strings.Contains(err.Error(), "App Management") {
-		t.Fatalf("error should guide the user to App Management, got: %s", err.Error())
+	} else if !strings.Contains(err.Error(), "App Management") || !strings.Contains(err.Error(), "operation not permitted") {
+		t.Fatalf("EPERM should guide the user to App Management, got: %s", err.Error())
 	}
 	if len(e.SnapshotState().Records) != before {
 		t.Fatal("no record should be journalled when the probe fails")
@@ -74,6 +80,54 @@ func TestProbeFailureBlocksBeforeJournal(t *testing.T) {
 	// Rebrand is probed too.
 	if _, err := e.Rebrand(context.Background(), a.ID, asset.ID, "New Name"); err == nil {
 		t.Fatal("probe failure must block rebrand")
+	}
+}
+
+func TestProbeFailureMessagesMatchErrno(t *testing.T) {
+	cases := []struct {
+		name   string
+		err    error
+		want   string
+		unwant string
+		root   bool
+	}{
+		{"eperm", pathErrno(syscall.EPERM), "App Management", "", false},
+		{"eacces", pathErrno(syscall.EACCES), "permission denied", "App Management", false},
+		{"eacces-root", pathErrno(syscall.EACCES), "owned by root", "App Management", true},
+		{"erofs", pathErrno(syscall.EROFS), "read-only disk", "App Management", false},
+		{"bare-permission", os.ErrPermission, "permission denied", "App Management", false},
+		{"text-eperm", errors.New("operation not permitted"), "App Management", "", false},
+		{"text-erofs", errors.New("read-only file system"), "read-only disk", "App Management", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			e, n, a, asset := fixture(t)
+			if tc.root {
+				prev := bundleOwnerOverride
+				bundleOwnerOverride = func(path string) (uint32, bool) {
+					if path == a.Path {
+						return 0, true
+					}
+					return 1, true
+				}
+				t.Cleanup(func() { bundleOwnerOverride = prev })
+			}
+			n.probeErr = tc.err
+			before := len(e.SnapshotState().Records)
+			_, err := e.Apply(context.Background(), a.ID, asset.ID)
+			if err == nil {
+				t.Fatal("probe failure must block apply")
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error %q does not contain %q", err.Error(), tc.want)
+			}
+			if tc.unwant != "" && strings.Contains(err.Error(), tc.unwant) {
+				t.Fatalf("error %q should not contain %q", err.Error(), tc.unwant)
+			}
+			if len(e.SnapshotState().Records) != before {
+				t.Fatal("no record should be journalled when the probe fails")
+			}
+		})
 	}
 }
 
