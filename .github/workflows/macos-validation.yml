@@ -24,7 +24,7 @@ jobs:
       - run: python3 scripts/build_macos.py
       - name: Native fixture checks (disposable fixtures only)
         run: build/IconCraft.app/Contents/MacOS/IconCraft --self-test --report build/native-checks.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: macos-validation-evidence
