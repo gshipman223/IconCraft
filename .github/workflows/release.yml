@@ -21,7 +21,7 @@ jobs:
           bash build-current.sh
           ./build/IconCraft.app/Contents/MacOS/IconCraft --self-test
           python3 scripts/package_v05.py
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: |
             build/packages/IconCraft-Mac-*.zip
