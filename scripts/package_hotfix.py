@@ -38,7 +38,7 @@ p=stage/'Install IconCraft.command';p.write_text(installer);p.chmod(0o755)
 subprocess.run(['bash','-n',str(p)],check=True)
 (stage/'APP-SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.relative_to(stage).as_posix()+'\n' for p in sorted((stage/'IconCraft.app').rglob('*')) if p.is_file()))
 notes='''IconCraft 0.4.1 — Mac launch repair build
-Apple Silicon + Intel, macOS 12.3 or later
+Apple Silicon + Intel, macOS 13 or newer
 
 INSTALL
 Extract the ZIP and run Install IconCraft.command beside IconCraft.app.

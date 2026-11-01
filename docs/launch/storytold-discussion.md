@@ -28,7 +28,7 @@ A few plain facts:
 
 - Free and open source (MIT): https://github.com/gshipman223/IconCraft
 - Website and download: https://iconcraft.co
-- The Mac download is a signed and notarised DMG, so it opens normally — no right-click workaround. Needs macOS 12.3 or later.
+- The Mac download is a signed and notarised DMG, so it opens normally — no right-click workaround. Needs macOS 13 or newer.
 - No account, no telemetry. It doesn't phone home to me.
 - It isn't only for ArtCraft apps. It works on other Mac apps too, including apps you've built or generated yourself.
 

@@ -5,7 +5,7 @@ ready-to-paste copy that still needs Gavin's eyes, the posting notes at the top 
 each file checked, and a deliberate click from Gavin to go live.
 
 IconCraft in one line: a free, MIT-licensed Mac app (signed and notarised DMG,
-macOS 12.3+) that gives replacement and vibe-coded apps the original app's name and
+macOS 13 or newer) that gives replacement and vibe-coded apps the original app's name and
 icon — or your own — system-wide, leaves the app underneath unchanged, and makes
 every change reversible. No telemetry.
 
@@ -50,7 +50,7 @@ Not a post. These keep working once they are in, with no account of yours in the
 - Honest community participation, never spam: one post per venue, no DMs, no
   dropping the link into unrelated threads/issues, no vote soliciting, anywhere.
 - No hype and no false claims. Only say what's true today: free, MIT, signed and
-  notarised DMG, macOS 12.3+, restores the original name/icon system-wide, app
+  notarised DMG, macOS 13 or newer, restores the original name/icon system-wide, app
   underneath unchanged, every change reversible, no telemetry.
 - Be present after posting. Answer criticism straight, log real bugs as GitHub
   issues, and thank people for corrections — the equivalents suggestions in

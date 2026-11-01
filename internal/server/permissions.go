@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"strings"
 
 	"github.com/gshipman223/IconCraft/internal/core"
 	"github.com/gshipman223/IconCraft/internal/i18n"
@@ -108,6 +109,15 @@ func (s *Server) permissionsPayload(ctx context.Context, runChecks bool, appID s
 		sig = provider.SelfSignature(ctx)
 	}
 	accessSigning, launchDetail := signatureCopy(sig)
+	accessTitle := i18n.T("App Management — changing other apps")
+	// unavailable is EACCES, a root-owned bundle, or a read-only disk.
+	// The signing sentence tells the user to open App Management, which is
+	// the wrong next step for those results, and the row is not that permission.
+	if accessState == "unavailable" {
+		accessTitle = i18n.T("Write access — changing other apps")
+	} else {
+		accessDetail = strings.TrimSpace(accessDetail + " " + accessSigning)
+	}
 
 	keeperDesired, keeperSet := s.Engine.KeeperPreference()
 	agent := native.KeepAgentStatus{}
@@ -141,7 +151,7 @@ func (s *Server) permissionsPayload(ctx context.Context, runChecks bool, appID s
 		permissionCheck("launch", i18n.T("Opening IconCraft"), "ready", i18n.T("Ready — app opened"), launchDetail),
 		permissionCheck("storage", i18n.T("IconCraft data & backups"), dataState, dataLabel, dataDetail),
 		permissionCheck("discovery", i18n.T("Finding installed apps"), discoveryState, discoveryLabel, discoveryDetail),
-		permissionCheck("appManagement", i18n.T("App Management — changing other apps"), accessState, accessLabel, accessDetail+" "+accessSigning),
+		permissionCheck("appManagement", accessTitle, accessState, accessLabel, accessDetail),
 		permissionCheck("background", i18n.T("Keep skins applied in the background"), keeperState, keeperLabel, keeperDetail),
 		permissionCheck("notRequired", i18n.T("Permissions IconCraft does not request"), "not-required", i18n.T("Not requested"), i18n.T("No Full Disk Access, Accessibility, Screen Recording, Automation, microphone or camera permission is needed for IconCraft's normal work. It does not ask for broad access to your files or control of other apps.")),
 	}

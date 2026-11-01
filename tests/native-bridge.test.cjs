@@ -181,7 +181,9 @@ test('invalid icon fails before NSWorkspace can change an application', () => {
 
 test('set reports an explicit permission refusal', () => {
     const h = harness({fileImage: true, refuseSet: true, request: {action: 'set', path: '/Target.app', icon: '/good.icns'}});
-    assert.match(h.run().error, /macOS refused/);
+    const r = h.run();
+    assert.match(r.error, /macOS refused to set the icon/);
+    assert.doesNotMatch(r.error, /App Management/);
     assert.ok(!h.calls.some(c=>c[0]==='notify'));
 });
 

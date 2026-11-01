@@ -95,7 +95,7 @@ func classifyWriteFailure(err error) writeFailure {
 func writeProbeError(name, path string, err error) error {
 	switch classifyWriteFailure(err) {
 	case writeFailureAppManagement:
-		return fmt.Errorf("macOS is blocking IconCraft from changing %s (App Management protection: operation not permitted). Open System Settings → Privacy & Security → App Management, switch IconCraft on, then try again. Nothing was changed", name)
+		return fmt.Errorf("macOS refused the change to %s with operation not permitted. IconCraft reports that result as App Management. If IconCraft is off in System Settings → Privacy & Security → App Management, switch it on and try again. If it is already on, that switch is not the remaining cause of this result. Nothing was changed", name)
 	case writeFailureNotPermitted:
 		if bundleOwnedByRoot(path) {
 			return fmt.Errorf("IconCraft cannot change %s because the app is owned by root, so this account cannot add a file inside it (permission denied). Nothing was changed", name)
@@ -111,7 +111,7 @@ func writeProbeError(name, path string, err error) error {
 func setupWriteDetail(name, path string, kind writeFailure) (status, detail string) {
 	switch kind {
 	case writeFailureAppManagement:
-		return "blocked", fmt.Sprintf("Test blocked on %s: macOS refused a harmless temporary write inside the app (operation not permitted). Turn IconCraft on in System Settings → Privacy & Security → App Management, then check again.", name)
+		return "blocked", fmt.Sprintf("Test blocked on %s: macOS refused a harmless temporary write inside the app (operation not permitted). IconCraft reports that result as App Management. If IconCraft is off in System Settings → Privacy & Security → App Management, switch it on and check again. If it is already on, that switch is not the remaining cause of this result.", name)
 	case writeFailureNotPermitted:
 		if bundleOwnedByRoot(path) {
 			return "unavailable", fmt.Sprintf("Could not use %s for this test: the app is owned by root, so this account cannot add a file inside it (permission denied).", name)

@@ -144,7 +144,7 @@ function run(argv) {
             const im = $.NSImage.alloc.initWithContentsOfFile($(r.icon));
             if (!validImage(im)) throw Error('Cannot decode selected icon');
             if (!w.setIconForFileOptions(im, $(r.path), 0)) {
-                throw Error('macOS refused the change. Check write access and macOS Privacy & Security → App Management for IconCraft. No application contents were replaced.');
+                throw Error('macOS refused to set the icon. No application contents were replaced.');
             }
             w.noteFileSystemChanged($(r.path));
             result = true;

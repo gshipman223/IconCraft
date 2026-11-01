@@ -71,8 +71,8 @@ func TestProbeFailureBlocksBeforeJournal(t *testing.T) {
 	before := len(e.SnapshotState().Records)
 	if _, err := e.Apply(context.Background(), a.ID, asset.ID); err == nil {
 		t.Fatal("probe failure must block apply")
-	} else if !strings.Contains(err.Error(), "App Management") || !strings.Contains(err.Error(), "operation not permitted") {
-		t.Fatalf("EPERM should guide the user to App Management, got: %s", err.Error())
+	} else if !strings.Contains(err.Error(), "App Management") || !strings.Contains(err.Error(), "operation not permitted") || !strings.Contains(err.Error(), "already on") {
+		t.Fatalf("EPERM should report App Management without claiming the switch is the only cause, got: %s", err.Error())
 	}
 	if len(e.SnapshotState().Records) != before {
 		t.Fatal("no record should be journalled when the probe fails")

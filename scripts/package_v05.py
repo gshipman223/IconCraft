@@ -6,7 +6,7 @@ import hashlib, json, os, plistlib, re, shutil, struct, subprocess, zipfile
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / 'build'
 OUT = Path(os.environ.get('ICONCRAFT_OUTPUT_DIR', str(BUILD / 'packages')))
-VERSION = '0.14.0'
+VERSION = '0.14.1'
 # 'developer-id' when scripts/release-macos.sh packaged a signed + notarized
 # build; default stays honest for CI/ad-hoc builds.
 DIST = os.environ.get('ICONCRAFT_DISTRIBUTION', 'ad-hoc')
@@ -33,6 +33,8 @@ magic, n = struct.unpack_from('>II', raw)
 assert magic == 0xcafebabe and n == 2
 info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
 assert info['CFBundleShortVersionString'] == VERSION
+assert info['CFBundleVersion'] == '25'
+assert info['LSMinimumSystemVersion'] == '13.0'
 subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
 
 digest = hashlib.sha256(raw).hexdigest()
@@ -52,7 +54,7 @@ signing_note = ('Signed with a Developer ID and notarised by Apple: it opens wit
                 'blocks the download, use Privacy & Security > Open Anyway for this item.\n'
                 'Do not turn off macOS security globally.')
 (stage / 'READ ME.txt').write_text(f'''IconCraft {VERSION} — personal Mac edition
-Apple Silicon + Intel, macOS 12.3 or later
+Apple Silicon + Intel, macOS 13.0 or later
 
 INSTALL
 Extract the ZIP and drag IconCraft.app into your Applications folder, then
@@ -70,20 +72,15 @@ pretends that merely opening System Settings proves a permission was granted.
 Full Disk Access, Accessibility and Screen Recording are not requested.
 
 WHAT'S NEW IN {VERSION}
-- Speaks your language: English, Simplified Chinese, Japanese and Korean,
-  chosen from your macOS language preferences. Window, menu bar item,
-  Setup & Permissions, notifications and error messages are all included;
-  dates follow your Region setting.
-- Edit in one panel: the pencil now opens a single editor with a
-  before/after preview, name, icon choice, an optional full skin and one
-  Save that performs the steps in the right order and says exactly which
-  step failed if one does. Restore original is one click away.
-- Setup & Permissions describes how this copy is really signed (Developer
-  ID and notarised, or ad-hoc) instead of assuming.
-- Restore all refreshes the list straight away, counts apps correctly and
-  clears the custom-icon choice of restored apps; notification toggles are
-  labelled; the app is named IconCraft in the menu bar and Dock.
-- Signed with a Developer ID and notarised by Apple (this build).
+- A failed change is no longer always described as App Management.
+  "operation not permitted" is still reported as App Management. If
+  IconCraft is already on in that setting, the message says the switch
+  is not the remaining cause. "permission denied", including an app owned
+  by root, and a read-only disk say so and do not offer the App Management
+  button. Setup labels that result "Could not test".
+- Minimum system is macOS 13.0, Apple Silicon and Intel.
+- An "operation not permitted" result with App Management already on is
+  still a failed write. That case has not been measured on a Mac.
 
 @SIGNING_NOTE@
 '''.replace('@SIGNING_NOTE@', signing_note))

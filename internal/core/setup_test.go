@@ -165,8 +165,8 @@ func TestSetupStopsOnOperationNotPermitted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if check.Status != "blocked" || check.AppID != alpha.ID || !strings.Contains(check.Detail, "operation not permitted") {
-		t.Fatalf("EPERM must block immediately, got %#v", check)
+	if check.Status != "blocked" || check.AppID != alpha.ID || !strings.Contains(check.Detail, "operation not permitted") || !strings.Contains(check.Detail, "already on") {
+		t.Fatalf("EPERM must block immediately and say an already-on switch is not the remaining cause, got %#v", check)
 	}
 	if len(probe.seen) != 1 || probe.seen[0] != alpha.Path {
 		t.Fatalf("probe should have stopped after EPERM, saw %v (zulu %s)", probe.seen, zulu.Path)

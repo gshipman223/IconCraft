@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -56,8 +57,12 @@ func TestPermissionCheckAndSetupCompletion(t *testing.T) {
 
 	s.Engine.Native = permissionNative{probeErr: &os.PathError{Op: "open", Path: appPath, Err: syscall.EPERM}}
 	w = request(s, "POST", "/"+s.Token+"/api/permissions/check", "", `{"appId":"fixture"}`)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), `"state":"blocked"`) || !strings.Contains(w.Body.String(), "operation not permitted") {
+	if w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
+	}
+	state, title, detail := appManagementCheck(t, w.Body.String())
+	if state != "blocked" || title != "App Management — changing other apps" || !strings.Contains(detail, "operation not permitted") || !strings.Contains(detail, "already on") || !strings.Contains(detail, "App Management") {
+		t.Fatal(state, title, detail)
 	}
 
 	w = request(s, "POST", "/"+s.Token+"/api/setup/complete", "", `{"confirmed":false}`)
@@ -87,11 +92,46 @@ func TestPermissionCheckDoesNotCallEACCESAppManagement(t *testing.T) {
 	s.Engine.Apps["fixture"] = core.App{ID: "fixture", Name: "PhotoCraft", Path: appPath, BundleID: "ai.storyteller.photocraft", Executable: "photocraft"}
 	s.Engine.Native = permissionNative{probeErr: &os.PathError{Op: "open", Path: appPath, Err: syscall.EACCES}}
 	w := request(s, "POST", "/"+s.Token+"/api/permissions/check", "", `{"appId":"fixture"}`)
-	body := w.Body.String()
-	if w.Code != 200 || !strings.Contains(body, `"state":"unavailable"`) || !strings.Contains(body, `"label":"Could not test"`) || !strings.Contains(body, "permission denied") {
-		t.Fatal(w.Code, body)
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
 	}
-	if strings.Contains(body, "switch IconCraft on") || strings.Contains(body, "operation not permitted") {
-		t.Fatal("EACCES was described as App Management:", body)
+	state, title, detail := appManagementCheck(t, w.Body.String())
+	if state != "unavailable" || title != "Write access — changing other apps" || !strings.Contains(detail, "permission denied") {
+		t.Fatal(state, title, detail)
 	}
+	if strings.Contains(detail, "App Management") || strings.Contains(detail, "operation not permitted") || strings.Contains(detail, "switch") {
+		t.Fatal("EACCES was described as App Management:", detail)
+	}
+
+	s.Engine.Native = permissionNative{probeErr: &os.PathError{Op: "open", Path: appPath, Err: syscall.EROFS}}
+	w = request(s, "POST", "/"+s.Token+"/api/permissions/check", "", `{"appId":"fixture"}`)
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	state, title, detail = appManagementCheck(t, w.Body.String())
+	if state != "unavailable" || title != "Write access — changing other apps" || !strings.Contains(detail, "read-only") || strings.Contains(detail, "App Management") {
+		t.Fatal(state, title, detail)
+	}
+}
+
+func appManagementCheck(t *testing.T, body string) (state, title, detail string) {
+	t.Helper()
+	var payload struct {
+		Checks []struct {
+			ID     string `json:"id"`
+			State  string `json:"state"`
+			Title  string `json:"title"`
+			Detail string `json:"detail"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(body), &payload); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range payload.Checks {
+		if c.ID == "appManagement" {
+			return c.State, c.Title, c.Detail
+		}
+	}
+	t.Fatal("no appManagement check", body)
+	return "", "", ""
 }

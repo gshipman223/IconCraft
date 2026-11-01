@@ -1,19 +1,34 @@
 # Changelog
 
 All notable changes to IconCraft. Builds are Universal (Apple Silicon +
-Intel) for macOS 12.3+. From 0.13.1, release builds are signed with the
-maintainer's Developer ID and notarised by Apple.
+Intel) for macOS 13 or newer. From 0.13.1, release builds are signed with
+the maintainer's Developer ID and notarised by Apple.
 
-## [Unreleased]
+## [0.14.1] — 2026-11-01 · App Management is not every write failure
 
-- **App Management errors are no longer one message.** A write probe that
-  fails with “operation not permitted” (EPERM) still points at System
-  Settings → Privacy & Security → App Management. “Permission denied”
-  (EACCES), including an app owned by root, and a read-only disk (EROFS)
-  now say so, and do not offer the App Management button. Setup’s
-  automatic check skips root-owned apps and keeps looking when an app
-  fails with permission denied, instead of stopping on the first app in
-  alphabetical order. This has not been run on macOS 27.
+- **App Management, ownership, and a read-only disk are different results.**
+  Go's `os.ErrPermission` is true for both EPERM (“operation not permitted”)
+  and EACCES (“permission denied”). 0.14.0 treated every such probe failure
+  as App Management. EPERM is still reported as App Management. If IconCraft
+  is already on in System Settings → Privacy & Security → App Management,
+  the message says that switch is not the remaining cause. EACCES, including
+  an app owned by root (uid 0), and EROFS (read-only disk) say so. Those
+  results do not offer the Open App Management button. Setup labels them
+  “Could not test” and titles the row “Write access — changing other apps”.
+  The automatic check skips root-owned apps and keeps looking after
+  permission denied, instead of stopping on the first app in alphabetical
+  order. `NSWorkspace.setIcon` returning false is not classified as App
+  Management: that call has no errno, and a real change reaches it only
+  after the temporary-file probe succeeded.
+- **This does not make an EPERM write succeed.** Issues #10 and #11 report
+  the check or the change still failing with App Management already on.
+  If the probe still returns EPERM, the write is still refused and Setup
+  still does not pass. That has not been run on macOS 27.
+- **Minimum system is macOS 13.0** (Apple Silicon and Intel). `Info.plist`
+  `LSMinimumSystemVersion` is 13.0. The Objective-C defaults helper is
+  compiled with `-mmacosx-version-min=13.0`. Each Go slice's
+  `LC_BUILD_VERSION` minos is raised to 13.0.0 when the linker wrote a
+  lower one. Go 1.23.2's internal linker writes 11.0.0.
 
 ## [0.14.0] — 2026-10-22 · Speaks your language; edit in one panel
 

@@ -1,6 +1,6 @@
 # 0.5.0 — new look, working icons, real-Mac fixes
 
-IconCraft 0.5.0 · Universal (Apple Silicon + Intel), macOS 12.3+
+IconCraft 0.5.0 · Universal (Apple Silicon + Intel). This 0.5.0 note stated macOS 12.3 or later. Current releases (0.14.1) require macOS 13 or newer.
 Built, tested and run **on a real Mac** (darwin/arm64) — including the native
 self-test (27/27 checks), live scanning of 111 installed apps, and screenshots
 of the running app. Ad-hoc signed; Developer ID signing/notarization not performed.
