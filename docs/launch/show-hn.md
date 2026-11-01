@@ -27,7 +27,7 @@ Facts, up front:
 
 - Free, MIT. Source: https://github.com/gshipman223/IconCraft
 - It's written in Go, with no account and no telemetry.
-- The release is a Developer ID signed and notarised DMG (v0.13.3), macOS 12.3+, Apple Silicon and Intel.
+- The release is a Developer ID signed and notarised DMG (v0.13.3), macOS 13 or newer, Apple Silicon and Intel.
 - To be explicit about what it doesn't do: it doesn't modify or redistribute the target app's code, and I'm not affiliated with ArtCraft/Storytold, Adobe, Microsoft or Figma. The names/icons I mentioned are the presentation you choose on your own machine; you confirm every suggestion before it's applied.
 
 I'd value criticism on the approach as much as bug reports. If you think changing an app's presented identity is a footgun, I'm interested in where you'd draw the line — the design constraint I set myself was "app underneath untouched, everything reversible, nothing silent." Issues and discussion on GitHub are welcome.

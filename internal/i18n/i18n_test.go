@@ -197,8 +197,8 @@ func TestTextTranslatesFormattedErrors(t *testing.T) {
 		t.Fatalf("wrapped: %q", got)
 	}
 	// Wrapped "%s: %w" shape: the name stays, the known cause is translated.
-	got = Text("could not set the icon for Foo.app: macOS refused the change. Check write access and macOS Privacy & Security → App Management for IconCraft. No application contents were replaced.")
-	if !strings.Contains(got, "Foo.app") || strings.Contains(got, "macOS refused the change") {
+	got = Text("could not set the icon for Foo.app: macOS refused to set the icon. No application contents were replaced.")
+	if !strings.Contains(got, "Foo.app") || strings.Contains(got, "macOS refused to set the icon") {
 		t.Fatalf("wrapped cause: %q", got)
 	}
 	// Captured values that are themselves catalogue entries are translated too.

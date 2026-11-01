@@ -21,7 +21,7 @@ assert installer
 installer=installer.replace('__EXECUTABLE_SHA256__',digest).replace('Mac local-test build','Mac app 0.4.0').replace('Preparing this test copy locally.','Preparing this copy locally.').replace('The first launch checks native icon handling using disposable test apps.','Saved apps appear first; new apps and original icons refresh in the background.').replace('this unsigned test build','this locally signed app')
 p=STAGE/'Install IconCraft.command';p.write_text(installer);p.chmod(0o755);subprocess.run(['bash','-n',str(p)],check=True)
 (STAGE/'APP-SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.relative_to(STAGE).as_posix()+'\n' for p in sorted((STAGE/'IconCraft.app').rglob('*')) if p.is_file()))
-(STAGE/'READ ME.txt').write_text('''IconCraft 0.4.0 | Personal Mac edition | Apple Silicon + Intel | macOS 12.3+
+(STAGE/'READ ME.txt').write_text('''IconCraft 0.4.0 | Personal Mac edition | Apple Silicon + Intel | macOS 13 or newer
 
 Quit the old IconCraft, extract the ZIP, then run Install IconCraft.command.
 Your data and previous application are preserved. No Apple developer account,

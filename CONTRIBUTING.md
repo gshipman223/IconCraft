@@ -18,7 +18,7 @@ matter more than speed of development.
 
 ## Dev setup
 
-- macOS 12.3+ (for native work), a current Go toolchain, Node (for bridge
+- macOS 13 or newer (for native work), a current Go toolchain, Node (for bridge
   contract tests), Python 3 (build/packaging scripts).
 - No third-party Go dependencies — standard library only. Keep it that way
   unless there's a compelling, discussed reason.

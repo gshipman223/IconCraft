@@ -54,10 +54,6 @@ type appRunner interface {
 	Running(context.Context, string) (bool, error)
 }
 
-func permissionDenied(err error) bool {
-	return errors.Is(err, os.ErrPermission) || strings.Contains(strings.ToLower(err.Error()), "operation not permitted")
-}
-
 func setupCandidateRank(a App) int {
 	switch {
 	case strings.HasPrefix(a.Path, "/Applications/"):
@@ -70,11 +66,15 @@ func setupCandidateRank(a App) int {
 }
 
 // CheckAppAccess runs the same harmless bundle-writability probe used before
-// every real icon change. When appID is empty it picks the first suitable,
-// not-running installed app it can test. A success is reported for that app
-// and access class — not as a fabricated global TCC database reading. A
-// permission refusal is strong evidence that App Management is blocking
-// IconCraft and is returned immediately.
+// every real icon change. When appID is empty it picks the first suitable
+// installed app that is not running and not owned by root. Root-owned apps
+// are skipped on that automatic pass: a refusal there is often EACCES from
+// Unix permissions, which is not the EPERM result associated with App
+// Management. An explicit appID is still probed, root-owned or not.
+//
+// A success is reported for that one app — not as a global TCC reading.
+// EPERM is returned immediately as blocked. EACCES and EROFS are
+// "unavailable"; on the automatic pass the next app is tried.
 func (e *Engine) CheckAppAccess(ctx context.Context, appID string) (PermissionCheck, error) {
 	apps := e.InstalledApps()
 	candidates := make([]App, 0, len(apps))
@@ -111,12 +111,21 @@ func (e *Engine) CheckAppAccess(ctx context.Context, appID string) (PermissionCh
 	}
 	runner, hasRunner := e.Native.(appRunner)
 	tested := 0
+	skippedRoot := 0
+	skippedRunning := 0
+	var last PermissionCheck
+	sawLast := false
 	for _, a := range candidates {
 		if err := ctx.Err(); err != nil {
 			return PermissionCheck{}, err
 		}
+		if appID == "" && bundleOwnedByRoot(a.Path) {
+			skippedRoot++
+			continue
+		}
 		if appID == "" && hasRunner {
 			if running, err := runner.Running(ctx, a.Path); err == nil && running {
+				skippedRunning++
 				continue
 			}
 		}
@@ -129,16 +138,32 @@ func (e *Engine) CheckAppAccess(ctx context.Context, appID string) (PermissionCh
 			e.recordAppAccess(check)
 			return check, nil
 		}
-		if permissionDenied(err) {
-			check.Status = "blocked"
-			check.Detail = fmt.Sprintf("Test blocked on %s: macOS refused a harmless temporary write inside the app. Turn IconCraft on in System Settings → Privacy & Security → App Management, then check again.", a.Name)
-			e.recordAppAccess(check)
-			return check, nil
+		if status, detail := setupWriteDetail(a.Name, a.Path, classifyWriteFailure(err)); status != "" {
+			check.Status, check.Detail = status, detail
+			if status == "blocked" {
+				e.recordAppAccess(check)
+				return check, nil
+			}
+			last, sawLast = check, true
+		} else {
+			check.Status = "unknown"
+			check.Detail = fmt.Sprintf("Could not complete the test on %s: %v", a.Name, err)
+			last, sawLast = check, true
 		}
-		check.Detail = fmt.Sprintf("Could not complete the test on %s: %v", a.Name, err)
 		if appID != "" || tested >= 12 {
 			break
 		}
+	}
+	if tested == 0 && skippedRoot > 0 && skippedRunning == 0 && appID == "" {
+		check.Status = "unavailable"
+		check.AppID, check.AppName, check.Path = "", "", ""
+		check.Detail = "No suitable app was available to test. Apps owned by root were skipped, because a refusal there is often ordinary file permissions. Copy an app you own into your Applications folder, then check again."
+		e.recordAppAccess(check)
+		return check, nil
+	}
+	if sawLast {
+		e.recordAppAccess(last)
+		return last, nil
 	}
 	e.recordAppAccess(check)
 	return check, nil

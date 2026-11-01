@@ -1,7 +1,7 @@
 # 0.4.1 — launch repair
 
 IconCraft 0.4.1 — Mac launch repair build
-Apple Silicon + Intel, macOS 12.3 or later
+Apple Silicon + Intel. This 0.4.1 build stated macOS 12.3 or later. Current releases (0.14.1) require macOS 13 or newer.
 
 INSTALL
 Extract the ZIP and run Install IconCraft.command beside IconCraft.app.

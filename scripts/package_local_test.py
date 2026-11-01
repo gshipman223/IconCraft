@@ -103,7 +103,7 @@ for p in sorted((STAGE/'IconCraft.app').rglob('*')):
     if p.is_file(): checks.append(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.relative_to(STAGE).as_posix())
 (STAGE/'APP-SHA256SUMS.txt').write_text('\n'.join(checks)+'\n')
 (STAGE/'READ ME.txt').write_text('''ICONCRAFT — MAC LOCAL-TEST BUILD
-0.2.0-mac-test.3 | Apple Silicon + Intel | macOS 12 or later
+0.2.0-mac-test.3 | Apple Silicon + Intel | macOS 13 or newer
 
 INSTALL
 1. Extract this ZIP.

@@ -183,10 +183,12 @@ func (m *Mac) OpenURL(ctx context.Context, url string) error {
 	return m.call(ctx, map[string]string{"action": "openurl", "url": url}, nil)
 }
 
-// WriteProbe reports whether this process may create files inside the app
-// bundle. macOS "App Management" protection (com.apple.macl) refuses with
-// EPERM even when the user owns the app; probing first lets IconCraft fail
-// with guidance before journalling anything.
+// WriteProbe reports whether this process may create a file inside the app
+// bundle. Callers classify the error: EPERM ("operation not permitted") is
+// the result associated with App Management, EACCES ("permission denied")
+// is a Unix permission refusal such as a root-owned bundle, and EROFS is a
+// read-only volume. Those are not the same failure, and this probe is a
+// temporary file, not the NSWorkspace icon write used for a real change.
 func (m *Mac) WriteProbe(path string) error {
 	f, err := os.CreateTemp(path, ".iconcraft-write-check-")
 	if err != nil {

@@ -71,7 +71,7 @@ function appIcon(a){return 'api/icon?app='+encodeURIComponent(a.id)+'&v='+encode
 function assetIcon(id){return id?'api/icon?asset='+encodeURIComponent(id):'';}
 function imageView(small=false){const wrap=node('span','icon-wrap'+(small?' small':''));const f=svg('grid');f.classList.add('fallback');const img=node('img','icon');img.alt='';/* NOT lazy: icons are display:none until load, and WebKit never fetches hidden lazy images — the load event that reveals them would never fire. Local thumbnails are cheap; load eagerly. */img.decoding='async';wrap.append(f,img);const view={wrap,img,src:'',fallback:''};img.addEventListener('load',()=>wrap.classList.add('has-image'));img.addEventListener('error',()=>{wrap.classList.remove('has-image');/* e.g. an asset preview that will not decode: show the source app's live icon instead. */if(view.fallback&&view.fallback!==view.src){view.src=view.fallback;img.src=view.fallback;}});return view;}
 function setImage(view,src,alt,fallback){view.img.alt=alt;view.fallback=fallback||'';if(view.src===src)return;view.src=src;view.wrap.classList.remove('has-image');if(src){view.img.src=src;/* An image WebKit already holds may be complete before any load event we could observe. */if(view.img.complete&&view.img.naturalWidth>0)view.wrap.classList.add('has-image');}else view.img.removeAttribute('src');}
-function updateModel(data){if(data.organize){organize={sort:data.organize.sort||'name-asc',group:data.organize.group||'none'};const so=$('sort'),gr=$('group');if(so)so.value=organize.sort;if(gr)gr.value=organize.group;}model.apps=data.apps||model.apps;Object.assign(model.assets,data.assets||{});Object.assign(model.originals,data.originals||{});model.choices=data.choices||{};model.records=data.records||[];model.renames=data.renames||[];if(typeof data.keepAlive==='boolean')model.keepAlive=data.keepAlive;if(typeof data.setupRequired==='boolean')model.setupRequired=data.setupRequired;if(data.settings)model.settings=data.settings;if(typeof data.loginAgent==='boolean')model.loginAgent=data.loginAgent;model.rebrands=data.rebrands||{};model.rebrandRuntime=data.rebrandRuntime||{};model.vault=data.vault||{};$('version').textContent=data.version||'0.14.0';const v2=$('version-2');if(v2)v2.textContent=data.version||'0.14.0';selected.forEach(id=>{if(!model.apps.some(a=>a.id===id))selected.delete(id);});}
+function updateModel(data){if(data.organize){organize={sort:data.organize.sort||'name-asc',group:data.organize.group||'none'};const so=$('sort'),gr=$('group');if(so)so.value=organize.sort;if(gr)gr.value=organize.group;}model.apps=data.apps||model.apps;Object.assign(model.assets,data.assets||{});Object.assign(model.originals,data.originals||{});model.choices=data.choices||{};model.records=data.records||[];model.renames=data.renames||[];if(typeof data.keepAlive==='boolean')model.keepAlive=data.keepAlive;if(typeof data.setupRequired==='boolean')model.setupRequired=data.setupRequired;if(data.settings)model.settings=data.settings;if(typeof data.loginAgent==='boolean')model.loginAgent=data.loginAgent;model.rebrands=data.rebrands||{};model.rebrandRuntime=data.rebrandRuntime||{};model.vault=data.vault||{};$('version').textContent=data.version||'0.14.1';const v2=$('version-2');if(v2)v2.textContent=data.version||'0.14.1';selected.forEach(id=>{if(!model.apps.some(a=>a.id===id))selected.delete(id);});}
 async function session(){updateModel(await api('session'));render();}
 /* Restores and full skins change names written inside app bundles; the
    inventory only re-reads those on a scan, so follow such actions with
@@ -207,15 +207,16 @@ function setupMessage(text){const m=$('setup-message');m.textContent=text;m.hidd
 function setupCheck(id){return setupData?.checks?.find(c=>c.id===id);}
 function setupActionButton(label,fn,primary=false){const b=node('button',primary?'primary':'secondary',label);b.disabled=setupChecking||busy;b.addEventListener('click',fn);return b;}
 function drawSetup(){
- const checks=setupData?.checks||[],blocked=checks.filter(c=>c.state==='blocked').length,unchecked=checks.filter(c=>c.state==='unknown').length,ready=checks.filter(c=>c.state==='ready').length;
- $('setup-summary').textContent=blocked?tn(blocked,'setup.summaryBlocked'):unchecked?t('setup.summaryUnchecked'):tn(ready,'setup.summaryReady');
+ const checks=setupData?.checks||[],blocked=checks.filter(c=>c.state==='blocked').length,unavailable=checks.filter(c=>c.state==='unavailable').length,unchecked=checks.filter(c=>c.state==='unknown').length,ready=checks.filter(c=>c.state==='ready').length;
+ $('setup-summary').textContent=blocked?tn(blocked,'setup.summaryBlocked'):unavailable?t('setup.summaryUnavailable'):unchecked?t('setup.summaryUnchecked'):tn(ready,'setup.summaryReady');
  const list=$('setup-checks');list.replaceChildren();
  for(const check of checks){
   const row=node('section','setup-row'),copy=node('div'),side=node('div','setup-side'),pill=node('span','status-pill '+check.state,check.label),actions=node('div','setup-actions');
   copy.append(node('h3','',check.title),node('p','',check.detail));
   if(check.id==='appManagement'&&setupData?.appAccess?.checkedAt){const when=new Date(setupData.appAccess.checkedAt);if(!Number.isNaN(when.getTime()))copy.append(node('p','setup-meta',t('setup.lastChecked',{when:fmtDate(when)})+(setupData.appAccess.appName?SEP+t('setup.testedApp',{name:setupData.appAccess.appName}):'')));}
   if(check.id==='appManagement'){
-   actions.append(setupActionButton(t('setup.openAppManagement'),openSetupAppManagement),setupActionButton(check.state==='unknown'?t('setup.checkNow'):t('setup.checkAgain'),runSetupChecks,true));
+   if(check.state!=='unavailable')actions.append(setupActionButton(t('setup.openAppManagement'),openSetupAppManagement));
+   actions.append(setupActionButton(check.state==='unknown'?t('setup.checkNow'):t('setup.checkAgain'),runSetupChecks,true));
   }else if(check.id==='background'){
    const on=!!setupData?.keeper?.desired;
    actions.append(setupActionButton(on?t('setup.keeperOff'):t('setup.keeperOn'),toggleSetupKeeper,on&&check.state!=='ready'));
@@ -236,7 +237,7 @@ async function openSetup(){
 }
 async function runSetupChecks(){
  if(setupChecking)return;setupChecking=true;dialogError('setup-error','');setupMessage('');drawSetup();
- try{setupData=await api('permissions/check',{});const access=setupCheck('appManagement');setupMessage(access?.state==='ready'?t('setup.checksPassed'):access?.state==='blocked'?t('setup.checksBlocked'):t('setup.checksReview'));}
+ try{setupData=await api('permissions/check',{});const access=setupCheck('appManagement');setupMessage(access?.state==='ready'?t('setup.checksPassed'):access?.state==='blocked'?t('setup.checksBlocked'):access?.state==='unavailable'?t('setup.checksUnavailable'):t('setup.checksReview'));}
  catch(e){dialogError('setup-error',e.message);}
  finally{setupChecking=false;drawSetup();render();}
 }

@@ -26,7 +26,7 @@ Plain facts, since this sub usually asks:
 
 - Free, open source (MIT). Code and releases: https://github.com/gshipman223/IconCraft
 - Signed and notarised DMG from https://iconcraft.co — it opens with a normal double-click. Current version is 0.13.3.
-- macOS 12.3 or later, Apple Silicon and Intel.
+- macOS 13 or newer, Apple Silicon and Intel.
 - No account, no telemetry, nothing collected.
 
 I'm not affiliated with ArtCraft, Adobe, or anyone else whose app names come up in the examples — IconCraft is an independent tool, and it doesn't bundle anyone else's app or artwork for redistribution; it works with what's already on your Mac or icons you supply/confirmed sources.

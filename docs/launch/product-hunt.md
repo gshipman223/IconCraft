@@ -25,7 +25,7 @@ It was built for a simple, annoying problem: replacement apps and vibe-coded app
 - Every change is reversible — restore the original name and icon at any time.
 - Built-in detection for ArtCraft apps, and it works on other third-party apps and apps you've made yourself.
 - Free and open source (MIT), with no account and no telemetry.
-- Signed and notarised DMG. macOS 12.3 or later, Apple Silicon and Intel.
+- Signed and notarised DMG. macOS 13 or newer, Apple Silicon and Intel.
 
 IconCraft is an independent project and is not affiliated with ArtCraft/Storytold, Adobe, Microsoft, Figma or any other app maker. It doesn't modify or redistribute anyone else's app.
 

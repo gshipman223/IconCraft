@@ -19,10 +19,19 @@ then uploaded over the CI-built assets.
 
 ## Per release
 
+The supported system is macOS 13 or newer, Apple Silicon and Intel.
+`LSMinimumSystemVersion` in the built `Info.plist` is `13.0`. The Go
+slices are built with `CGO_ENABLED=0`. Go 1.23.2's internal linker writes
+`LC_BUILD_VERSION` 11.0.0; `scripts/build_macos.py` raises a lower minos
+to 13.0.0. `scripts/defaults-helper.m` is Objective-C and is compiled only
+on a Mac (`clang -mmacosx-version-min=13.0`, then `lipo`). Linux can
+cross-compile the two Go slices and cannot compile that helper.
+
 1. Bump the version: `internal/core/types.go`, `scripts/build_macos.py`
    (VERSION + CFBundleVersion), `scripts/package_v05.py`,
    `scripts/smoke_host.py`, `internal/server/ui/index.html`,
-   `internal/server/ui/app.js`, `README.md`, plus a `CHANGELOG.md` entry.
+   `internal/server/ui/app.js`, `README.md`, `website/index.html`, plus a
+   `CHANGELOG.md` entry. Current bundle version for 0.14.1 is `25`.
 2. `git commit`, `git tag vX.Y.Z`, `git push origin main vX.Y.Z`.
    CI runs the full validation suite and creates the GitHub release with
    ad-hoc assets.
