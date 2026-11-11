@@ -305,7 +305,7 @@ func SafeApp(path string) error {
 	p := filepath.Join(path, "Icon\r")
 	if fi, err = os.Lstat(p); err == nil && (!fi.Mode().IsRegular() || fi.Mode()&os.ModeSymlink != 0) {
 		return errors.New("custom icon file is not a regular file")
-	} else if err != nil && !os.IsNotExist(err) {
+	} else if err != nil && !os.IsNotExist(err) && !windowsInvalidName(err) {
 		return err
 	}
 	return nil
@@ -321,6 +321,23 @@ func Protected(path string) bool {
 	}
 	return false
 }
+func insideBundle(bundle, real string) bool {
+	prefix := bundle + string(os.PathSeparator)
+	if strings.HasPrefix(real, prefix) {
+		return true
+	}
+	// Windows can hand back a different casing or 8.3 form for the same
+	// directory. macOS keeps the exact prefix check above.
+	if runtime.GOOS != "windows" {
+		return false
+	}
+	root, err := filepath.EvalSymlinks(bundle)
+	if err != nil {
+		return false
+	}
+	return strings.HasPrefix(strings.ToLower(real), strings.ToLower(root+string(os.PathSeparator)))
+}
+
 func Fingerprint(a App) (string, error) {
 	switch launcherKind(a.Path) {
 	case kindDesktop:
@@ -344,7 +361,7 @@ func Fingerprint(a App) (string, error) {
 			}
 			return "", e
 		}
-		if !strings.HasPrefix(real, a.Path+string(os.PathSeparator)) {
+		if !insideBundle(a.Path, real) {
 			return "", errors.New("bundle resource points outside application")
 		}
 		f, e := os.Open(real)

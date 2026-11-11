@@ -158,6 +158,12 @@ func (w *Windows) Discover(roots []string) ([]string, []string) {
 		if dir == "" {
 			return
 		}
+		if _, err := os.Lstat(dir); err != nil {
+			if !os.IsNotExist(err) {
+				warnings = append(warnings, dir+": "+err.Error())
+			}
+			return
+		}
 		_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 			if err != nil {
 				warnings = append(warnings, p+": "+err.Error())

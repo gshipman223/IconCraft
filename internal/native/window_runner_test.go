@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -73,6 +74,9 @@ func (k *signalOnMarker) Write(p []byte) (int, error) {
 }
 
 func TestWindowKilledBySignalIsCleanCloseNotFailure(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not report POSIX signal death for the macOS window helper")
+	}
 	for _, sig := range []syscall.Signal{syscall.SIGKILL, syscall.SIGTERM} {
 		cmd := windowHelper("hang")
 		killer := &signalOnMarker{cmd: cmd, sig: sig}
