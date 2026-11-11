@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -30,7 +31,9 @@ func TestLaunchErrorPreservesExistingUserState(t *testing.T) {
 		t.Fatal("modified user recovery state")
 	}
 	fi, _ := os.Stat(p)
-	if fi.Mode().Perm() != 0600 {
+	// Windows stores access in ACLs. The Unix mode bits stay 0600 on
+	// macOS and Linux, which is what this assertion locks.
+	if runtime.GOOS != "windows" && fi.Mode().Perm() != 0600 {
 		t.Fatal("report permissions", fi.Mode())
 	}
 }

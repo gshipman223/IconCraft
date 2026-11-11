@@ -48,7 +48,7 @@ function mentionsAppManagement(text){return /App Management/.test(text||'')||(te
 function tell(text,error=false){$('notice-text').textContent=text;$('notice').classList.toggle('error',error);$('notice').hidden=!text;const act=$('notice-action');if(act)act.hidden=!(error&&mentionsAppManagement(text));}
 function rs(a){if(!rowState.has(a.id))rowState.set(a.id,{checking:false,error:'',note:'',working:false,revision:0});return rowState.get(a.id);}
 function chosen(a){return model.choices[a.bundleId]||model.originals[a.craftId]?.assetId||'';}
-function ready(a){return !a.protected&&!!model.assets[chosen(a)];}
+function ready(a){return !a.protected&&!a.readOnly&&!!model.assets[chosen(a)];}
 function live(r){return ['applied','prepared','rollback-required'].includes(r.status);}
 function active(a){return a.renamed||model.records.some(r=>r.appId===a.id&&live(r));}
 /* Every installed app is listed with its real icon. Apps with a known
@@ -71,7 +71,7 @@ function appIcon(a){return 'api/icon?app='+encodeURIComponent(a.id)+'&v='+encode
 function assetIcon(id){return id?'api/icon?asset='+encodeURIComponent(id):'';}
 function imageView(small=false){const wrap=node('span','icon-wrap'+(small?' small':''));const f=svg('grid');f.classList.add('fallback');const img=node('img','icon');img.alt='';/* NOT lazy: icons are display:none until load, and WebKit never fetches hidden lazy images — the load event that reveals them would never fire. Local thumbnails are cheap; load eagerly. */img.decoding='async';wrap.append(f,img);const view={wrap,img,src:'',fallback:''};img.addEventListener('load',()=>wrap.classList.add('has-image'));img.addEventListener('error',()=>{wrap.classList.remove('has-image');/* e.g. an asset preview that will not decode: show the source app's live icon instead. */if(view.fallback&&view.fallback!==view.src){view.src=view.fallback;img.src=view.fallback;}});return view;}
 function setImage(view,src,alt,fallback){view.img.alt=alt;view.fallback=fallback||'';if(view.src===src)return;view.src=src;view.wrap.classList.remove('has-image');if(src){view.img.src=src;/* An image WebKit already holds may be complete before any load event we could observe. */if(view.img.complete&&view.img.naturalWidth>0)view.wrap.classList.add('has-image');}else view.img.removeAttribute('src');}
-function updateModel(data){if(data.organize){organize={sort:data.organize.sort||'name-asc',group:data.organize.group||'none'};const so=$('sort'),gr=$('group');if(so)so.value=organize.sort;if(gr)gr.value=organize.group;}model.apps=data.apps||model.apps;Object.assign(model.assets,data.assets||{});Object.assign(model.originals,data.originals||{});model.choices=data.choices||{};model.records=data.records||[];model.renames=data.renames||[];if(typeof data.keepAlive==='boolean')model.keepAlive=data.keepAlive;if(typeof data.setupRequired==='boolean')model.setupRequired=data.setupRequired;if(data.settings)model.settings=data.settings;if(typeof data.loginAgent==='boolean')model.loginAgent=data.loginAgent;model.rebrands=data.rebrands||{};model.rebrandRuntime=data.rebrandRuntime||{};model.vault=data.vault||{};$('version').textContent=data.version||'0.14.1';const v2=$('version-2');if(v2)v2.textContent=data.version||'0.14.1';selected.forEach(id=>{if(!model.apps.some(a=>a.id===id))selected.delete(id);});}
+function updateModel(data){if(data.organize){organize={sort:data.organize.sort||'name-asc',group:data.organize.group||'none'};const so=$('sort'),gr=$('group');if(so)so.value=organize.sort;if(gr)gr.value=organize.group;}model.apps=data.apps||model.apps;Object.assign(model.assets,data.assets||{});Object.assign(model.originals,data.originals||{});model.choices=data.choices||{};model.records=data.records||[];model.renames=data.renames||[];if(typeof data.keepAlive==='boolean')model.keepAlive=data.keepAlive;if(typeof data.setupRequired==='boolean')model.setupRequired=data.setupRequired;if(data.settings)model.settings=data.settings;if(typeof data.loginAgent==='boolean')model.loginAgent=data.loginAgent;if('platform' in data)model.platform=data.platform;model.rebrands=data.rebrands||{};model.rebrandRuntime=data.rebrandRuntime||{};model.vault=data.vault||{};$('version').textContent=data.version||'0.14.1';const v2=$('version-2');if(v2)v2.textContent=data.version||'0.14.1';selected.forEach(id=>{if(!model.apps.some(a=>a.id===id))selected.delete(id);});applyPlatform();}
 async function session(){updateModel(await api('session'));render();}
 /* Restores and full skins change names written inside app bundles; the
    inventory only re-reads those on a scan, so follow such actions with
@@ -116,8 +116,10 @@ function updateRow(a,v){
  v.target.wrap.classList.toggle('dim',!id);
  v.title.textContent=custom?t('row.customIcon'):orig?.product||a.equivalent?.replace(' (suggested)','')||(a.craftId?t('row.finding'):t('row.noMapped'));v.title.title=custom?assetLabel(model.assets[id])||t('row.customIcon'):sourceStatus(a);
  let note=custom?t('row.yourChoice'):st.checking?(id?t('row.savedChecking'):t('row.finding')):st.note||(id?t('row.originalReady'):a.craftId?t('row.chooseCustom'):t('row.pickAny'));
- if(st.error&&!id&&!custom)note=t('row.notFound');v.note.textContent=note;v.note.title=st.error||sourceStatus(a);v.note.className='row-note'+(st.checking&&!custom?' checking':'')+(st.error&&!id?' error':'');
- v.targetButton.disabled=busy;v.custom.disabled=busy;v.rename.disabled=busy||a.protected;v.restore.disabled=busy||!active(a);v.set.disabled=busy||!ready(a);v.set.textContent=st.working?t('row.working'):t('row.replace');
+ if(st.error&&!id&&!custom)note=t('row.notFound');
+ if(a.readOnly)note=a.readOnly;
+ v.note.textContent=note;v.note.title=st.error||a.readOnly||sourceStatus(a);v.note.className='row-note'+(st.checking&&!custom?' checking':'')+(st.error&&!id?' error':'');
+ v.targetButton.disabled=busy||!!a.readOnly;v.custom.disabled=busy||!!a.readOnly;v.rename.disabled=busy||a.protected||!!a.readOnly;v.restore.disabled=busy||!active(a);v.set.disabled=busy||!ready(a);v.set.textContent=st.working?t('row.working'):t('row.replace');
  v.error.textContent=st.actionError||'';v.error.hidden=!st.actionError;
 }
 function render(){
@@ -154,7 +156,7 @@ function render(){
  $('scan').disabled=scanning||busy;$('scan').classList.toggle('refreshing',scanning);$('folder').disabled=busy||scanning;
  $('keepalive').textContent=t('footer.keepalive',{state:model.keepAlive?t('common.on'):t('common.off')});$('keepalive').classList.toggle('on',model.keepAlive);
  const checks=all.filter(a=>rs(a).checking).length;$('activity').classList.toggle('updating',checks>0||scanning);
- $('status').textContent=scanning?(all.length?tn(all.length,'status.scanningCount'):t('status.scanning')):checks?tn(all.length,'status.refreshing',{checks}):tn(all.length,'status.ready',{ready:all.filter(ready).length});
+ $('status').textContent=scanning?(all.length?tn(all.length,'status.scanningCount'):(model.platform?t('status.scanningPortable'):t('status.scanning'))):checks?tn(all.length,'status.refreshing',{checks}):tn(all.length,'status.ready',{ready:all.filter(ready).length});
  $('loading').hidden=!firstLoad||all.length>0;$('empty').hidden=firstLoad||filtered.length>0;
  /* The editor mirrors busy/model state; keep it in step with every render. */
  if(editApp&&$('rename-dialog').open)drawEdit();
@@ -208,7 +210,9 @@ function setupCheck(id){return setupData?.checks?.find(c=>c.id===id);}
 function setupActionButton(label,fn,primary=false){const b=node('button',primary?'primary':'secondary',label);b.disabled=setupChecking||busy;b.addEventListener('click',fn);return b;}
 function drawSetup(){
  const checks=setupData?.checks||[],blocked=checks.filter(c=>c.state==='blocked').length,unavailable=checks.filter(c=>c.state==='unavailable').length,unchecked=checks.filter(c=>c.state==='unknown').length,ready=checks.filter(c=>c.state==='ready').length;
- $('setup-summary').textContent=blocked?tn(blocked,'setup.summaryBlocked'):unavailable?t('setup.summaryUnavailable'):unchecked?t('setup.summaryUnchecked'):tn(ready,'setup.summaryReady');
+ const blockedKey=model.platform?'setup.summaryBlockedPortable':'setup.summaryBlocked';
+ const unavailableKey=model.platform?'setup.summaryUnavailablePortable':'setup.summaryUnavailable';
+ $('setup-summary').textContent=blocked?tn(blocked,blockedKey):unavailable?t(unavailableKey):unchecked?t(model.platform?'setup.summaryUncheckedPortable':'setup.summaryUnchecked'):tn(ready,'setup.summaryReady');
  const list=$('setup-checks');list.replaceChildren();
  for(const check of checks){
   const row=node('section','setup-row'),copy=node('div'),side=node('div','setup-side'),pill=node('span','status-pill '+check.state,check.label),actions=node('div','setup-actions');
@@ -227,7 +231,7 @@ function drawSetup(){
  $('setup-close').disabled=setupChecking;
  $('setup-later').disabled=setupChecking;$('setup-later').textContent=setupData?.setup?.completed?t('common.close'):t('setup.reviewLater');
  $('setup-finish').disabled=setupChecking;$('setup-finish').textContent=setupData?.setup?.completed?t('common.done'):t('setup.finish');
- $('setup-subtitle').textContent=setupData?.setup?.completed?t('setup.subtitleDone'):t('setup.subtitle');
+ $('setup-subtitle').textContent=model.platform?t('setup.subtitlePortable'):(setupData?.setup?.completed?t('setup.subtitleDone'):t('setup.subtitle'));
 }
 async function openSetup(){
  if(setupOpening||$('setup-dialog').open)return;setupOpening=true;dialogError('setup-error','');setupMessage('');
@@ -247,7 +251,7 @@ async function openSetupAppManagement(){
 }
 async function toggleSetupKeeper(){
  if(setupChecking)return;const on=!setupData?.keeper?.desired;setupChecking=true;drawSetup();dialogError('setup-error','');
- try{const r=await api('keepalive',{enabled:on});model.keepAlive=!!r.enabled;setupData=await api('permissions');setupMessage(on?t('setup.keeperNowOn'):t('setup.keeperNowOff'));}
+ try{const r=await api('keepalive',{enabled:on});model.keepAlive=!!r.enabled;setupData=await api('permissions');setupMessage(on?(model.platform?t('setup.keeperNowOnPortable'):t('setup.keeperNowOn')):t('setup.keeperNowOff'));}
  catch(e){dialogError('setup-error',e.message);}
  finally{setupChecking=false;drawSetup();render();}
 }
@@ -323,7 +327,7 @@ function drawEdit(){
  const applyRadio=$('edit-icon-apply'),keepRadio=$('edit-icon-keep');
  applyRadio.disabled=!s.asset;
  $('edit-icon-apply-title').textContent=s.asset?iconLabel(a):t('edit.noIcon');
- $('edit-icon-apply-sub').textContent=s.asset?(s.live&&!model.choices[a.bundleId]?t('edit.iconApplied'):t('edit.iconFinder')):t('edit.noIconHint');
+ $('edit-icon-apply-sub').textContent=s.asset?(s.live&&!model.choices[a.bundleId]?(model.platform?t('edit.iconAppliedLauncher'):t('edit.iconApplied')):(model.platform?t('edit.iconLauncher'):t('edit.iconFinder'))):t('edit.noIconHint');
  keepRadio.checked=editIconMode!=='apply'||!s.asset;applyRadio.checked=editIconMode==='apply'&&!!s.asset;
  $('edit-radio-keep').classList.toggle('selected',keepRadio.checked);$('edit-radio-apply').classList.toggle('selected',applyRadio.checked);
  /* full skin */
@@ -384,9 +388,9 @@ $('keepalive').addEventListener('click',async()=>{if(busy)return;busy=true;rende
 function settingsMessage(text,error=false){const m=$('settings-message'),e=$('settings-error');if(error){e.textContent=text;e.hidden=false;m.hidden=true;}else{m.textContent=text;m.hidden=!text;e.hidden=true;}}
 function currentSettings(){return model.settings||{launchAtLogin:false,startInMenuBar:false,showDockIcon:true,showMenuBarIcon:true,notifyRepaired:false,notifyAttention:true,autoCheckUpdates:true};}
 function drawUpdateStatus() {const s=currentSettings(),el=$('update-status');if(s.latestVersion){const current=$('version').textContent||'';el.textContent=(newerVersion(s.latestVersion,current)?t('settings.available',{version:s.latestVersion}):t('settings.latest',{version:current}))+(s.lastUpdateCheck?' '+t('settings.lastChecked',{when:fmtDate(s.lastUpdateCheck)}):'');}else el.textContent=t('settings.updatesText');}
-function openSettings() {const s=currentSettings();$('set-login').checked=!!s.launchAtLogin;$('set-menustart').checked=!!s.startInMenuBar;$('set-dock').checked=!!s.showDockIcon;$('set-menubar').checked=!!s.showMenuBarIcon;$('set-notify-repaired').checked=!!s.notifyRepaired;$('set-notify-attention').checked=!!s.notifyAttention;$('set-autoupdate').checked=!!s.autoCheckUpdates;settingsMessage('');drawUpdateStatus();$('settings-dialog').showModal();}
+function openSettings() {const s=currentSettings();$('set-login').checked=!!s.launchAtLogin;$('set-menustart').checked=!!s.startInMenuBar;$('set-dock').checked=!!s.showDockIcon;$('set-menubar').checked=!!s.showMenuBarIcon;$('set-notify-repaired').checked=!!s.notifyRepaired;$('set-notify-attention').checked=!!s.notifyAttention;$('set-autoupdate').checked=!!s.autoCheckUpdates;if(model.platform&&model.platform.hideDockSetting){$('set-dock').checked=true;$('set-menubar').checked=true;$('set-menubar').disabled=true;}settingsMessage('');drawUpdateStatus();$('settings-dialog').showModal();}
 function closeSettings(){if($('settings-dialog').open)$('settings-dialog').close();}
-async function saveSettings(){const s={launchAtLogin:$('set-login').checked,startInMenuBar:$('set-menustart').checked,showDockIcon:$('set-dock').checked,showMenuBarIcon:$('set-menubar').checked,notifyRepaired:$('set-notify-repaired').checked,notifyAttention:$('set-notify-attention').checked,autoCheckUpdates:$('set-autoupdate').checked};try{const r=await api('settings',{settings:s});model.settings=r.settings;model.loginAgent=!!r.loginAgent;closeSettings();tell(r.warning||t('settings.saved')+(s.showDockIcon?'':' '+t('settings.leavingDock')),!!r.warning);}catch(e){settingsMessage(e.message,true);}}
+async function saveSettings(){const s={launchAtLogin:$('set-login').checked,startInMenuBar:$('set-menustart').checked,showDockIcon:$('set-dock').checked,showMenuBarIcon:$('set-menubar').checked,notifyRepaired:$('set-notify-repaired').checked,notifyAttention:$('set-notify-attention').checked,autoCheckUpdates:$('set-autoupdate').checked};if(model.platform&&model.platform.hideDockSetting){s.showDockIcon=true;s.showMenuBarIcon=true;}try{const r=await api('settings',{settings:s});model.settings=r.settings;model.loginAgent=!!r.loginAgent;closeSettings();tell(r.warning||t('settings.saved')+(s.showDockIcon?'':' '+t('settings.leavingDock')),!!r.warning);}catch(e){settingsMessage(e.message,true);}}
 $('settings-open').addEventListener('click',openSettings);$('settings-close').addEventListener('click',closeSettings);$('settings-cancel').addEventListener('click',closeSettings);$('settings-save').addEventListener('click',saveSettings);
 $('set-notify-test').addEventListener('click',async()=>{try{await api('test-notification',{});settingsMessage(t('settings.testSent'));}catch(e){settingsMessage(e.message,true);}});
 $('set-update-check').addEventListener('click',async()=>{settingsMessage(t('settings.checkingGithub'));try{const r=await api('update-check',{});if(model.settings){model.settings.latestVersion=r.latest;model.settings.lastUpdateCheck=r.checkedAt;}drawUpdateStatus();settingsMessage(r.updateAvailable?t('settings.updateAvailable',{version:r.latest}):t('settings.latestDone',{version:r.current}));if(r.updateAvailable&&r.releaseUrl)window.open(r.releaseUrl,'_blank');}catch(e){settingsMessage(e.message,true);}});
@@ -420,19 +424,33 @@ $('defaults-refresh').addEventListener('click',()=>loadDefaults(true));
 /* ---- default apps ---- */
 function drawDefaults(){
  const list=$('defaults-list');list.replaceChildren();
- const cats=(defaultsData||[]).filter(c=>c.candidates.length);
+ const settingsMode=model.platform&&model.platform.defaultsMode==='settings';
+ const cats=(defaultsData||[]).filter(c=>settingsMode||(c.candidates&&c.candidates.length));
  if(!cats.length){list.append(node('p','row-note',t('defaults.none')));return;}
  for(const cat of cats){
   const row=node('section','default-row'),left=node('div','app-cell');
-  const view=imageView(true);setImage(view,cat.current.appId?'api/icon?app='+encodeURIComponent(cat.current.appId)+'&v=1':'',t('row.iconAlt',{name:cat.current.name}));
-  const copy=node('div','app-copy');copy.append(node('div','app-name',cat.label),node('div','subtitle',cat.detail),node('div','row-note default-current',t('defaults.currently',{name:cat.current.name})));
+  const currentName=cat.current&&cat.current.name?cat.current.name:t('defaults.unknownCurrent');
+  const view=imageView(true);setImage(view,cat.current&&cat.current.appId?'api/icon?app='+encodeURIComponent(cat.current.appId)+'&v=1':'',t('row.iconAlt',{name:currentName}));
+  const copy=node('div','app-copy');copy.append(node('div','app-name',cat.label),node('div','subtitle',cat.detail),node('div','row-note default-current',t('defaults.currently',{name:currentName})));
   left.append(view.wrap,copy);
-  const sel=node('select','default-select');sel.setAttribute('aria-label',t('defaults.selectAria',{label:cat.label}));
-  for(const c of [...cat.candidates].sort((x,y)=>compareNames(x.name,y.name))){const o=node('option','',c.name);o.value=c.bundleId;sel.append(o);}
-  sel.value=cat.current.bundleId||'';
-  sel.addEventListener('change',()=>changeDefault(cat,sel));
-  const side=node('div','default-side');side.append(sel);row.append(left,side);list.append(row);
+  const side=node('div','default-side');
+  if(settingsMode){
+   const b=node('button','secondary',t('defaults.openSettings'));
+   b.addEventListener('click',()=>openDefaultSettings());
+   side.append(b);
+  }else{
+   const sel=node('select','default-select');sel.setAttribute('aria-label',t('defaults.selectAria',{label:cat.label}));
+   for(const c of [...(cat.candidates||[])].sort((x,y)=>compareNames(x.name,y.name))){const o=node('option','',c.name);o.value=c.bundleId;sel.append(o);}
+   sel.value=cat.current&&cat.current.bundleId||'';
+   sel.addEventListener('change',()=>changeDefault(cat,sel));
+   side.append(sel);
+  }
+  row.append(left,side);list.append(row);
  }
+}
+async function openDefaultSettings(){
+ try{await api('open-settings',{target:'defaultApps'});tell(t('defaults.settingsOpened'));}
+ catch(e){tell(e.message,true);}
 }
 async function loadDefaults(force=false){
  if(defaultsBusy||(defaultsData&&!force)){if(defaultsData)drawDefaults();return;}
@@ -443,9 +461,51 @@ async function loadDefaults(force=false){
 }
 async function changeDefault(cat,sel){
  const bid=sel.value,dest=(cat.candidates||[]).find(c=>c.bundleId===bid);sel.disabled=true;
- try{const r=await api('defaults/set',{category:cat.id,bundleId:bid});const i=(defaultsData||[]).findIndex(c=>c.id===cat.id);if(i>=0)defaultsData[i]=r.category;tell(t('defaults.changed',{label:cat.label,name:dest?dest.name:t('defaults.selectedApp')}));}
+ try{const r=await api('defaults/set',{category:cat.id,bundleId:bid});if(r.openedSettings){tell(t('defaults.settingsOpened'));return;}const i=(defaultsData||[]).findIndex(c=>c.id===cat.id);if(i>=0)defaultsData[i]=r.category;tell(t('defaults.changed',{label:cat.label,name:dest?dest.name:t('defaults.selectedApp')}));}
  catch(e){tell(t('defaults.changeFailed',{label:cat.label,error:e.message}),true);}
  finally{drawDefaults();}
+}
+function setText(selector,key){const el=document.querySelector(selector);if(el&&key)el.textContent=t(key);}
+function applyPlatform(){
+ /* Every portable string is named here so the catalogue check can see it.
+    With no platform (the macOS app) none of them are shown. */
+ void [
+  t('header.taglineLinux'),t('header.taglineWindows'),t('header.setupTitlePortable'),
+  t('edit.nameHintLinux'),t('edit.nameHintWindows'),t('edit.launcherNoteLinux'),t('edit.launcherNoteWindows'),
+  t('edit.iconLauncher'),t('edit.iconAppliedLauncher'),
+  t('defaults.introLinux'),t('defaults.introWindows'),t('defaults.noteLinux'),t('defaults.noteWindows'),
+  t('defaults.openSettings'),t('defaults.settingsOpened'),t('defaults.unknownCurrent'),
+  t('settings.menuBarTray'),t('settings.menuBarTrayText'),t('settings.menuStartTray'),t('settings.menuStartTrayText'),
+  t('settings.notificationsPortable'),t('settings.maintenancePortable'),t('settings.maintenanceWindows'),
+  t('folder.titlePortable'),t('theme.systemTitlePortable'),
+  t('setup.summaryBlockedPortable'),t('setup.summaryUnavailablePortable'),
+  t('setup.summaryUnavailable'),tn(1,'setup.summaryBlocked'),
+  t('setup.noteLinux'),t('setup.noteWindows'),t('setup.subtitlePortable'),
+  t('status.scanningPortable'),t('footer.keepaliveTitlePortable'),
+  t('setup.summaryUncheckedPortable'),t('setup.summaryUnchecked'),t('setup.keeperNowOnPortable'),t('setup.keeperNowOn')
+ ];
+ const p=model.platform;if(!p)return;
+ setText('[data-i18n="header.tagline"]',p.taglineKey);
+ const setupTitle=document.querySelector('[data-i18n-title="header.setupTitle"]');if(setupTitle)setupTitle.title=t('header.setupTitlePortable');
+ setText('[data-i18n="edit.nameHint"]',p.nameHintKey);
+ const note=$('edit-launcher-note');if(note){note.hidden=!p.launcherNoteKey;if(p.launcherNoteKey)note.textContent=t(p.launcherNoteKey);}
+ const skin=$('edit-fullskin-section');if(skin)skin.hidden=p.fullSkin===false;
+ const suf=$('name-suffix');if(suf)suf.hidden=p.renameSuffix!=='.app';
+ const dock=$('set-dock-row');if(dock)dock.hidden=!!p.hideDockSetting;
+ setText('[data-i18n="settings.menuBar"]',p.menuBarLabelKey);
+ setText('[data-i18n="settings.menuBarText"]',p.menuBarTextKey);
+ setText('[data-i18n="settings.menuStart"]',p.menuStartLabelKey);
+ setText('[data-i18n="settings.menuStartText"]',p.menuStartTextKey);
+ setText('[data-i18n="settings.notificationsText"]',p.notificationsKey);
+ setText('[data-i18n="settings.maintenanceText"]',p.maintenanceKey);
+ const folder=document.querySelector('[data-i18n-title="folder.title"]');if(folder&&p.folderTitleKey)folder.title=t(p.folderTitleKey);
+ const theme=document.querySelector('[data-i18n-title="theme.systemTitle"]');if(theme&&p.themeTitleKey)theme.title=t(p.themeTitleKey);
+ const kbd=$('search-kbd');if(kbd&&p.searchShortcut)kbd.textContent=p.searchShortcut;
+ setText('[data-i18n="defaults.intro"]',p.defaultsIntroKey);
+ const dnote=$('defaults-note');if(dnote){dnote.hidden=!p.defaultsNoteKey;if(p.defaultsNoteKey)dnote.textContent=t(p.defaultsNoteKey);}
+ const sub=$('setup-subtitle');if(sub&&p.setupSubtitleKey)sub.textContent=t(p.setupSubtitleKey);
+ const keep=$('keepalive');if(keep)keep.title=t('footer.keepaliveTitlePortable');
+ const setupNote=document.querySelector('[data-i18n-rich="setup.note"]');if(setupNote&&p.setupNoteKey)rich(setupNote,t(p.setupNoteKey));
 }
 document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('search').focus();}});
 (async()=>{localizeDocument();$('selection-count').textContent=t('footer.selected',{n:0});$('keepalive').textContent=t('footer.keepalive',{state:t('common.off')});applyTheme('system');try{const s=await api('session');updateModel(s);setupWanted=!!s.setupRequired;if(!themeTouched)applyTheme(s.theme||'system');render();}catch(e){tell(e.message,true);}await refresh();if(setupWanted||location.hash==='#setup')await openSetup();})();

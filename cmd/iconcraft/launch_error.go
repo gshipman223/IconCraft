@@ -53,10 +53,7 @@ func reportLaunchFailure(err error) {
 		return
 	}
 	home, _ := os.UserHomeDir()
-	dir := filepath.Join(home, "Library/Application Support/IconCraft")
-	if runtime.GOOS != "darwin" {
-		dir = filepath.Join(home, ".local/share/IconCraft")
-	}
+	dir := appDataDir(home)
 	path, saveErr := writeLaunchError(dir, err)
 	if saveErr != nil {
 		if f, e := os.CreateTemp("", "IconCraft-launch-error-*.txt"); e == nil {

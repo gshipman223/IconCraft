@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -121,16 +122,18 @@ func hasStapledTicket(bundle string) bool {
 // bundlePath returns the .app enclosing an executable at
 // <bundle>/Contents/MacOS/<exe>, or "" when it is not inside one.
 func bundlePath(exe string) string {
-	exe = filepath.Clean(exe)
-	dir := filepath.Dir(exe)
-	if filepath.Base(dir) != "MacOS" {
+	// macOS bundle paths are slash-separated even when this code is
+	// compiled on Windows, where filepath would rewrite the separators.
+	exe = path.Clean(exe)
+	dir := path.Dir(exe)
+	if path.Base(dir) != "MacOS" {
 		return ""
 	}
-	contents := filepath.Dir(dir)
-	if filepath.Base(contents) != "Contents" {
+	contents := path.Dir(dir)
+	if path.Base(contents) != "Contents" {
 		return ""
 	}
-	app := filepath.Dir(contents)
+	app := path.Dir(contents)
 	if !strings.HasSuffix(strings.ToLower(app), ".app") {
 		return ""
 	}

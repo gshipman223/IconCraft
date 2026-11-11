@@ -38,21 +38,6 @@ const (
 // App Management.
 var bundleOwnerOverride func(path string) (uid uint32, ok bool)
 
-func bundleOwner(path string) (uint32, bool) {
-	if bundleOwnerOverride != nil {
-		return bundleOwnerOverride(path)
-	}
-	fi, err := os.Lstat(path)
-	if err != nil {
-		return 0, false
-	}
-	st, ok := fi.Sys().(*syscall.Stat_t)
-	if !ok || st == nil {
-		return 0, false
-	}
-	return st.Uid, true
-}
-
 func bundleOwnedByRoot(path string) bool {
 	uid, ok := bundleOwner(path)
 	return ok && uid == 0

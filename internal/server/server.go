@@ -195,6 +195,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if p, ok := s.Engine.Native.(interface{ LoginAgentEnabled() bool }); ok {
 			sess["loginAgent"] = p.LoginAgentEnabled()
 		}
+		if p, ok := s.Engine.Native.(interface{ Platform() native.PlatformInfo }); ok {
+			info := p.Platform()
+			if info.OS != "" {
+				sess["platform"] = info
+			}
+		}
 		respond(w, 200, sess)
 	case "api/settings":
 		var b struct {
@@ -303,6 +309,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		updated, err := setter.SetDefaultApp(ctx, b.Category, b.BundleID)
+		if errors.Is(err, native.ErrSettingsOpened) {
+			respond(w, 200, map[string]any{"openedSettings": true, "category": s.defaultsPayload([]native.DefaultCategoryState{updated})[0]})
+			return
+		}
 		if err != nil {
 			fail(w, err)
 			return

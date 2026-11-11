@@ -13,6 +13,8 @@ import (
 	"image/png"
 	"net/http"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 )
 
@@ -29,7 +31,13 @@ type thumbResult struct {
 func thumbKey(a core.App) string {
 	// v2: previews are normalized 8-bit PNGs (see normalizeThumb); the new
 	// key namespace orphans 16-bit previews cached by earlier builds.
-	h := sha256.Sum256([]byte("v2:" + a.ID + ":" + core.PreviewStamp(a.Path)))
+	// macOS and .app bundles keep the Finder preview stamp. Other systems
+	// stamp the launcher file, which is where the visible icon lives.
+	stamp := core.PreviewStamp(a.Path)
+	if runtime.GOOS != "darwin" && a.IconStamp != "" && !strings.HasSuffix(strings.ToLower(a.Path), ".app") {
+		stamp = a.IconStamp
+	}
+	h := sha256.Sum256([]byte("v2:" + a.ID + ":" + stamp))
 	return hex.EncodeToString(h[:])
 }
 

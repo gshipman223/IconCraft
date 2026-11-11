@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 )
 
@@ -40,8 +41,14 @@ func (e *Engine) loadInventory() {
 		if a.ID != appID(a) || a.Executable == "" || a.BundleID == "" {
 			continue
 		}
-		if fi, err := os.Lstat(a.Path); err != nil || !fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 {
+		fi, err := os.Lstat(a.Path)
+		if err != nil || fi.Mode()&os.ModeSymlink != 0 {
 			continue
+		}
+		if !fi.IsDir() {
+			if runtime.GOOS == "darwin" || !launcherFile(a.Path) {
+				continue
+			}
 		}
 		e.Apps[a.ID] = a
 	}

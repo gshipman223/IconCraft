@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=IconCraft
+Comment=Restore and craft application icons
+Exec=iconcraft
+Icon=io.iconcraft.IconCraft
+Terminal=false
+Categories=Utility;
+StartupWMClass=iconcraft

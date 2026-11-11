@@ -430,7 +430,7 @@ func (e *Engine) restoreFinderFromVault(ctx context.Context, app App) error {
 		return err
 	}
 	if a, ok := e.Apps[app.ID]; ok {
-		a.IconStamp = PreviewStamp(a.Path)
+		a.IconStamp = e.seenStamp(a)
 		e.Apps[a.ID] = a
 		_ = e.saveInventoryLocked()
 	}
@@ -567,6 +567,9 @@ func (e *Engine) renameFolderToSaved(ctx context.Context, target App, folder str
 	if !ok || current.Path != target.Path {
 		return target, errors.New("application not found; rescan")
 	}
+	if namer, ok := e.Native.(launcherNamer); ok && !strings.HasSuffix(strings.ToLower(current.Path), ".app") {
+		return e.finishLauncherRename(ctx, current, name, namer)
+	}
 	app := &current
 	bundle := app.BundleID
 	dest := filepath.Join(filepath.Dir(app.Path), name+".app")
@@ -598,7 +601,7 @@ func (e *Engine) renameFolderToSaved(ctx context.Context, target App, folder str
 	updated.Name = name
 	updated.ID = appID(updated)
 	updated.Renamed = false
-	updated.IconStamp = PreviewStamp(dest)
+	updated.IconStamp = e.seenStamp(updated)
 	e.moveReferencesLocked(old, updated)
 	for i := range e.State.Renames {
 		if e.State.Renames[i].BundleID == bundle && e.State.Renames[i].Status == "applied" && e.State.Renames[i].To == old.Path {
