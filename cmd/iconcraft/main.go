@@ -48,12 +48,12 @@ func entry() (code int) {
 	return 0
 }
 func run() (result error) {
-	self := flag.Bool("self-test", false, "Run macOS-native checks using disposable fixtures only")
+	self := flag.Bool("self-test", false, "Run native checks using disposable fixtures only")
 	report := flag.String("report", "", "Write native diagnostic report to this path")
 	headless := flag.Bool("headless", false, "Run the local backend without a native window (development)")
 	reapply := flag.Bool("reapply", false, "Repair reverted icons/names from the journal and exit (keep-applied agent)")
 	atLogin := flag.Bool("at-login", false, "Launched by the launch-at-login agent")
-	menuOnly := flag.Bool("menu-only", false, "Start in the menu bar without showing the window")
+	menuOnly := flag.Bool("menu-only", false, "Start in the menu bar or tray without showing the window")
 	version := flag.Bool("version", false, "Print build version")
 	flag.Parse()
 	if *version {
@@ -65,17 +65,11 @@ func run() (result error) {
 	// read it from here. Logs and the journal stay English regardless.
 	i18n.Set(i18n.Detect())
 	i18n.SetFormatLocale(i18n.DetectFormatLocale(i18n.Current()))
-	if runtime.GOOS != "darwin" && !*headless && !*self {
-		return fmt.Errorf("this application requires macOS; current system is %s", runtime.GOOS)
-	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
 	}
-	dir := filepath.Join(home, "Library/Application Support/IconCraft")
-	if runtime.GOOS != "darwin" {
-		dir = filepath.Join(home, ".local/share/IconCraft")
-	}
+	dir := appDataDir(home)
 	if err = os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
@@ -98,7 +92,7 @@ func run() (result error) {
 		return err
 	}
 	defer lock.Close()
-	if err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if err = lockExclusive(lock); err != nil {
 		if *reapply {
 			// The running instance does its own periodic repair; the agent
 			// pass simply defers to it. Not an error, never a dialog.
@@ -107,8 +101,8 @@ func run() (result error) {
 		}
 		return errAlreadyRunning
 	}
-	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
-	m, err := native.New(dir)
+	defer unlockExclusive(lock)
+	m, err := native.Open(dir)
 	if err != nil {
 		return err
 	}
@@ -203,7 +197,7 @@ func run() (result error) {
 // tools and other external actors sometimes remove launch agents, and
 // silently losing skin persistence would be far worse than quietly
 // putting it back. The toggle in the UI/menu always wins.
-func ensureKeeper(e *core.Engine, m *native.Mac) {
+func ensureKeeper(e *core.Engine, m native.Host) {
 	desired, set := e.KeeperPreference()
 	if !set || !desired || m.KeepAgentEnabled() {
 		return
@@ -218,7 +212,7 @@ func ensureKeeper(e *core.Engine, m *native.Mac) {
 // ensureLoginAgent reconciles the launch-at-login LaunchAgent with the
 // saved preference, the same self-healing approach as the keeper: the
 // preference is the intent, the plist is just its current expression.
-func ensureLoginAgent(e *core.Engine, m *native.Mac) {
+func ensureLoginAgent(e *core.Engine, m native.Host) {
 	s := e.Settings()
 	if m.LoginAgentEnabled() == s.LaunchAtLogin {
 		if !s.LaunchAtLogin {
@@ -235,7 +229,7 @@ func ensureLoginAgent(e *core.Engine, m *native.Mac) {
 // autoUpdateCheck checks GitHub for a newer release shortly after
 // startup when the user opted in and the last check is stale. It only
 // ever informs — updating stays a deliberate download by the user.
-func autoUpdateCheck(ctx context.Context, e *core.Engine, m *native.Mac) {
+func autoUpdateCheck(ctx context.Context, e *core.Engine, m native.Host) {
 	select {
 	case <-ctx.Done():
 		return
@@ -263,7 +257,7 @@ func autoUpdateCheck(ctx context.Context, e *core.Engine, m *native.Mac) {
 // keepAppliedLoop periodically repairs skins reverted by app launches or
 // updaters while IconCraft itself is running. The first pass is delayed so
 // startup scanning settles; failures are logged, never surfaced as dialogs.
-func keepAppliedLoop(ctx context.Context, e *core.Engine, m *native.Mac) {
+func keepAppliedLoop(ctx context.Context, e *core.Engine, m native.Host) {
 	select {
 	case <-ctx.Done():
 		return

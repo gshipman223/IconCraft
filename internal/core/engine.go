@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -165,19 +166,29 @@ func (e *Engine) Scan(ctx context.Context) ([]App, []string, error) {
 	e.mu.Lock()
 	roots := append(append([]string{}, e.Roots...), e.State.ExtraRoots...)
 	e.mu.Unlock()
-	paths, warnings := Discover(roots)
+	var paths []string
+	var warnings []string
+	if d, ok := e.Native.(interface {
+		Discover([]string) ([]string, []string)
+	}); ok {
+		paths, warnings = d.Discover(roots)
+	} else {
+		paths, warnings = Discover(roots)
+	}
 	// ArtCraft's own install manifest catches portable/custom installs that are not in /Applications.
-	manifest := filepath.Join(e.Home, "Library/Application Support/ArtCraft Launcher/installed.json")
-	if b, err := ReadLimited(manifest, 4<<20); err == nil {
-		var m struct {
-			Apps map[string]struct {
-				Path string `json:"path"`
-			} `json:"apps"`
-		}
-		if json.Unmarshal(b, &m) == nil {
-			for _, r := range m.Apps {
-				if SafeApp(r.Path) == nil {
-					paths = append(paths, r.Path)
+	if runtime.GOOS == "darwin" {
+		manifest := filepath.Join(e.Home, "Library/Application Support/ArtCraft Launcher/installed.json")
+		if b, err := ReadLimited(manifest, 4<<20); err == nil {
+			var m struct {
+				Apps map[string]struct {
+					Path string `json:"path"`
+				} `json:"apps"`
+			}
+			if json.Unmarshal(b, &m) == nil {
+				for _, r := range m.Apps {
+					if SafeApp(r.Path) == nil {
+						paths = append(paths, r.Path)
+					}
 				}
 			}
 		}
@@ -228,14 +239,14 @@ func (e *Engine) Scan(ctx context.Context) ([]App, []string, error) {
 	e.Apps = map[string]App{}
 	result := []App{}
 	for _, a := range apps {
-		if !seen[a.Path] || a.BundleID == "io.iconcraft.mac" {
+		if !seen[a.Path] || selfApp(a) {
 			continue
 		}
 		a.ID = appID(a)
 		a.ActiveRecord = ""
 		a.AssetID = ""
 		a.InfoStamp = MetadataStamp(a.Path)
-		a.IconStamp = PreviewStamp(a.Path)
+		a.IconStamp = e.seenStamp(a)
 		a.Renamed = false
 		for _, nr := range e.State.Renames {
 			if nr.To == a.Path && nr.Status == "applied" {
@@ -243,7 +254,7 @@ func (e *Engine) Scan(ctx context.Context) ([]App, []string, error) {
 				a.Name = nr.NewName
 			}
 		}
-		a.Protected = Protected(a.Path)
+		a.Protected = Protected(a.Path) || a.Protected
 		a.CraftID, a.Equivalent = e.Catalog.Match(a)
 		if p, ok := e.State.Preferences[a.BundleID]; ok {
 			a.AssetID = p.AssetID
@@ -407,7 +418,14 @@ func (e *Engine) importPNGBytesLocked(name, source string, b []byte) (Asset, err
 }
 func (e *Engine) ImportFile(ctx context.Context, p string) (Asset, error) {
 	ext := strings.ToLower(filepath.Ext(p))
-	if ext != ".png" && ext != ".icns" {
+	allowed := ext == ".png" || ext == ".icns"
+	if runtime.GOOS != "darwin" {
+		switch ext {
+		case ".jpg", ".jpeg", ".gif", ".ico", ".svg":
+			allowed = true
+		}
+	}
+	if !allowed {
 		return Asset{}, errors.New("select an original PNG or ICNS file")
 	}
 	if _, err := ReadLimited(p, MaxIconBytes); err != nil {
@@ -469,9 +487,14 @@ func (e *Engine) Apply(ctx context.Context, id, assetID string) (Record, error) 
 	}
 	// Hand macOS the artwork on its own icon grid: a full-bleed publisher
 	// icon otherwise renders ~20% larger than every native neighbour.
-	p, cleanupFit, err := fittedIconTemp(e.Dir, p)
-	if err != nil {
-		return Record{}, err
+	// Other systems keep the artwork as it was drawn.
+	cleanupFit := func() {}
+	if grid, ok := e.Native.(interface{ UsesMacIconGrid() bool }); !ok || grid.UsesMacIconGrid() {
+		var ferr error
+		p, cleanupFit, ferr = fittedIconTemp(e.Dir, p)
+		if ferr != nil {
+			return Record{}, ferr
+		}
 	}
 	defer cleanupFit()
 	e.captureOriginalLocked(ctx, a) // save the original to the vault before first change
@@ -561,7 +584,11 @@ func (e *Engine) Apply(ctx context.Context, id, assetID string) (Record, error) 
 		return fail(err)
 	}
 	if !after.Custom() {
-		return fail(errors.New("macOS did not record a custom icon"))
+		msg := "macOS did not record a custom icon"
+		if grid, ok := e.Native.(interface{ UsesMacIconGrid() bool }); ok && !grid.UsesMacIconGrid() {
+			msg = "the launcher did not keep the new icon"
+		}
+		return fail(errors.New(msg))
 	}
 	e.State.Records[idx].After = &after
 	e.State.Records[idx].Status = "applied"
@@ -569,7 +596,7 @@ func (e *Engine) Apply(ctx context.Context, id, assetID string) (Record, error) 
 	if err = e.save(); err != nil {
 		return fail(fmt.Errorf("could not save successful change: %w", err))
 	}
-	a.IconStamp = PreviewStamp(a.Path)
+	a.IconStamp = e.seenStamp(a)
 	e.Apps[a.ID] = a
 	_ = e.saveInventoryLocked()
 	return e.State.Records[idx], nil
@@ -635,7 +662,7 @@ func (e *Engine) Restore(ctx context.Context, recordID string) (Record, error) {
 		return r, err
 	}
 	if a, ok := e.Apps[r.App.ID]; ok {
-		a.IconStamp = PreviewStamp(a.Path)
+		a.IconStamp = e.seenStamp(a)
 		e.Apps[a.ID] = a
 		_ = e.saveInventoryLocked()
 	}

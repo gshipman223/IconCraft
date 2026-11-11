@@ -10,6 +10,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -314,7 +315,9 @@ func TestSymlinkIconBlocked(t *testing.T) {
 	e, n, a, asset := fixture(t)
 	victim := filepath.Join(t.TempDir(), "victim")
 	_ = os.WriteFile(victim, []byte("keep"), 0600)
-	_ = os.Symlink(victim, filepath.Join(a.Path, "Icon\r"))
+	if err := os.Symlink(victim, filepath.Join(a.Path, "Icon\r")); err != nil && runtime.GOOS == "windows" {
+		t.Skip("Icon\\r symlink is not available on this Windows environment")
+	}
 	if _, err := e.Apply(context.Background(), a.ID, asset.ID); err == nil {
 		t.Fatal("accepted symlink")
 	}

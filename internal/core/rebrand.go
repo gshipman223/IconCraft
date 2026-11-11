@@ -46,6 +46,9 @@ func (e *Engine) Rebrand(ctx context.Context, appID, assetID, name string) (Rebr
 	if err != nil {
 		return RebrandRecord{}, err
 	}
+	if skin, ok := e.Native.(interface{ SupportsFullSkin() bool }); ok && !skin.SupportsFullSkin() {
+		return RebrandRecord{}, errors.New("full skins edit the app itself, which this system does not allow; change the shortcut or launcher instead")
+	}
 	t, err := e.tools()
 	if err != nil {
 		return RebrandRecord{}, err

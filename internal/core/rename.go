@@ -59,6 +59,10 @@ func (e *Engine) Rename(ctx context.Context, id, name string) (App, error) {
 	if err = SafeApp(a.Path); err != nil {
 		return a, err
 	}
+	if namer, ok := e.Native.(launcherNamer); ok {
+		e.captureOriginalLocked(ctx, a) // save the original to the vault before first change
+		return e.finishLauncherRename(ctx, a, name, namer)
+	}
 	e.captureOriginalLocked(ctx, a) // save the original to the vault before first change
 	dest := filepath.Join(filepath.Dir(a.Path), name+".app")
 	if dest == a.Path {
@@ -104,7 +108,7 @@ func (e *Engine) Rename(ctx context.Context, id, name string) (App, error) {
 	out.Name = name
 	out.ID = appID(out)
 	out.Renamed = true
-	out.IconStamp = PreviewStamp(dest)
+	out.IconStamp = e.seenStamp(out)
 	after, checkErr := Fingerprint(out)
 	if checkErr != nil || after != fp {
 		if back := moveExclusive(dest, a.Path); back == nil {
@@ -152,6 +156,9 @@ func (e *Engine) RestoreName(ctx context.Context, id string) (App, error) {
 	a, ok := e.Apps[id]
 	if !ok {
 		return a, errors.New("application not found; rescan")
+	}
+	if namer, ok := e.Native.(launcherNamer); ok {
+		return e.finishLauncherRestore(ctx, a, namer)
 	}
 	for {
 		idx := -1
@@ -201,7 +208,7 @@ func (e *Engine) RestoreName(ctx context.Context, id string) (App, error) {
 		a.Path = nr.From
 		a.Name = nr.OldName
 		a.ID = appID(a)
-		a.IconStamp = PreviewStamp(a.Path)
+		a.IconStamp = e.seenStamp(a)
 		e.moveReferencesLocked(old, a)
 		e.State.Renames[idx].Status = "restored"
 		if err = e.save(); err != nil {
@@ -232,6 +239,10 @@ func (e *Engine) recoverRenames() {
 		to.Name = r.NewName
 		to.ID = appID(to)
 		to.Renamed = true
+		if e.recoverLauncherRenames(r, fe == nil, te == nil) {
+			dirty = true
+			continue
+		}
 		if os.IsNotExist(fe) && te == nil {
 			fp, err := Fingerprint(to)
 			if err != nil || fp != r.Fingerprint {

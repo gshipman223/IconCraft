@@ -185,6 +185,21 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 			fail(w, err)
 			return true
 		}
+		if b.Target == "defaultApps" {
+			opener, ok := s.Engine.Native.(interface {
+				OpenDefaultSettings(context.Context) error
+			})
+			if !ok {
+				fail(w, errors.New("unknown settings target"))
+				return true
+			}
+			if err := opener.OpenDefaultSettings(ctx); err != nil {
+				fail(w, err)
+			} else {
+				respond(w, 200, map[string]any{"opened": true})
+			}
+			return true
+		}
 		if b.Target != "appManagement" {
 			fail(w, errors.New("unknown settings target"))
 			return true

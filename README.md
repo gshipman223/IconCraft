@@ -27,6 +27,10 @@
 </p>
 
 <p align="center">
+  Linux and Windows builds of the same app are described in <a href="PLATFORMS.md">PLATFORMS.md</a>. The signed download above is the macOS release.
+</p>
+
+<p align="center">
   <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.14.1.dmg"><img alt="Download IconCraft for macOS (disk image)" src="https://img.shields.io/badge/⬇%20Download%20for%20macOS-Disk%20image%20.dmg-7C3AED?style=for-the-badge"></a>
   <a href="https://github.com/gshipman223/IconCraft/releases/latest/download/IconCraft-Mac-0.14.1.zip"><img alt="Download IconCraft ZIP" src="https://img.shields.io/badge/ZIP%20archive-4F46E5?style=for-the-badge"></a>
 </p>

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -133,6 +134,9 @@ func TestThumbnailStampChangesWhenIconChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(a.Path, "Icon\r"), []byte("replacement marker"), 0600); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skip("Icon\\r is not a legal file name on Windows")
+		}
 		t.Fatal(err)
 	}
 	if thumbKey(a) == before {

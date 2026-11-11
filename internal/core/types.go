@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -46,6 +47,7 @@ type App struct {
 	CraftID      string `json:"craftId,omitempty"`
 	Equivalent   string `json:"equivalent,omitempty"`
 	Protected    bool   `json:"protected"`
+	ReadOnly     string `json:"readOnly,omitempty"`
 	ActiveRecord string `json:"activeRecord,omitempty"`
 	AssetID      string `json:"assetId,omitempty"`
 }
@@ -273,6 +275,12 @@ func AtomicWrite(path string, b []byte, mode os.FileMode) error {
 	return nil
 }
 func SafeApp(path string) error {
+	switch launcherKind(path) {
+	case kindDesktop:
+		return safeDesktop(path)
+	case kindShortcut:
+		return safeShortcut(path)
+	}
 	if !filepath.IsAbs(path) || filepath.Ext(path) != ".app" {
 		return errors.New("not an absolute .app bundle path")
 	}
@@ -288,7 +296,11 @@ func SafeApp(path string) error {
 		return err
 	}
 	if filepath.Clean(resolved) != filepath.Clean(path) {
-		return errors.New("application path contains a symlink; rescan its real location")
+		// Windows reports the canonical casing of a path. That is the same
+		// file, and this comparison is not used on Darwin.
+		if runtime.GOOS != "windows" || !strings.EqualFold(resolved, path) {
+			return errors.New("application path contains a symlink; rescan its real location")
+		}
 	}
 	p := filepath.Join(path, "Icon\r")
 	if fi, err = os.Lstat(p); err == nil && (!fi.Mode().IsRegular() || fi.Mode()&os.ModeSymlink != 0) {
@@ -299,6 +311,9 @@ func SafeApp(path string) error {
 	return nil
 }
 func Protected(path string) bool {
+	if strings.HasPrefix(strings.ToLower(path), "msix:") {
+		return true
+	}
 	for _, p := range []string{"/System/", "/Library/Apple/"} {
 		if strings.HasPrefix(path, p) {
 			return true
@@ -307,6 +322,12 @@ func Protected(path string) bool {
 	return false
 }
 func Fingerprint(a App) (string, error) {
+	switch launcherKind(a.Path) {
+	case kindDesktop:
+		return fingerprintDesktop(a)
+	case kindShortcut:
+		return fingerprintShortcut(a)
+	}
 	if err := SafeApp(a.Path); err != nil {
 		return "", err
 	}

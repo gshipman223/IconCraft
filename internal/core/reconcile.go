@@ -43,7 +43,9 @@ func (e *Engine) Reconcile(ctx context.Context) (ReconcileResult, error) {
 	for _, nr := range appliedRenames {
 		out.Checked++
 		if _, err := os.Lstat(nr.To); err == nil {
-			continue // custom name still in place
+			if !launcherNameNeedsRepair(e.Native, nr) {
+				continue // custom name still in place
+			}
 		}
 		if _, err := os.Lstat(nr.From); err != nil {
 			out.Skipped = append(out.Skipped, nr.NewName+": app not found at either name; leaving it alone")

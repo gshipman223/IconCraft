@@ -53,6 +53,12 @@ func permissionCheck(id, title, state, label, detail string) map[string]any {
 // detail recorded by the engine stays English in the journal and is
 // localised on the way out with i18n.Text.
 func (s *Server) permissionsPayload(ctx context.Context, runChecks bool, appID string) (map[string]any, error) {
+	if p, ok := s.Engine.Native.(interface{ Platform() native.PlatformInfo }); ok {
+		info := p.Platform()
+		if info.OS != "" && info.OS != "darwin" {
+			return s.portablePermissions(ctx, runChecks, info)
+		}
+	}
 	var dataErr error
 	var access core.PermissionCheck
 	if runChecks {
