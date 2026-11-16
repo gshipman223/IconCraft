@@ -29,8 +29,13 @@ type Settings struct {
 	// Empty means safe.
 	NameMode string `json:"nameMode,omitempty"`
 	// UpdatesPaused restores full-renamed apps to the folder name their
-	// launcher expects and stops the keeper from renaming them back.
+	// launcher expects, puts a Full icon's files back, and stops the
+	// keeper from applying them again.
 	UpdatesPaused bool `json:"updatesPaused,omitempty"`
+	// IconMode is "finder" (the closed-app tile only) or "full" (replace
+	// the icon inside the bundle so the Dock and Cmd-Tab change too).
+	// Empty means finder. Full replaces the publisher signature.
+	IconMode string `json:"iconMode,omitempty"`
 
 	// Update-check cache, managed by RecordUpdateCheck (not user input).
 	LastUpdateCheck string `json:"lastUpdateCheck,omitempty"`
@@ -47,6 +52,7 @@ func DefaultSettings() Settings {
 		NotifyAttention:  true,
 		AutoCheckUpdates: true,
 		NameMode:         NameModeSafe,
+		IconMode:         IconModeFinder,
 	}
 }
 
@@ -77,6 +83,13 @@ func (e *Engine) SaveSettings(s Settings) (Settings, error) {
 	case NameModeFull:
 	default:
 		return Settings{}, errors.New("name mode must be Icon only (safe) or Full rename")
+	}
+	switch s.IconMode {
+	case "", IconModeFinder:
+		s.IconMode = IconModeFinder
+	case IconModeFull:
+	default:
+		return Settings{}, errors.New("icon mode must be Finder icon (safe) or Full icon")
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()

@@ -68,6 +68,9 @@ func Open(dir, home string, n Native) (*Engine, error) {
 	if e.State.NameModes == nil {
 		e.State.NameModes = map[string]string{}
 	}
+	if e.State.IconModes == nil {
+		e.State.IconModes = map[string]string{}
+	}
 	if e.State.PausedBundles == nil {
 		e.State.PausedBundles = map[string]bool{}
 	}
@@ -80,6 +83,7 @@ func Open(dir, home string, n Native) (*Engine, error) {
 	e.loadInventory()
 	e.recoverRenames()
 	e.recoverPauseMoves()
+	e.recoverBundleIcons(context.Background())
 	// Finish a pause that was saved before every folder had moved, including
 	// a per-app pause and a quit halfway through the restore. A global pause
 	// then stays paused. Otherwise put un-paused apps back and make the
@@ -89,6 +93,7 @@ func Open(dir, home string, n Native) (*Engine, error) {
 		_ = e.ResumeSuspended(context.Background(), "")
 		_ = e.RepairIdentities(context.Background())
 		_ = e.SyncNameModes(context.Background(), "")
+		_ = e.SyncIconModes(context.Background(), "")
 	}
 	return e, nil
 }
@@ -256,6 +261,8 @@ func (e *Engine) Scan(ctx context.Context) ([]App, []string, error) {
 		a.Renamed = false
 		a.NameMode = e.nameModeLocked(a.BundleID)
 		a.NameChoice = e.State.NameModes[a.BundleID]
+		a.IconMode = e.iconModeLocked(a.BundleID)
+		a.IconChoice = e.State.IconModes[a.BundleID]
 		a.Paused = e.bundlePausedLocked(a.BundleID)
 		for _, nr := range e.State.Renames {
 			// Newest applied label or folder rename for this exact path.

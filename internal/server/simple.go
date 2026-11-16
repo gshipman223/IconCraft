@@ -161,6 +161,28 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 		policy := s.Engine.SyncNameModes(ctx, app.BundleID)
 		respond(w, 200, map[string]any{"app": app, "notes": policy.Notes})
 		return true
+	case "api/icon-mode":
+		var b struct {
+			AppID     string `json:"appId"`
+			Mode      string `json:"mode"`
+			Confirmed bool   `json:"confirmed"`
+		}
+		if err := readJSON(w, r, &b); err != nil {
+			fail(w, err)
+			return true
+		}
+		if b.Mode == core.IconModeFull && !b.Confirmed {
+			fail(w, errors.New("explicit full-icon confirmation required"))
+			return true
+		}
+		app, err := s.Engine.SetAppIconMode(b.AppID, b.Mode)
+		if err != nil {
+			fail(w, err)
+			return true
+		}
+		policy := s.Engine.SyncIconModes(ctx, app.BundleID)
+		respond(w, 200, map[string]any{"app": app, "notes": policy.Notes})
+		return true
 	case "api/pause-app":
 		var b struct {
 			AppID  string `json:"appId"`

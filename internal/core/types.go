@@ -39,6 +39,8 @@ type App struct {
 	Renamed      bool   `json:"renamed,omitempty"`
 	NameMode     string `json:"nameMode,omitempty"`   // effective: safe | full
 	NameChoice   string `json:"nameChoice,omitempty"` // per-app override: "" | safe | full
+	IconMode     string `json:"iconMode,omitempty"`   // effective: finder | full
+	IconChoice   string `json:"iconChoice,omitempty"` // per-app override: "" | finder | full
 	Paused       bool   `json:"paused,omitempty"`
 	ID           string `json:"id"`
 	Name         string `json:"name"`
@@ -121,6 +123,15 @@ type RebrandRecord struct {
 	// the keeper checks once and records the outcome).
 	RuntimeIcon string          `json:"runtimeIcon,omitempty"`
 	ExecPatches []ExecIconPatch `json:"execPatches,omitempty"`
+	// Kind is "icon" for a Full icon (bundle icon only, Info.plist
+	// unchanged). Empty is a legacy full skin that also renamed the
+	// bundle from inside.
+	Kind string `json:"kind,omitempty"`
+	// Held means Pause for updates put the original icon files back.
+	// HeldPrint is the fingerprint after that restore; empty means the
+	// bundle had already changed and the old files were not written.
+	Held      bool   `json:"held,omitempty"`
+	HeldPrint string `json:"heldPrint,omitempty"`
 	// ExecIconCheck is the version of the runtime-icon inspection that
 	// produced RuntimeIcon, so improved matching re-checks old verdicts.
 	ExecIconCheck int    `json:"execIconCheck,omitempty"`
@@ -205,6 +216,7 @@ type State struct {
 	Settings      Settings                 `json:"settings,omitempty"`
 	SettingsSet   bool                     `json:"settingsSet,omitempty"`
 	NameModes     map[string]string        `json:"nameModes,omitempty"`     // bundle id → safe | full
+	IconModes     map[string]string        `json:"iconModes,omitempty"`     // bundle id → finder | full
 	PausedBundles map[string]bool          `json:"pausedBundles,omitempty"` // per-app pause for updates
 	Preferences   map[string]Preference    `json:"preferences"`
 	ExtraRoots    []string                 `json:"extraRoots"`

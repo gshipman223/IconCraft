@@ -27,11 +27,14 @@ type ReconcileResult struct {
 //     A different custom icon on an unchanged bundle is left alone.
 //   - Bundles an older build renamed or re-signed are repaired first
 //     (RepairIdentities), except a full rename the user still wants.
-//     Internal full skins are not written again.
+//     Internal full skins are not written again. A Full icon the user
+//     still wants is left in place; SyncIconModes puts it back when the
+//     bundle icon file no longer matches.
 //
-// Callers must populate the inventory with Scan first. A running app still
-// shows its own Dock icon and menu-bar name from inside the signed bundle.
-// macOS does not let another process change those without editing the bundle.
+// Callers must populate the inventory with Scan first. The Dock and
+// Cmd-Tab of a running app show the icon inside the bundle. A Finder
+// custom icon does not change that tile. Full icon is the opt-in that
+// replaces the bundle icon; nothing else can set another process's tile.
 func (e *Engine) Reconcile(ctx context.Context) (ReconcileResult, error) {
 	out := ReconcileResult{}
 	if e.UpdatesPaused() {
@@ -56,6 +59,9 @@ func (e *Engine) Reconcile(ctx context.Context) (ReconcileResult, error) {
 	synced := e.SyncNameModes(ctx, "")
 	out.NameFixed += synced.Moved
 	out.Skipped = append(out.Skipped, synced.Notes...)
+	icons := e.SyncIconModes(ctx, "")
+	out.IconFixed += icons.Icons
+	out.Skipped = append(out.Skipped, icons.Notes...)
 
 	state := e.SnapshotState()
 

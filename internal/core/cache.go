@@ -139,12 +139,25 @@ func (e *Engine) Session() map[string]any {
 	}
 	rebrands := map[string]string{} // inlined: Session already holds e.mu
 	rebrandRuntime := map[string]string{}
+	fullIcons := map[string]string{}
 	for _, r := range e.State.Rebrands {
-		if r.Status == "applied" {
-			rebrands[r.BundleID] = r.Name
-			if r.RuntimeIcon != "" {
-				rebrandRuntime[r.BundleID] = r.RuntimeIcon
+		if r.Status != "applied" {
+			continue
+		}
+		if r.Kind == RebrandKindIcon {
+			switch {
+			case r.Held:
+				fullIcons[r.BundleID] = "held"
+			case r.RuntimeIcon != "":
+				fullIcons[r.BundleID] = r.RuntimeIcon
+			default:
+				fullIcons[r.BundleID] = "applied"
 			}
+			continue
+		}
+		rebrands[r.BundleID] = r.Name
+		if r.RuntimeIcon != "" {
+			rebrandRuntime[r.BundleID] = r.RuntimeIcon
 		}
 	}
 	vault := map[string]SavedOriginal{}
@@ -154,6 +167,10 @@ func (e *Engine) Session() map[string]any {
 	nameModes := map[string]string{}
 	for k, v := range e.State.NameModes {
 		nameModes[k] = v
+	}
+	iconModes := map[string]string{}
+	for k, v := range e.State.IconModes {
+		iconModes[k] = v
 	}
 	pausedBundles := map[string]bool{}
 	for k, v := range e.State.PausedBundles {
@@ -172,7 +189,7 @@ func (e *Engine) Session() map[string]any {
 	if org.Group == "" {
 		org.Group = "none"
 	}
-	return map[string]any{"version": Version, "supportUrl": SupportURL, "repositoryUrl": RepositoryURL, "apps": apps, "assets": assets, "originals": originals, "choices": choices, "records": records, "renames": renames, "rebrands": rebrands, "rebrandRuntime": rebrandRuntime, "vault": vault, "nameModes": nameModes, "pausedBundles": pausedBundles, "theme": theme, "organize": org, "setupRequired": e.State.SetupVersion < SetupVersion, "setupVersion": e.State.SetupVersion}
+	return map[string]any{"version": Version, "supportUrl": SupportURL, "repositoryUrl": RepositoryURL, "apps": apps, "assets": assets, "originals": originals, "choices": choices, "records": records, "renames": renames, "rebrands": rebrands, "rebrandRuntime": rebrandRuntime, "fullIcons": fullIcons, "vault": vault, "nameModes": nameModes, "iconModes": iconModes, "pausedBundles": pausedBundles, "theme": theme, "organize": org, "setupRequired": e.State.SetupVersion < SetupVersion, "setupVersion": e.State.SetupVersion}
 }
 
 // Extended-attribute writes may change ctime without changing mtime on macOS.

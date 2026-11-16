@@ -207,8 +207,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		prev := s.Engine.Settings()
 		turningFull := b.Settings.NameMode == core.NameModeFull && prev.NameMode != core.NameModeFull
-		if turningFull && !b.Confirmed {
-			fail(w, errors.New("explicit full-rename confirmation required"))
+		turningIcon := b.Settings.IconMode == core.IconModeFull && prev.IconMode != core.IconModeFull
+		if (turningFull || turningIcon) && !b.Confirmed {
+			fail(w, errors.New("explicit confirmation required"))
 			return
 		}
 		saved, err := s.Engine.SaveSettings(b.Settings)
@@ -217,7 +218,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		out := map[string]any{"settings": saved, "loginAgent": saved.LaunchAtLogin, "version": core.Version}
-		if saved.NameMode != prev.NameMode || saved.UpdatesPaused != prev.UpdatesPaused {
+		if saved.NameMode != prev.NameMode || saved.IconMode != prev.IconMode || saved.UpdatesPaused != prev.UpdatesPaused {
 			policy := s.Engine.ApplyNamePolicy(ctx)
 			if len(policy.Notes) > 0 {
 				out["notes"] = policy.Notes
@@ -426,7 +427,17 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			fail(w, err)
 			return
 		}
-		respond(w, 200, map[string]string{"recordId": rec.ID, "status": rec.Status})
+		out := map[string]string{"recordId": rec.ID, "status": rec.Status}
+		// Finder icon is already on the closed tile. Full icon also
+		// replaces the icon inside the bundle so the Dock and Cmd-Tab
+		// change the next time the app opens. A refusal (asset catalog,
+		// the app is running) leaves the Finder icon in place.
+		if s.Engine.IconMode(rec.App.BundleID) == core.IconModeFull && !s.Engine.UpdatesPaused() {
+			if _, er := s.Engine.ApplyBundleIcon(ctx, b.AppID, b.AssetID); er != nil {
+				out["warning"] = er.Error()
+			}
+		}
+		respond(w, 200, out)
 	case "api/restore":
 		s.operationMu.Lock()
 		defer s.operationMu.Unlock()

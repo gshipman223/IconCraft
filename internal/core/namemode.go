@@ -133,7 +133,11 @@ func (e *Engine) SetBundlePaused(ctx context.Context, appID string, paused bool)
 	if e.UpdatesPaused() {
 		return NamePolicyResult{}, nil
 	}
-	return e.ResumeSuspended(ctx, bundle), nil
+	res := e.ResumeSuspended(ctx, bundle)
+	icons := e.SyncIconModes(ctx, bundle)
+	res.Icons += icons.Icons
+	res.Notes = append(res.Notes, icons.Notes...)
+	return res, nil
 }
 
 // ApplyNamePolicy makes folders and icons match the saved name mode and
@@ -148,9 +152,11 @@ func (e *Engine) ApplyNamePolicy(ctx context.Context) NamePolicyResult {
 	}
 	res := e.ResumeSuspended(ctx, "")
 	sync := e.SyncNameModes(ctx, "")
+	icons := e.SyncIconModes(ctx, "")
 	res.Moved += sync.Moved
-	res.Icons += sync.Icons
+	res.Icons += sync.Icons + icons.Icons
 	res.Notes = append(res.Notes, sync.Notes...)
+	res.Notes = append(res.Notes, icons.Notes...)
 	return res
 }
 
@@ -289,6 +295,12 @@ func (e *Engine) ContinuePause(ctx context.Context, onlyBundle string) NamePolic
 			out.Moved++
 		}
 	}
+	// Put the bundle icon file back before the Finder tile. Re-signing
+	// removes the Finder custom icon, and the hold below writes the
+	// original tile afterwards.
+	iconsHeld := e.holdBundleIcons(ctx, onlyBundle)
+	out.Notes = append(out.Notes, iconsHeld.Notes...)
+	out.Icons += iconsHeld.Icons
 	held := map[string]bool{}
 	for i := len(records) - 1; i >= 0; i-- {
 		rec := records[i]
@@ -341,6 +353,9 @@ func (e *Engine) ResumeSuspended(ctx context.Context, onlyBundle string) NamePol
 			out.Moved++
 		}
 	}
+	released := e.releaseBundleIcons(ctx, onlyBundle)
+	out.Icons += released.Icons
+	out.Notes = append(out.Notes, released.Notes...)
 	held := map[string]bool{}
 	for i := len(records) - 1; i >= 0; i-- {
 		rec := records[i]

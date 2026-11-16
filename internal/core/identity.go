@@ -67,6 +67,12 @@ func (e *Engine) RepairIdentities(ctx context.Context) RepairResult {
 		if rec.Status != "applied" && rec.Status != "icon-pending" {
 			continue
 		}
+		// Full icon is opt-in and does not change Info.plist. Repair must
+		// not put the publisher icon back while that mode is still on, or
+		// while Pause for updates is holding the original file.
+		if rec.Kind == RebrandKindIcon && (e.IconMode(rec.BundleID) == IconModeFull || e.bundlePaused(rec.BundleID) || rec.Held) {
+			continue
+		}
 		out.Checked++
 		note, icon := e.retireRebrand(ctx, rec)
 		if note != "" {

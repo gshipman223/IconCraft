@@ -106,7 +106,7 @@ function run(argv) {
             } catch (e) {}
             keeperItem.setTitle($(keeperOn ? L('menu.keepOn', 'Keep Skins Applied: On') : L('menu.keepOff', 'Keep Skins Applied: Off')));
             keeperItem.setState(keeperOn ? 1 : 0);
-            keeperState.setTitle($(updatesPaused ? L('menu.pauseOn', 'Paused for updates: original names restored') : (keeperOn ? L('menu.keeperOn', 'Background keeper: on — works with IconCraft closed') : L('menu.keeperOff', 'Background keeper: off'))));
+            keeperState.setTitle($(updatesPaused ? L('menu.pauseOn', 'Paused for updates: original names and icons restored') : (keeperOn ? L('menu.keeperOn', 'Background keeper: on — works with IconCraft closed') : L('menu.keeperOff', 'Background keeper: off'))));
         };
         // Icon first: if the button can't be dressed, bail before installing.
         var statusItem = $.NSStatusBar.systemStatusBar.statusItemWithLength(-1);

@@ -27,11 +27,18 @@ type fakeNative struct {
 	probeErr         error
 	badSignature     bool
 	changeExecutable bool
+	iconFile         string
 }
 
 func (n *fakeNative) WriteProbe(string) error { return n.probeErr }
 
 func (n *fakeNative) BundleIconFile(_ context.Context, _ string) (string, error) {
+	if n.iconFile == "catalog" {
+		return "", nil
+	}
+	if n.iconFile != "" {
+		return n.iconFile, nil
+	}
 	return "AppIcon.icns", nil
 }
 func (n *fakeNative) SetBundleName(_ context.Context, p, name string) error {

@@ -267,10 +267,11 @@ func plistBuddy(ctx context.Context, plist, verb, key, value string) error {
 	return nil
 }
 
-// Resign ad-hoc re-signs a bundle while undoing a full skin an older
-// IconCraft wrote. New customisations do not call it. The publisher's
-// Developer ID signature cannot be rebuilt; this only lets the restored
-// files launch until the vendor update replaces them.
+// Resign ad-hoc re-signs a bundle. Full icon calls it after replacing
+// the bundle icon. Pause for updates and a switch back to Finder icon
+// call it after the original icon file is put back. The publisher's
+// Developer ID signature cannot be rebuilt; an ad-hoc signature only
+// lets the app launch until a vendor update replaces the bundle.
 //
 // codesign refuses to sign a bundle carrying Finder custom-icon detritus
 // (root Icon\r file + com.apple.FinderInfo), which a prior Finder skin —

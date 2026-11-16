@@ -36,10 +36,10 @@ func (e *Engine) rebrandDir(id string) string { return filepath.Join(e.Dir, "reb
 //
 // It now does the same safe customisation as Rename plus Apply: a display
 // label and a Finder custom icon. Info.plist, the bundle icon, the
-// executable and the signature are not modified. The Dock icon and menu
-// bar title of a running app stay the publisher's; macOS reads those from
-// the signed bundle and there is no supported override that leaves the
-// signature intact.
+// executable and the signature are not modified. The Dock and Cmd-Tab of
+// a running app stay the publisher's, because those tiles come from the
+// bundle icon and no supported API sets them from another process.
+// ApplyBundleIcon is the opt-in that replaces that file and re-signs.
 //
 // Existing full skins are undone by RepairIdentities, which still uses
 // RestoreRebrand to put the backed-up files back.
