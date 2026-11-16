@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const Version = "0.14.1"
+const Version = "0.14.2"
 
 // SetupVersion is bumped when the first-run permissions review needs to be
 // shown again (for example, when a release needs a new macOS permission).
