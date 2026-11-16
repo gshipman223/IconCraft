@@ -48,14 +48,13 @@ func TestVaultCapturesOriginalBeforeFirstApply(t *testing.T) {
 // with a name but no icon, so the "Originally …" row showed a placeholder.
 // The original icon must be recovered from the full-skin journal's backup.
 func TestVaultBackfillIconFromRebrandJournal(t *testing.T) {
-	e, _, a, asset := fixture(t)
-	if _, err := e.Rebrand(context.Background(), a.ID, asset.ID, "Adobe Photoshop"); err != nil {
+	e, _, a, _ := fixture(t)
+	if _, err := e.Rename(context.Background(), a.ID, "Adobe Photoshop"); err != nil {
 		t.Fatal(err)
 	}
-	// The fixture app has no bundle icon file until the rebrand creates
-	// one, so build the journal by hand: a pristine .icns in Contents, then
-	// a rebrand — its journal now holds the true original icon.
-	p := filepath.Join(a.Path, "Contents/Resources/AppIcon.icns")
+	// An older full skin kept the original .icns in its journal. New
+	// customisations do not create that journal, so plant the backup the
+	// way a previous version left it.
 	origPNG := pngBytes(color.RGBA{7, 77, 177, 255})
 	icns := []byte("icns")
 	var sz [4]byte
@@ -65,14 +64,18 @@ func TestVaultBackfillIconFromRebrandJournal(t *testing.T) {
 	binary.BigEndian.PutUint32(sz[:], uint32(8+len(origPNG)))
 	icns = append(icns, sz[:]...)
 	icns = append(icns, origPNG...)
-	if err := os.WriteFile(p, icns, 0644); err != nil {
+	dir := filepath.Join(e.Dir, "rebrands", "old-skin")
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.Rebrand(context.Background(), a.ID, asset.ID, "Adobe Photoshop"); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "icon.icns"), icns, 0644); err != nil {
 		t.Fatal(err)
 	}
-	// Simulate the pre-vault state: entry exists, icon never saved.
 	e.mu.Lock()
+	e.State.Rebrands = append(e.State.Rebrands, RebrandRecord{
+		ID: "old-skin", BundleID: a.BundleID, IconExisted: true, BeforeIconHash: hash(icns),
+		IconFile: "AppIcon.icns", Status: "restored", Created: "2000-01-01T00:00:00Z",
+	})
 	v := e.State.Vault[a.BundleID]
 	v.IconAssetID = ""
 	e.State.Vault[a.BundleID] = v
@@ -215,16 +218,21 @@ func TestVaultRestoreNeverTouchesDuplicateBundleApp(t *testing.T) {
 }
 
 func TestVaultRestoreRebrandAfterAppChanged(t *testing.T) {
-	e, n, a, asset := fixture(t)
-	rec, err := e.Rebrand(context.Background(), a.ID, asset.ID, "Adobe Photoshop")
-	if err != nil {
+	e, n, a, _ := fixture(t)
+	e.mu.Lock()
+	e.State.Rebrands = append(e.State.Rebrands, RebrandRecord{
+		ID: "old-skin", BundleID: a.BundleID, App: a, Status: "applied",
+		AfterPrint: "not-the-current-bundle", Name: "Adobe Photoshop", OriginalName: "PhotoCraft",
+		IconFile: "AppIcon.icns",
+	})
+	if err := e.save(); err != nil {
+		e.mu.Unlock()
 		t.Fatal(err)
 	}
-	if rec.OriginalName != "PhotoCraft" {
-		t.Fatalf("original internal name not journalled: %+v", rec)
-	}
-	// Simulate an update replacing the plist (fingerprint no longer matches).
-	if err := os.WriteFile(filepath.Join(a.Path, "Contents/Info.plist"), []byte("updated-metadata"), 0600); err != nil {
+	e.mu.Unlock()
+	updated := []byte("updated-metadata")
+	plistPath := filepath.Join(a.Path, "Contents/Info.plist")
+	if err := os.WriteFile(plistPath, updated, 0600); err != nil {
 		t.Fatal(err)
 	}
 	rep, err := e.RestoreFromVault(context.Background(), a.ID)
@@ -234,14 +242,17 @@ func TestVaultRestoreRebrandAfterAppChanged(t *testing.T) {
 	if rep.Restored == 0 {
 		t.Fatalf("nothing restored: %+v", rep)
 	}
-	if got := n.bundleNames[a.Path]; got != "PhotoCraft" {
-		t.Fatalf("internal name not restored from vault, got %q", got)
+	if len(n.bundleNames) != 0 || n.resigns != 0 {
+		t.Fatalf("updated bundle was edited: names=%v resigns=%d", n.bundleNames, n.resigns)
+	}
+	got, err := os.ReadFile(plistPath)
+	if err != nil || !bytes.Equal(got, updated) {
+		t.Fatal("plist was rewritten", err)
 	}
 	if _, err := os.Lstat(filepath.Join(a.Path, "Contents/Resources/AppIcon.icns")); !os.IsNotExist(err) {
-		t.Fatal("created icon file should be removed on vault restore")
+		t.Fatal("an icon file was written into the updated bundle")
 	}
-	state := e.SnapshotState()
-	for _, r := range state.Rebrands {
+	for _, r := range e.SnapshotState().Rebrands {
 		if r.Status == "applied" {
 			t.Fatal("rebrand still marked applied")
 		}

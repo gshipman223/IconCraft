@@ -73,6 +73,9 @@ func Open(dir, home string, n Native) (*Engine, error) {
 	}
 	e.loadInventory()
 	e.recoverRenames()
+	// Put bundles that an older IconCraft renamed or re-signed back where
+	// launchers look, before the first scan. Failures are retried by Reconcile.
+	_ = e.RepairIdentities(context.Background())
 	return e, nil
 }
 func (e *Engine) save() error {
@@ -238,9 +241,12 @@ func (e *Engine) Scan(ctx context.Context) ([]App, []string, error) {
 		a.IconStamp = PreviewStamp(a.Path)
 		a.Renamed = false
 		for _, nr := range e.State.Renames {
-			if nr.To == a.Path && nr.Status == "applied" {
-				a.Renamed = true
+			// Newest applied label for this exact bundle wins. A label does
+			// not rename the folder; Renamed means IconCraft is showing a
+			// name other than the .app folder.
+			if nr.Status == "applied" && nr.BundleID == a.BundleID && nr.To == a.Path {
 				a.Name = nr.NewName
+				a.Renamed = nr.NewName != bundleFolderName(a.Path)
 			}
 		}
 		a.Protected = Protected(a.Path)

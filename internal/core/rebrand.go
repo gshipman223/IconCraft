@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"image"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // Optional native bundle tools, implemented by the macOS native layer.
@@ -29,218 +27,33 @@ func (e *Engine) tools() (bundleTools, error) {
 
 func (e *Engine) rebrandDir(id string) string { return filepath.Join(e.Dir, "rebrands", id) }
 
-// Rebrand applies the chosen name + icon *inside* a third-party app so the
-// identity also shows while it runs (Dock, menu bar, switcher, Launchpad):
-// CFBundleName/CFBundleDisplayName are set and the bundle's .icns replaced,
-// then the bundle is ad-hoc re-signed. Bundle ID, executable, URL schemes
-// and document types are untouched, so links and associations keep working.
+// Rebrand used to write the chosen name and icon into the app
+// (CFBundleName, CFBundleDisplayName, the bundle .icns, sometimes the
+// executable) and ad-hoc re-sign it. That keeps the bundle id, so a
+// launcher that only checks the id still matches, but it destroys the
+// Developer ID signature Sparkle and the Mac App Store use to recognise
+// the same app, and codesign then rejects the bundle as modified.
 //
-// Safety: refuses protected/running apps and asset-catalog apps (no .icns
-// to swap); journals a byte-exact backup first; verifies fingerprint and
-// signature after; attempts rollback on any failure. Re-signing replaces
-// the previous signature — the UI discloses this before opt-in, and app
-// updaters may overwrite the rebrand (the keeper re-applies it; see
-// Reconcile), at which point files match the backup fingerprint again.
+// It now does the same safe customisation as Rename plus Apply: a display
+// label and a Finder custom icon. Info.plist, the bundle icon, the
+// executable and the signature are not modified. The Dock icon and menu
+// bar title of a running app stay the publisher's; macOS reads those from
+// the signed bundle and there is no supported override that leaves the
+// signature intact.
+//
+// Existing full skins are undone by RepairIdentities, which still uses
+// RestoreRebrand to put the backed-up files back.
 func (e *Engine) Rebrand(ctx context.Context, appID, assetID, name string) (RebrandRecord, error) {
-	name, err := ValidateName(name)
+	app, err := e.Rename(ctx, appID, name)
 	if err != nil {
 		return RebrandRecord{}, err
 	}
-	t, err := e.tools()
-	if err != nil {
+	if _, err := e.Apply(ctx, app.ID, assetID); err != nil {
 		return RebrandRecord{}, err
 	}
-	e.scanMu.Lock()
-	defer e.scanMu.Unlock()
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	a, ok := e.Apps[appID]
-	if !ok {
-		return RebrandRecord{}, errors.New("application not found; rescan")
-	}
-	if a.Protected {
-		return RebrandRecord{}, errors.New("system apps cannot be rebranded")
-	}
-	if err := SafeApp(a.Path); err != nil {
-		return RebrandRecord{}, err
-	}
-	if err := e.probeWritable(a); err != nil {
-		return RebrandRecord{}, err
-	}
-	if runner, ok := e.Native.(interface {
-		Running(context.Context, string) (bool, error)
-	}); ok {
-		running, er := runner.Running(ctx, a.Path)
-		if er != nil {
-			return RebrandRecord{}, er
-		}
-		if running {
-			return RebrandRecord{}, errors.New("quit this application before applying the full skin")
-		}
-	}
-	iconRel, err := t.BundleIconFile(ctx, a.Path)
-	if err != nil {
-		return RebrandRecord{}, err
-	}
-	if iconRel == "" || filepath.Base(iconRel) != iconRel || strings.Contains(iconRel, "..") {
-		return RebrandRecord{}, errors.New("this app draws its icon from an asset catalog, so its running icon can't be swapped without rebuilding it — Finder skin still applies")
-	}
-	if !strings.HasSuffix(strings.ToLower(iconRel), ".icns") {
-		iconRel += ".icns"
-	}
-	assetPath, err := e.assetPath(assetID)
-	if err != nil {
-		return RebrandRecord{}, errors.New("choose an icon first, then apply the full skin")
-	}
-	pngBytes, err := ReadLimited(assetPath, MaxIconBytes)
-	if err != nil {
-		return RebrandRecord{}, err
-	}
-	icns, err := makeICNS(pngBytes)
-	if err != nil {
-		return RebrandRecord{}, err
-	}
-	if _, err := e.Native.Signature(ctx, a.Path); err != nil {
-		return RebrandRecord{}, fmt.Errorf("original signature check failed: %w", err)
-	}
-	plistPath := filepath.Join(a.Path, "Contents/Info.plist")
-	iconPath := filepath.Join(a.Path, "Contents/Resources", iconRel)
-	plistBytes, err := ReadLimited(plistPath, 4<<20)
-	if err != nil {
-		return RebrandRecord{}, err
-	}
-	iconBytes, iconErr := ReadLimited(iconPath, MaxIconBytes)
-	iconExisted := iconErr == nil
-	before, err := Fingerprint(a)
-	if err != nil {
-		return RebrandRecord{}, err
-	}
-	e.captureOriginalLocked(ctx, a) // save the original to the vault before first change
-	originalName := ""
-	if namer, ok := e.Native.(bundleNamer); ok {
-		if n, er := namer.BundleName(ctx, a.Path); er == nil {
-			originalName = n
-		}
-	}
-	if originalName == "" {
-		originalName = plistNameFromBytes(plistBytes)
-	}
-	if v, ok := e.State.Vault[a.BundleID]; ok && v.InternalName == "" && originalName != "" {
-		v.InternalName = originalName
-		e.State.Vault[a.BundleID] = v
-	}
-	rec := RebrandRecord{ID: newID(), BundleID: a.BundleID, App: a, AssetID: assetID, Name: name, OriginalName: originalName, IconFile: iconRel, IconExisted: iconExisted, BeforePrint: before, Status: "prepared", IconFit: IconFitVersion, Created: now()}
-	if iconExisted {
-		rec.BeforeIconHash = hash(iconBytes)
-	}
-	dir := e.rebrandDir(rec.ID)
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return RebrandRecord{}, err
-	}
-	if err := AtomicWrite(filepath.Join(dir, "Info.plist"), plistBytes, 0600); err != nil {
-		return RebrandRecord{}, err
-	}
-	if iconExisted {
-		if err := AtomicWrite(filepath.Join(dir, "icon.icns"), iconBytes, 0600); err != nil {
-			return RebrandRecord{}, err
-		}
-	}
-	e.State.Rebrands = append(e.State.Rebrands, rec)
-	idx := len(e.State.Rebrands) - 1
-	if err := e.save(); err != nil {
-		e.State.Rebrands = e.State.Rebrands[:idx]
-		return RebrandRecord{}, fmt.Errorf("backup could not be committed; no change made: %w", err)
-	}
-	// Runtime icon plan: if this app overrides its Dock/window icon at
-	// launch with artwork embedded in the executable, swapping the
-	// bundle .icns alone would still flip back on open. Plan an in-place
-	// embedded-PNG swap (executed after the name write, before signing).
-	// Planning failures degrade to a bundle-only skin, never a failure:
-	// the outcome is journalled in RuntimeIcon so the UI can be honest.
-	exePath, exeBytes, exeErr := readExecutable(a)
-	var patches []ExecIconPatch
-	var originals, replacements [][]byte
-	runtimeIcon := "none"
-	if exeErr == nil {
-		var origImg image.Image
-		if iconExisted {
-			origImg, _ = icnsImage(iconBytes)
-		}
-		assetImg, _ := decodeAssetImage(assetPath)
-		var setsOwn bool
-		patches, originals, replacements, setsOwn = planExecIconPatches(exeBytes, origImg, assetImg)
-		switch {
-		case len(patches) > 0:
-			runtimeIcon = "patched"
-		case setsOwn:
-			runtimeIcon = "own"
-		}
-	}
-	exePatched := false
-	rollback := func(cause error) (RebrandRecord, error) {
-		if exePatched {
-			_ = restoreExecIconPatches(exePath, patches, dir)
-		}
-		_ = AtomicWrite(plistPath, plistBytes, 0644)
-		if iconExisted {
-			_ = AtomicWrite(iconPath, iconBytes, 0644)
-		} else {
-			_ = os.Remove(iconPath)
-		}
-		_ = t.Resign(ctx, a.Path)
-		e.State.Rebrands[idx].Status = "failed"
-		_ = e.save()
-		return e.State.Rebrands[idx], cause
-	}
-	if err := AtomicWrite(iconPath, icns, 0644); err != nil {
-		return rollback(fmt.Errorf("could not replace the bundle icon: %w", err))
-	}
-	if err := t.SetBundleName(ctx, a.Path, name); err != nil {
-		return rollback(err)
-	}
-	if len(patches) > 0 {
-		for i, orig := range originals {
-			if err := AtomicWrite(filepath.Join(dir, fmt.Sprintf("exec-patch-%d.bin", i)), orig, 0600); err != nil {
-				return rollback(fmt.Errorf("runtime-icon backup could not be written: %w", err))
-			}
-		}
-		if err := applyExecIconPatches(exePath, exeBytes, patches, replacements); err != nil {
-			return rollback(fmt.Errorf("could not swap the running icon inside the app: %w", err))
-		}
-		exePatched = true
-		e.State.Rebrands[idx].ExecPatches = patches
-	}
-	e.State.Rebrands[idx].RuntimeIcon = runtimeIcon
-	e.State.Rebrands[idx].ExecIconCheck = ExecIconCheckVersion
-	if err := t.Resign(ctx, a.Path); err != nil {
-		return rollback(err)
-	}
-	if status, er := e.Native.Signature(ctx, a.Path); er != nil || status != "valid" {
-		return rollback(errors.New("re-signed bundle did not verify"))
-	}
-	after, err := Fingerprint(a)
-	if err != nil {
-		return rollback(err)
-	}
-	if current, er := ReadLimited(iconPath, MaxIconBytes); er == nil {
-		e.State.Rebrands[idx].AfterIconHash = hash(current)
-	}
-	e.State.Rebrands[idx].AfterPrint = after
-	e.State.Rebrands[idx].Status = "applied"
-	if err := e.save(); err != nil {
-		return e.State.Rebrands[idx], fmt.Errorf("full skin applied, but saving history failed: %w", err)
-	}
-	if notifier, ok := e.Native.(interface {
-		Notify(context.Context, string) error
-	}); ok {
-		_ = notifier.Notify(ctx, a.Path)
-	}
-	return e.State.Rebrands[idx], nil
+	return RebrandRecord{ID: newID(), BundleID: app.BundleID, App: app, AssetID: assetID, Name: name, Status: "external", Created: now()}, nil
 }
 
-// RestoreRebrand puts back the byte-exact backed-up Info.plist and icon and
-// re-signs. It refuses when the bundle changed since the rebrand (e.g. the
-// app updated itself) rather than forcing old files onto a new version.
 func (e *Engine) RestoreRebrand(ctx context.Context, appID string) (RebrandRecord, error) {
 	t, err := e.tools()
 	if err != nil {

@@ -50,9 +50,9 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 	ctx := r.Context()
 	switch p {
 	case "api/rebrand", "api/restore-rebrand":
-		// Opt-in internal ("full") skin: sets the name + icon inside a
-		// third-party app and re-signs it, so the identity shows while the
-		// app runs. Journalled and reversible via RestoreRebrand.
+		// api/rebrand now records a display label and a Finder icon. It does
+		// not edit Info.plist, the bundle icon, or the signature.
+		// api/restore-rebrand still undoes a full skin an older build wrote.
 		s.operationMu.Lock()
 		defer s.operationMu.Unlock()
 		var b struct {

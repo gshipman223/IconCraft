@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"os"
 )
 
 // ReconcileResult reports what the skin-persistence pass found and repaired.
@@ -13,55 +12,30 @@ type ReconcileResult struct {
 	Skipped   []string `json:"skipped,omitempty"`
 }
 
-// Reconcile re-applies skins that something else reverted — the classic case
-// being an app (or its updater) clearing its Finder custom icon, or restoring
-// its original folder name, on launch/update. It only repairs, never invents:
+// Reconcile keeps a customisation without hiding the app from its updater.
 //
-//   - Icons: re-applied through the full Apply safety path, and only when the
-//     app currently has NO custom icon at all. A different custom icon the
-//     user set elsewhere is respected, not stomped.
-//   - Names: re-renamed through Rename (which refuses running apps, name
-//     collisions and changed bundles — those are skipped and retried on a
-//     later pass, e.g. after the app quits).
+//   - A display name is a label in the journal. It is not re-applied by
+//     renaming the .app folder. Doing that is what made ArtCraft-style
+//     launchers, Homebrew casks and other path checks install a second copy.
+//   - Icons are re-applied with the Finder custom-icon mechanism when the
+//     custom icon is gone, or when the bundle's Info.plist was replaced
+//     (an update) and the icon no longer matches the one IconCraft set.
+//     A different custom icon on an unchanged bundle is left alone.
+//   - Bundles an older build renamed or re-signed are repaired first
+//     (RepairIdentities). Internal full skins are not written again.
 //
-// Callers must populate the inventory with Scan first. This is what makes a
-// skin "stick" in Finder/Applications/Dock-without touching the inside of
-// any app bundle. (A *running* app presents its own icon/name from inside
-// its bundle; macOS gives the app that right, and we deliberately do not
-// override it — that would require editing or injecting into the app.)
+// Callers must populate the inventory with Scan first. A running app still
+// shows its own Dock icon and menu-bar name from inside the signed bundle.
+// macOS does not let another process change those without editing the bundle.
 func (e *Engine) Reconcile(ctx context.Context) (ReconcileResult, error) {
 	out := ReconcileResult{}
-	state := e.SnapshotState()
+	repair := e.RepairIdentities(ctx)
+	out.Checked += repair.Checked
+	out.NameFixed += repair.MovedBack
+	out.IconFixed += repair.IconsApplied
+	out.Skipped = append(out.Skipped, repair.Notes...)
 
-	// Names first: paths determine app IDs used below.
-	appliedRenames := map[string]RenameRecord{}
-	for _, nr := range state.Renames {
-		if nr.Status == "applied" {
-			appliedRenames[nr.BundleID] = nr // newest wins (slice is chronological)
-		}
-	}
-	for _, nr := range appliedRenames {
-		out.Checked++
-		if _, err := os.Lstat(nr.To); err == nil {
-			continue // custom name still in place
-		}
-		if _, err := os.Lstat(nr.From); err != nil {
-			out.Skipped = append(out.Skipped, nr.NewName+": app not found at either name; leaving it alone")
-			continue
-		}
-		app, ok := e.appByPath(nr.From)
-		if !ok {
-			out.Skipped = append(out.Skipped, nr.NewName+": not in inventory; rescan needed")
-			continue
-		}
-		if _, err := e.Rename(ctx, app.ID, nr.NewName); err != nil {
-			// Running app, collision, or changed bundle: skip now, the
-			// watcher retries on its next pass.
-			out.Skipped = append(out.Skipped, nr.NewName+": "+err.Error())
-			continue
-		}
-		out.NameFixed++
-	}
+	state := e.SnapshotState()
 
 	// Latest live icon record per app.
 	latest := map[string]Record{}
@@ -95,7 +69,12 @@ func (e *Engine) Reconcile(ctx context.Context) (ReconcileResult, error) {
 			out.Skipped = append(out.Skipped, app.Name+": "+err.Error())
 			continue
 		}
-		if snap.Custom() && snap.Exists {
+		// Info.plist replaced means an updater rewrote the bundle. The Finder
+		// icon lives outside the seal and is usually wiped by that replace.
+		// Re-apply unless the icon on disk is still exactly the one we set.
+		bundleReplaced := app.InfoStamp != "" && r.App.InfoStamp != "" && app.InfoStamp != r.App.InfoStamp
+		iconIsOurs := r.After != nil && snap.Equal(*r.After)
+		if snap.Custom() && snap.Exists && (!bundleReplaced || iconIsOurs) {
 			if needsFit {
 				if err := e.refitFinderRecord(ctx, app, r.ID); err == nil {
 					out.IconFixed++
@@ -115,66 +94,10 @@ func (e *Engine) Reconcile(ctx context.Context) (ReconcileResult, error) {
 		out.IconFixed++
 	}
 
-	// Full (internal) skins: an updater that reinstalls the bundle puts the
-	// original plist/icon back — recognisable because the fingerprint returns
-	// to the pre-skin value. Re-apply the same recorded name+icon. If the
-	// fingerprint is something else entirely, the app genuinely changed:
-	// don't force it, just report.
-	latestRebrand := map[string]RebrandRecord{}
-	for _, r := range state.Rebrands {
-		if r.Status == "applied" {
-			latestRebrand[r.BundleID] = r
-		}
-	}
-	for _, r := range latestRebrand {
-		out.Checked++
-		app, ok := e.appByBundle(r.BundleID, r.App.Path)
-		if !ok {
-			continue
-		}
-		fp, err := Fingerprint(app)
-		if err != nil {
-			out.Skipped = append(out.Skipped, app.Name+" (full skin): "+err.Error())
-			continue
-		}
-		switch fp {
-		case r.AfterPrint:
-			// Full skin intact — except for the one-time icon-scale
-			// migration: pre-grid .icns artwork fills the whole canvas
-			// and dwarfs native Dock/Finder neighbours.
-			if r.IconFit < IconFitVersion {
-				if needs, err := e.assetNeedsFit(r.AssetID); err == nil {
-					if !needs {
-						_ = e.markIconFit(r.ID, true)
-					} else if err := e.refitRebrandRecord(ctx, app, r.ID); err == nil {
-						out.IconFixed++
-					} else {
-						out.Skipped = append(out.Skipped, app.Name+" (full skin): icon resize deferred: "+err.Error())
-					}
-				}
-			}
-			// One-time runtime-icon migration: skins applied before
-			// embedded-icon patching existed still flip to the app's
-			// own artwork in the Dock while it runs.
-			if r.ExecIconCheck < ExecIconCheckVersion {
-				if changed, err := e.patchRebrandRuntimeIcon(ctx, app, r.ID); err == nil {
-					if changed {
-						out.IconFixed++
-					}
-				} else {
-					out.Skipped = append(out.Skipped, app.Name+" (full skin): running-icon swap deferred: "+err.Error())
-				}
-			}
-		case r.BeforePrint:
-			if _, err := e.Rebrand(ctx, app.ID, r.AssetID, r.Name); err != nil {
-				out.Skipped = append(out.Skipped, app.Name+" (full skin): "+err.Error())
-			} else {
-				out.IconFixed++
-			}
-		default:
-			out.Skipped = append(out.Skipped, app.Name+" (full skin): app changed since skinning (update?); open IconCraft to review")
-		}
-	}
+	// Internal full skins are not re-applied. RepairIdentities retires any
+	// that are still marked applied. Re-writing CFBundleName or the bundle
+	// icon and re-signing would hide the app from Sparkle and the App Store
+	// again after the vendor had just replaced it.
 	return out, nil
 }
 

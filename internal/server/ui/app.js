@@ -95,7 +95,7 @@ function subtitleFor(a){
  const parts=[];
  if(active(a)){if(a.renamed){parts.push(t('row.renamed'));if(iconChanged)parts.push(t('row.iconChanged'));}else parts.push(t('row.iconChanged'));}
  else parts.push(a.version?t('row.version',{version:a.version}):t('row.installed'));
- if(model.rebrands[a.bundleId])parts.push(t('row.fullSkin')+(model.rebrandRuntime[a.bundleId]==='own'?' '+t('row.ownIcon'):''));
+ if(model.rebrands[a.bundleId])parts.push(t('row.fullSkin'));
  if(model.vault[a.bundleId])parts.push(t('row.originalSaved'));
  return parts.join(SEP);
 }
@@ -272,14 +272,13 @@ function drawPicker(){
  }
  $('picker-grid').replaceChildren(frag);if(!frag.childNodes.length&&!$('picker-grid').children.length)$('picker-grid').append(node('p','row-note',t('picker.noMatches')));
 }
-async function pickChoice(action,update){if(busy)return;busy=true;$('picker').querySelectorAll('button').forEach(b=>b.disabled=true);render();try{const result=await action();if(!result.cancelled){update(result);$('picker').close();pickerApp=null;if(editApp){editIconMode='apply';disarmEdit();drawEdit();}else tell(t('picker.selected'));}}catch(e){dialogError('picker-error',e.message);}finally{busy=false;$('picker').querySelectorAll('button').forEach(b=>b.disabled=false);render();if(editApp)drawEdit();}}
+async function pickChoice(action,update){if(busy)return;busy=true;$('picker').querySelectorAll('button').forEach(b=>b.disabled=true);render();try{const result=await action();if(!result.cancelled){update(result);$('picker').close();pickerApp=null;if(editApp){editIconMode='apply';drawEdit();}else tell(t('picker.selected'));}}catch(e){dialogError('picker-error',e.message);}finally{busy=false;$('picker').querySelectorAll('button').forEach(b=>b.disabled=false);render();if(editApp)drawEdit();}}
 $('browse').addEventListener('click',()=>{if(!pickerApp)return;const a=pickerApp;pickChoice(()=>api('custom',{appId:a.id}),r=>{model.assets[r.asset.id]=r.asset;model.choices[a.bundleId]=r.asset.id;});});
-/* ---- Edit app: one panel for name, icon and the optional full skin ----
-   A single Save performs the steps in the order the engine needs: rename
-   the folder first (ids are path-derived), then either write the full skin
-   inside the bundle or set the Finder icon. Each step reports separately,
-   so a failure after a success is shown as exactly that. */
-let editIconMode='keep',editArmed=0,editViews=null;
+/* ---- Edit app: one panel for the IconCraft label and the Finder icon.
+   Save records the label, then sets the Finder icon. Neither step renames
+   the .app folder or edits the signed bundle. A failure after a success
+   is reported as exactly that. */
+let editIconMode='keep',editViews=null;
 function vaultText(sv){
  if(!sv)return t('edit.vaultNone');
  return t('edit.vaultSaved',{name:sv.appName});
@@ -291,9 +290,7 @@ function editState(){
  const name=$('name-input').value.trim();
  const nameChanged=!!name&&name!==a.name;
  const iconApply=editIconMode==='apply'&&!!asset;
- const full=$('edit-fullskin').checked&&!!asset;
- const fullAction=full&&(!skinned||nameChanged||iconApply);
- return {a,live,asset,skinned,name,nameChanged,iconApply,full,fullAction,any:nameChanged||(iconApply&&!full)||fullAction};
+ return {a,live,asset,skinned,name,nameChanged,iconApply,any:nameChanged||iconApply};
 }
 function live_(r){return live(r);}
 /* Donor assets are named '<App> icon' by the engine (English). Recover the
@@ -312,10 +309,10 @@ function drawEdit(){
  setImage(editViews.now,appIcon(a),t('row.currentIconAlt',{name:a.name}));
  $('edit-now-name').textContent=a.name;
  $('edit-now-sub').textContent=origName&&origName!==a.name?t('row.originally',{name:origName}):(a.version?t('row.version',{version:a.version}):t('row.installed'));
- const afterAsset=(s.iconApply||s.full)&&s.asset;
+ const afterAsset=s.iconApply&&s.asset;
  setImage(editViews.after,afterAsset?assetIcon(s.asset):appIcon(a),t('row.iconAlt',{name:s.name||a.name}),afterAsset?assetFallback(s.asset):'');
  $('edit-after-name').textContent=s.name||a.name;
- const parts=[];if(s.nameChanged)parts.push(t('edit.sumName'));if(s.iconApply&&!s.full)parts.push(t('edit.sumIcon'));if(s.fullAction)parts.push(t('edit.sumFull'));
+ const parts=[];if(s.nameChanged)parts.push(t('edit.sumName'));if(s.iconApply)parts.push(t('edit.sumIcon'));
  $('edit-after-sub').textContent=parts.length?parts.join(SEP):t('edit.sumNone');
  /* name */
  $('name-original').hidden=!(model.originals[a.craftId]?.product||a.equivalent);
@@ -326,38 +323,27 @@ function drawEdit(){
  $('edit-icon-apply-sub').textContent=s.asset?(s.live&&!model.choices[a.bundleId]?t('edit.iconApplied'):t('edit.iconFinder')):t('edit.noIconHint');
  keepRadio.checked=editIconMode!=='apply'||!s.asset;applyRadio.checked=editIconMode==='apply'&&!!s.asset;
  $('edit-radio-keep').classList.toggle('selected',keepRadio.checked);$('edit-radio-apply').classList.toggle('selected',applyRadio.checked);
- /* full skin */
- const fs=$('edit-fullskin');fs.disabled=!s.asset;if(!s.asset)fs.checked=false;
- $('fullskin-state').textContent=!s.asset?t('edit.fullSkinNeedsIcon'):s.skinned?(model.rebrandRuntime[a.bundleId]==='own'?t('rename.skinOwn',{name:s.skinned}):t('rename.skinApplied',{name:s.skinned})):'';
- $('fullskin-state').hidden=!$('fullskin-state').textContent;
  /* vault + actions */
  $('vault-state').textContent=vaultText(saved);
  const restorable=active(a)||!!s.skinned||!!model.choices[a.bundleId];
  $('name-restore').hidden=!restorable;$('name-restore').disabled=busy;
  const save=$('name-save');save.disabled=busy||!s.any;
- save.classList.toggle('armed',!!editArmed);
- save.textContent=editArmed?t('edit.confirmSkin',{name:s.name||a.name}):t('edit.save');
+ save.classList.remove('armed');
+ save.textContent=t('edit.save');
  $('edit-change-icon').disabled=busy;
 }
-function disarmEdit(){if(editArmed){clearTimeout(editArmed);editArmed=0;}}
-function openRename(a){if(busy)return;editApp=a;editArmed=0;const live=model.records.some(r=>r.appId===a.id&&live_(r));
+function openRename(a){if(busy)return;editApp=a;const live=model.records.some(r=>r.appId===a.id&&live_(r));
  editIconMode=chosen(a)&&(!live||!!model.choices[a.bundleId])?'apply':'keep';
- $('name-input').value=a.name;$('edit-fullskin').checked=!!model.rebrands[a.bundleId];dialogError('rename-error','');drawEdit();
+ $('name-input').value=a.name;dialogError('rename-error','');drawEdit();
  $('rename-dialog').showModal();$('rename-dialog').scrollTop=0;$('name-input').focus();$('name-input').select();}
-function closeRename(){if(!busy){disarmEdit();$('rename-dialog').close();editApp=null;}}
+function closeRename(){if(!busy){$('rename-dialog').close();editApp=null;}}
 async function saveEdit(){
  if(busy||!editApp)return;const s=editState();if(!s.any)return;const a=s.a;
- if(s.fullAction&&!editArmed){
-  /* Safety confirm for writing inside the app, folded into the one button:
-     a second click within five seconds performs it. */
-  editArmed=setTimeout(()=>{editArmed=0;drawEdit();},5000);drawEdit();return;
- }
- disarmEdit();busy=true;dialogError('rename-error','');drawEdit();render();
+ busy=true;dialogError('rename-error','');drawEdit();render();
  const done=[];let cur=a,failed='';
  try{
   if(s.nameChanged){const r=await api('rename',{appId:cur.id,name:s.name,confirmed:true});cur=r.app||cur;done.push(t('edit.stepName'));}
-  if(s.fullAction){await api('rebrand',{appId:cur.id,assetId:s.asset,name:s.name||cur.name,confirmed:true});done.push(t('edit.stepFull'));}
-  else if(s.iconApply){await api('apply',{appId:cur.id,assetId:s.asset,confirmed:true});rs(cur).revision++;done.push(t('edit.stepIcon'));}
+  if(s.iconApply){await api('apply',{appId:cur.id,assetId:s.asset,confirmed:true});rs(cur).revision++;done.push(t('edit.stepIcon'));}
  }catch(e){failed=e.message;}
  await rescan();busy=false;
  const fresh=model.apps.find(x=>x.bundleId===a.bundleId&&(x.id===cur.id||x.path===cur.path))||model.apps.find(x=>x.bundleId===a.bundleId);
@@ -368,16 +354,15 @@ async function saveEdit(){
  $('rename-dialog').close();editApp=null;
  tell(t('edit.saved',{name:fresh?fresh.name:(s.name||a.name),steps:done.join(SEP)}));render();
 }
-async function restoreFromEdit(){if(busy||!editApp)return;const a=editApp;disarmEdit();$('rename-dialog').close();editApp=null;await restoreOne(a);}
-$('edit-fullskin').addEventListener('change',()=>{disarmEdit();drawEdit();});
-$('edit-icon-keep').addEventListener('change',()=>{editIconMode='keep';disarmEdit();drawEdit();});
-$('edit-icon-apply').addEventListener('change',()=>{editIconMode='apply';disarmEdit();drawEdit();});
-$('name-input').addEventListener('input',()=>{disarmEdit();drawEdit();});
+async function restoreFromEdit(){if(busy||!editApp)return;const a=editApp;$('rename-dialog').close();editApp=null;await restoreOne(a);}
+$('edit-icon-keep').addEventListener('change',()=>{editIconMode='keep';drawEdit();});
+$('edit-icon-apply').addEventListener('change',()=>{editIconMode='apply';drawEdit();});
+$('name-input').addEventListener('input',drawEdit);
 $('edit-change-icon').addEventListener('click',()=>{if(editApp)openPicker(editApp);});
-$('name-original').addEventListener('click',()=>{if(editApp){$('name-input').value=model.originals[editApp.craftId]?.product||editApp.equivalent.replace(' (suggested)','');disarmEdit();drawEdit();}});
+$('name-original').addEventListener('click',()=>{if(editApp){$('name-input').value=model.originals[editApp.craftId]?.product||editApp.equivalent.replace(' (suggested)','');drawEdit();}});
 $('name-save').addEventListener('click',saveEdit);$('name-restore').addEventListener('click',restoreFromEdit);$('name-input').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveEdit();}});
 $('rename-close').addEventListener('click',closeRename);$('rename-cancel').addEventListener('click',closeRename);$('picker-close').addEventListener('click',closePicker);$('picker-search').addEventListener('input',drawPicker);
-$('rename-dialog').addEventListener('close',()=>{disarmEdit();editApp=null;});
+$('rename-dialog').addEventListener('close',()=>{editApp=null;});
 for(const id of ['picker','rename-dialog']){$(id).addEventListener('cancel',e=>{if(busy)e.preventDefault();});$(id).addEventListener('click',e=>{if(e.target===$(id)&&!busy){const r=$(id).getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$(id).close();}});}
 async function openSupport(target){try{const r=await api('support',{target});if(!r.opened&&r.url)window.open(r.url,'_blank');else if(r.opened)tell(target==='paypal'?t('support.openingPaypal'):t('support.openingGithub'));}catch(e){tell((target==='paypal'?t('support.paypalFallback'):t('support.githubFallback')),true);}}
 $('keepalive').addEventListener('click',async()=>{if(busy)return;busy=true;render();try{const r=await api('keepalive',{enabled:!model.keepAlive});model.keepAlive=!!r.enabled;tell(model.keepAlive?t('keepalive.on'):t('keepalive.off'));}catch(e){tell(e.message,true);}finally{busy=false;render();}});

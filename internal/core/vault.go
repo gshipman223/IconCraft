@@ -300,7 +300,7 @@ func (e *Engine) RestoreFromVault(ctx context.Context, appID string) (VaultResto
 				failures = append(failures, "full skin: "+err.Error())
 			} else {
 				rep.Restored++
-				rep.Steps = append(rep.Steps, "app had changed, so the saved original name and icon were applied onto the current version")
+				rep.Steps = append(rep.Steps, "app had changed, so its signed copy was left untouched and the full skin was dropped")
 			}
 		} else {
 			failures = append(failures, "full skin: "+err.Error())
@@ -437,34 +437,29 @@ func (e *Engine) restoreFinderFromVault(ctx context.Context, app App) error {
 	return nil
 }
 
-// restoreRebrandOntoCurrent applies the vault's saved original internal name
-// and the backed-up original .icns onto the app as it exists now (it updated
-// or was replaced since the full skin), then re-signs. The backed-up
-// Info.plist is deliberately NOT forced onto a changed app — only the name
-// and icon, which are version-independent.
+// restoreRebrandOntoCurrent closes a full-skin record after the app itself
+// has changed (an updater replaced the bundle). It does not write the saved
+// name or icon into that new bundle: doing so would replace the publisher
+// signature the update just restored. The signed identity on disk is already
+// the publisher's.
 func (e *Engine) restoreRebrandOntoCurrent(ctx context.Context, target App) error {
-	t, err := e.tools()
-	if err != nil {
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 	e.scanMu.Lock()
 	defer e.scanMu.Unlock()
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	// Operate only on the exact app the user selected. The bundle ID finds
-	// the journal entry, but cloned apps can share a bundle ID — resolving
-	// the target by bundle alone could rebuild the wrong app.
 	app, ok := e.Apps[target.ID]
 	if !ok || app.Path != target.Path {
 		return errors.New("application not found; rescan")
 	}
-	bundle := app.BundleID
 	if err := SafeApp(app.Path); err != nil {
 		return err
 	}
 	idx := -1
 	for i := len(e.State.Rebrands) - 1; i >= 0; i-- {
-		if e.State.Rebrands[i].BundleID == bundle && e.State.Rebrands[i].Status == "applied" {
+		if e.State.Rebrands[i].BundleID == app.BundleID && e.State.Rebrands[i].Status == "applied" {
 			idx = i
 			break
 		}
@@ -472,81 +467,8 @@ func (e *Engine) restoreRebrandOntoCurrent(ctx context.Context, target App) erro
 	if idx < 0 {
 		return errors.New("this app has no full skin to restore")
 	}
-	rec := e.State.Rebrands[idx]
-	if runner, ok := e.Native.(interface {
-		Running(context.Context, string) (bool, error)
-	}); ok {
-		running, er := runner.Running(ctx, app.Path)
-		if er != nil {
-			return er
-		}
-		if running {
-			return errors.New("quit this application before restoring its original identity")
-		}
-	}
-	dir := e.rebrandDir(rec.ID)
-	originalName := rec.OriginalName
-	if originalName == "" {
-		if b, er := ReadLimited(filepath.Join(dir, "Info.plist"), 4<<20); er == nil {
-			originalName = plistNameFromBytes(b)
-		}
-	}
-	if originalName == "" {
-		if v, ok := e.State.Vault[bundle]; ok {
-			originalName = v.InternalName
-		}
-	}
-	if originalName == "" {
-		originalName = rec.App.Name
-	}
-	iconPath := filepath.Join(app.Path, "Contents/Resources", rec.IconFile)
-	if rec.IconExisted {
-		iconBytes, err := ReadLimited(filepath.Join(dir, "icon.icns"), MaxIconBytes)
-		if err != nil {
-			return fmt.Errorf("full-skin icon backup is missing: %w", err)
-		}
-		if rec.BeforeIconHash != "" && hash(iconBytes) != rec.BeforeIconHash {
-			return errors.New("saved original icon failed its checksum; not applied")
-		}
-		if err := AtomicWrite(iconPath, iconBytes, 0644); err != nil {
-			return err
-		}
-	} else {
-		_ = os.Remove(iconPath)
-	}
-	if err := t.SetBundleName(ctx, app.Path, originalName); err != nil {
-		return err
-	}
-	if err := t.Resign(ctx, app.Path); err != nil {
-		return err
-	}
-	if status, er := e.Native.Signature(ctx, app.Path); er != nil || status != "valid" {
-		e.State.Rebrands[idx].Status = "rollback-required"
-		_ = e.save()
-		return errors.New("restored app did not pass signature verification")
-	}
-	if rec.IconExisted {
-		b, er := ReadLimited(iconPath, MaxIconBytes)
-		if er != nil || (rec.BeforeIconHash != "" && hash(b) != rec.BeforeIconHash) {
-			e.State.Rebrands[idx].Status = "rollback-required"
-			_ = e.save()
-			return errors.New("restored icon did not match the saved original")
-		}
-	}
 	e.State.Rebrands[idx].Status = "restored"
-	if v, ok := e.State.Vault[bundle]; ok && v.InternalName == "" {
-		v.InternalName = originalName
-		e.State.Vault[bundle] = v
-	}
-	if err := e.save(); err != nil {
-		return err
-	}
-	if notifier, ok := e.Native.(interface {
-		Notify(context.Context, string) error
-	}); ok {
-		_ = notifier.Notify(ctx, app.Path)
-	}
-	return nil
+	return e.save()
 }
 
 // renameFolderToSaved renames the selected app's folder back to the saved

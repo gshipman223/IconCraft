@@ -40,7 +40,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/rename-vault.png" width="560" alt="Renaming an app: the Originals Vault shows the saved original name, and the Full skin section explains identity while the app is running">
+  <img src="docs/rename-vault.png" width="560" alt="Editing an app: the Originals Vault shows the saved original name, and the panel explains which names macOS still shows">
 </p>
 
 ---
@@ -88,10 +88,10 @@ No accounts, no telemetry, no diagnostics maze. One screen:
 | **Your list, your order** | Sort the app list A–Z, Z–A or customised-first, and group by status (customised / original ready / none found) or by folder. Your choice is remembered between launches. |
 | **Setup & Permissions** | First launch shows live Ready / Granted — tested / Blocked / Not checked statuses. App Management is proven with the same harmless bundle-writability test used before a real change — never by pretending that opening Settings is a grant. Full Disk Access, Accessibility and Screen Recording are explicitly not requested. |
 | **Native icon scale** | Full-bleed publisher/App Store artwork is placed on the standard macOS icon grid (an 824px body centred in the 1024px canvas) when a Finder or full skin is applied, so skinned apps sit at the same visual size as native icons in Finder, the Dock and Launchpad. Artwork that already has proper macOS padding is never shrunk twice, and existing skins are refitted in place by the keeper. |
-| **Originals Vault** | Before anything changes, your app's original name (folder + internal) and icon are saved under its stable bundle ID. Restore rebuilds from the vault — even after the app updates, moves, or is renamed again. |
-| **Full skin (running identity)** | Optionally write the name + icon *inside* a cloned/third-party app (re-signed, fully backed up and reversible) so it keeps your identity in the Dock/menu bar while running. Apps that set their own Dock icon at launch from artwork embedded in the executable (e.g. Rust/eframe clones) get that embedded copy swapped in place too — same byte length, originals backed up — and IconCraft says so plainly when an app's running icon can't be replaced safely. Bundle ID and links never change. |
-| **Skins that stick** | Third-party apps/updaters love reverting Finder icons and names on launch. Turn on **Keep skins applied** and a tiny background agent re-applies yours automatically — nothing inside any app is ever edited. |
-| **Edit in one panel** | The pencil opens a single editor: name, icon choice, an optional full skin, a live before/after preview, one **Save changes** that performs the steps in the right order (and says exactly which step failed if one does), and **Restore original**. Renames happen in Finder (the outer `.app`, exactly like Finder does); running, protected, or colliding apps are refused. |
+| **Originals Vault** | Before anything changes, your app's original name and icon are saved under its stable bundle ID. Restore puts the IconCraft label and Finder icon back — even after the app updates. |
+| **Names launchers still recognise** | A custom name is a label inside IconCraft. The `.app` path, bundle ID, `Info.plist` and code signature stay as the publisher shipped them, so ArtCraft-style launchers, Sparkle, the Mac App Store and Homebrew casks still see the installed app and update it in place. Finder, Launchpad, the Dock and the menu bar keep the publisher's name: macOS has no separate display-name store that leaves both the path and the signed bundle untouched. |
+| **Skins that stick** | An update that replaces the bundle wipes the Finder custom icon. Turn on **Keep skins applied** and a tiny background agent puts that icon back and keeps your label. It does not rename the folder or edit the app. |
+| **Edit in one panel** | The pencil opens a single editor: the IconCraft label, the Finder icon, a live before/after preview, one **Save changes**, and **Restore original**. Saving does not rename the `.app` folder. |
 | **Fast** | Cached inventory paints instantly; scans, thumbnails and original-icon checks continue in the background. Content-addressed previews, single-flight native calls. |
 | **Native & private** | Go backend on an authenticated loopback port + a native AppKit/WebKit window. Nothing leaves your Mac except publisher icon lookups. No analytics. Ever. |
 | **Looks the part** | Modern dark-first UI with System / Light / Dark, following your Mac live. |
@@ -133,10 +133,13 @@ Then open IconCraft and complete **Finish setup**:
    **Replace selected**.
 3. Want a different look? Click the **grid icon** to borrow any installed
    app's icon, or *Choose image file…* for your own PNG/ICNS.
-4. Click the **pencil** to edit the app in one panel: type a new name, pick
-   the icon, optionally switch on the full skin (name and icon inside the
-   app, for the Dock and menu bar while it runs), preview the result and
-   **Save changes** — or **Restore original** from the same panel.
+4. Click the **pencil** to edit the app in one panel: type the name
+   IconCraft should show, pick the Finder icon, preview the result and
+   **Save changes** — or **Restore original** from the same panel. The
+   `.app` folder, bundle ID and signature stay put, so the app's own
+   launcher or updater still finds it and updates that same copy. After
+   the update, IconCraft puts the Finder icon back. Finder, the Dock,
+   Launchpad and the menu bar keep the publisher's name.
 5. Changed your mind? **Restore** (per app) or **Restore all** puts back the
    exact original icon and name.
 
@@ -169,7 +172,15 @@ property; IconCraft's code is MIT (see [License](#-license)).
 - Symlinked bundles, protected system paths, invalid/active-SVG artwork,
   oversized responses and non-publisher URL redirects are all rejected.
 - Only apps you select are modified. No global icon-cache purges, no binary
-  patching, no security-setting changes.
+  patching, no security-setting changes. A custom name does not rename the
+  `.app` folder or edit `Info.plist`. A custom icon is a Finder icon
+  (`NSWorkspace` `setIcon`), outside the signed `Contents` directory.
+- Apps an older IconCraft renamed or re-signed are repaired on launch:
+  a renamed folder is moved back when the original path is free, and a
+  full skin still matching its backup is undone. A second copy that is
+  already beside the original is left in place and reported, not deleted.
+  The publisher's Developer ID signature cannot be rebuilt; the next
+  vendor update replaces an ad-hoc signature with the signed build.
 
 ## 🏗️ Building from source
 

@@ -4,6 +4,11 @@ All notable changes to IconCraft. Builds are Universal (Apple Silicon +
 Intel) for macOS 13 or newer. From 0.13.1, release builds are signed with
 the maintainer's Developer ID and notarised by Apple.
 
+## [Unreleased]
+
+- **A custom name or icon no longer hides an installed app from its launcher or updater.** IconCraft used to rename the `.app` folder (and, for a full skin, edit `CFBundleName` / `CFBundleDisplayName`, replace the bundle icon and ad-hoc re-sign). ArtCraft Launcher's macOS detector only accepts a real directory at `/Applications/<OfficialName>.app` or `~/Applications/<OfficialName>.app` whose `CFBundleIdentifier` matches, so a renamed PhotoCraft was "not installed" and the launcher copied a second app beside it. Sparkle and the Mac App Store stop recognising an app whose Developer ID signature was replaced. A custom name is now a label in IconCraft. The path, bundle ID, `Info.plist` and signature are left alone. The icon stays a Finder custom icon. After an update replaces the bundle, the keeper puts that Finder icon back; the label was never stored in the bundle, so it remains. Finder, Launchpad, the Dock and the menu bar keep the publisher's name, and a running app keeps its own Dock icon — macOS has no supported override that leaves both the path and the signed bundle untouched.
+- **Apps already renamed or re-signed are repaired.** On open, and again from the keeper, a renamed bundle is moved back to the folder its launcher expects when that path is free, and the custom name is kept as a label. If both the renamed copy and the original path exist, neither is deleted. A full skin whose files are still the ones IconCraft wrote is restored from its backup and ad-hoc re-signed so the app can still launch; the publisher signature cannot be reconstructed. A bundle an updater has already replaced is not written to. The custom icon is then applied with the Finder mechanism.
+
 ## [0.14.1] — 2026-11-01 · App Management is not every write failure
 
 - **App Management, ownership, and a read-only disk are different results.**
