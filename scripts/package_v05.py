@@ -6,7 +6,7 @@ import hashlib, json, os, plistlib, re, shutil, struct, subprocess, zipfile
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / 'build'
 OUT = Path(os.environ.get('ICONCRAFT_OUTPUT_DIR', str(BUILD / 'packages')))
-VERSION = '0.14.1'
+VERSION = '0.14.2'
 # 'developer-id' when scripts/release-macos.sh packaged a signed + notarized
 # build; default stays honest for CI/ad-hoc builds.
 DIST = os.environ.get('ICONCRAFT_DISTRIBUTION', 'ad-hoc')
@@ -33,7 +33,7 @@ magic, n = struct.unpack_from('>II', raw)
 assert magic == 0xcafebabe and n == 2
 info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
 assert info['CFBundleShortVersionString'] == VERSION
-assert info['CFBundleVersion'] == '25'
+assert info['CFBundleVersion'] == '30'
 assert info['LSMinimumSystemVersion'] == '13.0'
 subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
 

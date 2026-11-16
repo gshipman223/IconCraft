@@ -16,8 +16,8 @@ from pathlib import Path
 import hashlib, json, os, plistlib, shutil, struct, subprocess
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'build'
-VERSION='0.14.1'
-BUNDLE_VERSION='25'
+VERSION='0.14.2'
+BUNDLE_VERSION='30'
 MIN_MACOS='13.0'
 MINOS=(13<<16)|(0<<8)|0
 LC_BUILD_VERSION=0x32

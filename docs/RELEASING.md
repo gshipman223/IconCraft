@@ -31,7 +31,7 @@ cross-compile the two Go slices and cannot compile that helper.
    (VERSION + CFBundleVersion), `scripts/package_v05.py`,
    `scripts/smoke_host.py`, `internal/server/ui/index.html`,
    `internal/server/ui/app.js`, `README.md`, `website/index.html`, plus a
-   `CHANGELOG.md` entry. Current bundle version for 0.14.1 is `25`.
+   `CHANGELOG.md` entry. Current bundle version for 0.14.2 is `30`.
 2. `git commit`, `git tag vX.Y.Z`, `git push origin main vX.Y.Z`.
    CI runs the full validation suite and creates the GitHub release with
    ad-hoc assets.
