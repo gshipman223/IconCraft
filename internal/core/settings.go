@@ -36,6 +36,10 @@ type Settings struct {
 	// the icon inside the bundle so the Dock and Cmd-Tab change too).
 	// Empty means finder. Full replaces the publisher signature.
 	IconMode string `json:"iconMode,omitempty"`
+	// DocumentIcons, with Full icon, also replaces the document icons
+	// this app shows for files it opens. It does nothing until Full
+	// icon is on. A file opened by a different app keeps that app's icon.
+	DocumentIcons bool `json:"documentIcons,omitempty"`
 
 	// Update-check cache, managed by RecordUpdateCheck (not user input).
 	LastUpdateCheck string `json:"lastUpdateCheck,omitempty"`

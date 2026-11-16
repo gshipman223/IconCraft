@@ -42,6 +42,8 @@ type App struct {
 	IconMode     string `json:"iconMode,omitempty"`   // effective: finder | full
 	IconChoice   string `json:"iconChoice,omitempty"` // per-app override: "" | finder | full
 	Paused       bool   `json:"paused,omitempty"`
+	DocIcons     bool   `json:"docIcons,omitempty"`  // effective: also replace document icons
+	DocChoice    string `json:"docChoice,omitempty"` // per-app override: "" | on | off
 	ID           string `json:"id"`
 	Name         string `json:"name"`
 	Path         string `json:"path"`
@@ -88,6 +90,16 @@ type Record struct {
 	Before      Snapshot  `json:"before"`
 	After       *Snapshot `json:"after,omitempty"`
 }
+
+// DocIconFile is one document icon replaced inside Contents/Resources.
+// File is the basename. The original bytes are doc-<index>.icns in the
+// rebrand backup directory, in this same order.
+type DocIconFile struct {
+	File       string `json:"file"`
+	BeforeHash string `json:"beforeHash,omitempty"`
+	AfterHash  string `json:"afterHash,omitempty"`
+}
+
 type Preference struct {
 	BundleID string `json:"bundleId"`
 	CraftID  string `json:"craftId,omitempty"`
@@ -123,6 +135,13 @@ type RebrandRecord struct {
 	// the keeper checks once and records the outcome).
 	RuntimeIcon string          `json:"runtimeIcon,omitempty"`
 	ExecPatches []ExecIconPatch `json:"execPatches,omitempty"`
+	// DocIcons are the document-type .icns files Full icon replaced.
+	// Each file is a basename inside Contents/Resources. The backups
+	// live beside the app-icon backup. Info.plist is not edited.
+	DocIcons []DocIconFile `json:"docIcons,omitempty"`
+	// DocNote explains why no document icon file was replaced. Empty
+	// when files were replaced, or when document icons were not requested.
+	DocNote string `json:"docNote,omitempty"`
 	// Kind is "icon" for a Full icon (bundle icon only, Info.plist
 	// unchanged). Empty is a legacy full skin that also renamed the
 	// bundle from inside.
@@ -217,6 +236,7 @@ type State struct {
 	SettingsSet   bool                     `json:"settingsSet,omitempty"`
 	NameModes     map[string]string        `json:"nameModes,omitempty"`     // bundle id → safe | full
 	IconModes     map[string]string        `json:"iconModes,omitempty"`     // bundle id → finder | full
+	DocIconModes  map[string]string        `json:"docIconModes,omitempty"`  // bundle id → on | off
 	PausedBundles map[string]bool          `json:"pausedBundles,omitempty"` // per-app pause for updates
 	Preferences   map[string]Preference    `json:"preferences"`
 	ExtraRoots    []string                 `json:"extraRoots"`

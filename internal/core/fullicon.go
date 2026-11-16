@@ -112,8 +112,12 @@ func (e *Engine) ApplyBundleIcon(ctx context.Context, appID, assetID string) (Re
 	if err != nil {
 		return rec, err
 	}
-	if _, er := e.Apply(ctx, appID, assetID); er != nil {
-		return rec, fmt.Errorf("running icon applied, but the Finder icon was not: %w", er)
+	_, applyErr := e.Apply(ctx, appID, assetID)
+	// Touch, re-register and reload Finder after the tile is set, so the
+	// app icon and any document icons show without a reboot.
+	e.refreshBundleIcons(ctx, rec.App.Path)
+	if applyErr != nil {
+		return rec, fmt.Errorf("running icon applied, but the Finder icon was not: %w", applyErr)
 	}
 	return rec, nil
 }
@@ -191,6 +195,12 @@ func (e *Engine) writeBundleIcon(ctx context.Context, appID, assetID string) (Re
 	}
 	iconBytes, iconErr := ReadLimited(iconPath, MaxIconBytes)
 	iconExisted := iconErr == nil
+	var docFiles []DocIconFile
+	var docOriginals [][]byte
+	docNote := ""
+	if e.documentIconsLocked(a.BundleID) {
+		docFiles, docOriginals, docNote = e.planDocumentIcons(ctx, a, plistBytes, iconRel)
+	}
 	before, err := Fingerprint(a)
 	if err != nil {
 		return RebrandRecord{}, err
@@ -200,6 +210,7 @@ func (e *Engine) writeBundleIcon(ctx context.Context, appID, assetID string) (Re
 		ID: newID(), BundleID: a.BundleID, App: a, AssetID: assetID, Name: a.Name,
 		IconFile: iconRel, IconExisted: iconExisted, BeforePrint: before,
 		Status: "prepared", IconFit: IconFitVersion, Kind: RebrandKindIcon, Created: now(),
+		DocIcons: docFiles, DocNote: docNote,
 	}
 	if iconExisted {
 		rec.BeforeIconHash = hash(iconBytes)
@@ -213,6 +224,11 @@ func (e *Engine) writeBundleIcon(ctx context.Context, appID, assetID string) (Re
 	}
 	if iconExisted {
 		if err = AtomicWrite(filepath.Join(dir, "icon.icns"), iconBytes, 0600); err != nil {
+			return RebrandRecord{}, err
+		}
+	}
+	for i, b := range docOriginals {
+		if err = AtomicWrite(filepath.Join(dir, fmt.Sprintf("doc-%d.icns", i)), b, 0600); err != nil {
 			return RebrandRecord{}, err
 		}
 	}
@@ -242,9 +258,14 @@ func (e *Engine) writeBundleIcon(ctx context.Context, appID, assetID string) (Re
 		}
 	}
 	exePatched := false
+	docsWritten := 0
 	rollback := func(cause error) (RebrandRecord, error) {
 		if exePatched {
 			_ = restoreExecIconPatches(exePath, patches, dir)
+		}
+		for i := 0; i < docsWritten && i < len(docOriginals); i++ {
+			p := filepath.Join(a.Path, "Contents/Resources", docFiles[i].File)
+			_ = AtomicWrite(p, docOriginals[i], 0644)
 		}
 		if iconExisted {
 			_ = AtomicWrite(iconPath, iconBytes, 0644)
@@ -261,6 +282,21 @@ func (e *Engine) writeBundleIcon(ctx context.Context, appID, assetID string) (Re
 	}
 	if err = AtomicWrite(iconPath, icns, 0644); err != nil {
 		return rollback(fmt.Errorf("could not replace the bundle icon: %w", err))
+	}
+	if len(docFiles) > 0 {
+		var docICNS []byte
+		docICNS, err = makeDocumentICNS(pngBytes)
+		if err != nil {
+			return rollback(err)
+		}
+		for i, d := range docFiles {
+			p := filepath.Join(a.Path, "Contents/Resources", d.File)
+			if err = AtomicWrite(p, docICNS, 0644); err != nil {
+				return rollback(fmt.Errorf("could not replace document icon %s: %w", d.File, err))
+			}
+			docsWritten = i + 1
+			e.State.Rebrands[idx].DocIcons[i].AfterHash = hash(docICNS)
+		}
 	}
 	if len(patches) > 0 {
 		for i, orig := range originals {
@@ -359,6 +395,9 @@ func (e *Engine) holdOneBundleIcon(ctx context.Context, rec RebrandRecord) (stri
 		}
 		return "", e.markIconHeld(rec.ID, true)
 	case rec.BeforeIconHash != "" && hash(iconNow) == rec.BeforeIconHash:
+		if err = restoreDocIconFiles(app, rec, e.rebrandDir(rec.ID), true); err != nil {
+			return app.Name + ": " + err.Error(), false
+		}
 		if t, er := e.tools(); er == nil {
 			_ = t.Resign(ctx, app.Path)
 		}
@@ -404,6 +443,9 @@ func (e *Engine) restoreHeldIconFiles(ctx context.Context, app App, rec RebrandR
 		}
 	} else if rec.IconFile != "" {
 		_ = os.Remove(iconPath)
+	}
+	if err = restoreDocIconFiles(app, rec, dir, false); err != nil {
+		return err
 	}
 	if err = t.Resign(ctx, app.Path); err != nil {
 		return err
@@ -572,6 +614,22 @@ func (e *Engine) SyncIconModes(ctx context.Context, onlyBundle string) NamePolic
 		// changing that fingerprint; the icon hash is what says the
 		// running tile is still ours.
 		if rec.AfterPrint != "" && fp == rec.AfterPrint && iconStillOurs(app, rec) {
+			wantDocs := e.DocumentIcons(app.BundleID)
+			switch {
+			case wantDocs && !docIconsApplied(app, rec):
+				changed, er := e.applyDocumentIcons(ctx, app, rec)
+				if er != nil {
+					out.Notes = append(out.Notes, app.Name+": "+er.Error())
+				} else if changed {
+					out.Icons++
+				}
+			case !wantDocs && docIconsStillCustom(app, rec):
+				if er := e.restoreDocumentIconsOnly(ctx, app, rec); er != nil {
+					out.Notes = append(out.Notes, app.Name+": "+er.Error())
+				} else {
+					out.Icons++
+				}
+			}
 			continue
 		}
 		asset := rec.AssetID

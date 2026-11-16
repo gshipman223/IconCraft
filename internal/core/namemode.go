@@ -314,6 +314,12 @@ func (e *Engine) ContinuePause(ctx context.Context, onlyBundle string) NamePolic
 			out.Icons++
 		}
 	}
+	// Finder and the Dock reload after the original files and the
+	// original Finder tile are both back. Already-held apps are not
+	// refreshed again, so the keeper does not reload Finder on every pass.
+	if iconsHeld.Icons > 0 {
+		e.refreshHeldBundles(ctx, onlyBundle)
+	}
 	return out
 }
 

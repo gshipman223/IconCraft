@@ -28,6 +28,7 @@ type fakeNative struct {
 	badSignature     bool
 	changeExecutable bool
 	iconFile         string
+	refreshes        int
 }
 
 func (n *fakeNative) WriteProbe(string) error { return n.probeErr }
@@ -49,6 +50,10 @@ func (n *fakeNative) SetBundleName(_ context.Context, p, name string) error {
 	return nil
 }
 func (n *fakeNative) Resign(_ context.Context, _ string) error { n.resigns++; return nil }
+func (n *fakeNative) RefreshIconCache(context.Context, []string) error {
+	n.refreshes++
+	return nil
+}
 func (n *fakeNative) BundleName(_ context.Context, p string) (string, error) {
 	if name, ok := n.bundleNames[p]; ok {
 		return name, nil

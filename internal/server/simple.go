@@ -183,6 +183,23 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 		policy := s.Engine.SyncIconModes(ctx, app.BundleID)
 		respond(w, 200, map[string]any{"app": app, "notes": policy.Notes})
 		return true
+	case "api/doc-icons":
+		var body struct {
+			AppID string `json:"appId"`
+			Mode  string `json:"mode"`
+		}
+		if err := readJSON(w, r, &body); err != nil {
+			fail(w, err)
+			return true
+		}
+		app, err := s.Engine.SetAppDocIcons(body.AppID, body.Mode)
+		if err != nil {
+			fail(w, err)
+			return true
+		}
+		policy := s.Engine.SyncIconModes(ctx, app.BundleID)
+		respond(w, 200, map[string]any{"app": app, "notes": policy.Notes})
+		return true
 	case "api/pause-app":
 		var b struct {
 			AppID  string `json:"appId"`

@@ -92,7 +92,8 @@ No accounts, no telemetry, no diagnostics maze. One screen:
 | **Names launchers still recognise** | The default, **Icon only (safe)**, keeps a custom name as a label inside IconCraft. The `.app` path, bundle ID, `Info.plist` and code signature stay as the publisher shipped them, so ArtCraft-style launchers, Sparkle, the Mac App Store and Homebrew casks still see the installed app and update it in place. Finder, Launchpad, the Dock and the menu bar keep the publisher's name: macOS has no separate display-name store that leaves both the path and the signed bundle untouched. |
 | **Full rename, when you ask for it** | Settings → **App names** → **Full rename** renames the `.app` folder, so Finder, the Dock and Launchpad show your name. The signed files are still not edited. Launchers that look up the publisher's folder name can stop seeing the app and install a second copy — IconCraft asks you to confirm before turning this on. Each app can override the choice. Switching back to Icon only puts the folder back when that path is free and keeps your name as a label. A second copy is never deleted. |
 | **Pause for updates** | Before updating through an app's own launcher, turn on **Pause for updates**. IconCraft puts every full-renamed app back at its original name and folder, puts a Full icon's original icon file back when that is safe, restores the original Finder icon, and stops the background keeper. The window and the menu bar say **Paused for updates: original names and icons restored**. The publisher signature is not reconstructed. Turn it off afterwards and the custom names and icons come back, matched by bundle ID, including on a bundle the updater replaced. One app can be paused on its own. The choice is saved before any folder moves, so quitting halfway through stays paused. |
-| **Full icon, when you ask for it** | The Dock and Cmd-Tab show a Finder icon only while the app is closed. While it is running they show the icon inside the app. That is true in Icon only and in Full rename: moving the folder does not change the running icon, and older IconCraft versions had the same limit. Settings → **Running icons** → **Full icon** replaces that internal icon and ad-hoc re-signs, in either name mode. The path, bundle ID and `Info.plist` stay put. The publisher signature cannot be put back, so Sparkle, the App Store and Gatekeeper may stop treating the app as the publisher's. IconCraft asks you to confirm. Pause for updates puts the original icon file back. Some apps draw their own icon at launch, and an asset-catalog icon cannot be replaced. Quit the app first; the Dock updates the next time it opens. |
+| **Full icon, when you ask for it** | The Dock and Cmd-Tab show a Finder icon only while the app is closed. While it is running they show the icon inside the app. That is true in Icon only and in Full rename: moving the folder does not change the running icon, and older IconCraft versions had the same limit. Settings → **Running icons** → **Full icon** replaces that internal icon and ad-hoc re-signs, in either name mode. The path, bundle ID and `Info.plist` stay put. Finder and the Dock reload once so the icon in Finder updates without a restart. The publisher signature cannot be put back, so Sparkle, the App Store and Gatekeeper may stop treating the app as the publisher's. IconCraft asks you to confirm. Pause for updates puts the original icon file back. Some apps draw their own icon at launch, and an asset-catalog icon cannot be replaced. Quit the app first; the Dock updates the next time it opens. |
+| **Document icons, when you ask for them** | Finder, Mail and open/save panels show a document using the icon of the app that opens it. When that app is the one you customised, the icon comes from that app's document icon files. **Also change document icons**, under Full icon, draws a page with your icon on it and replaces those `.icns` files. IconCraft then re-registers the app, clears the current user's IconServices cache, and reloads Finder, the Dock and the icon service. Mail and any other app that is already open keep the old icon until you quit that app and open it again. A PDF that still opens in Preview keeps Preview's icon. A document icon that lives only in an asset catalog cannot be replaced. Pause for updates puts the original document icon files back. `Info.plist` is not edited. |
 | **Skins that stick** | An update that replaces the bundle wipes the Finder custom icon. Turn on **Keep skins applied** and a tiny background agent puts that icon back. In Icon only mode it also keeps your label and does not rename the folder. In Full rename mode it puts the custom folder name back as well, unless Pause for updates is on. |
 | **Edit in one panel** | The pencil opens a single editor: the name, the Finder icon, this app's name mode, this app's icon mode, a pause switch, a live before/after preview, one **Save changes**, and **Restore original**. In Icon only mode, saving does not rename the `.app` folder. Full icon is off unless you turn it on. |
 | **Fast** | Cached inventory paints instantly; scans, thumbnails and original-icon checks continue in the background. Content-addressed previews, single-flight native calls. |
@@ -156,7 +157,14 @@ Then open IconCraft and complete **Finish setup**:
    works in Icon only and in Full rename. It replaces the icon inside
    the app and removes the publisher signature. Quit the app and open
    it again. Pause for updates puts the original icon file back first
-   if you are about to update.
+   if you are about to update. Documents that open in this app, such as
+   a PDF whose default app is the one you customised, keep the app's old
+   document icon until you also turn on **Also change document icons**.
+   Finder, the Dock and the icon cache reload once. Quit and reopen
+   Mail, and any other app that is already open, to see the new icon
+   on attachments and in open/save panels. A PDF that still opens in
+   Preview is unchanged, and an asset-catalog document icon cannot be
+   replaced.
 7. Changed your mind? **Restore** (per app) or **Restore all** puts back the
    exact original icon and name. Switching Full rename back to Icon only
    also puts the folder back where the launcher looks.
@@ -195,12 +203,14 @@ property; IconCraft's code is MIT (see [License](#-license)).
   Full rename, which you turn on explicitly, renames only the outer
   folder and still does not edit `Info.plist` or re-sign. A custom icon
   is a Finder icon (`NSWorkspace` `setIcon`), outside the signed
-  `Contents` directory, unless you turn on Full icon. Full icon replaces
+  `Contents` directory, unless you turn on Full icon.   Full icon replaces
   the bundle `.icns` (and a matching embedded icon, when one is found)
-  and ad-hoc re-signs; it does not edit `Info.plist`. There is no
-  supported way to change another app's running Dock icon without that
-  edit. Pause for updates puts a full-renamed folder back, holds the
-  Finder icon, and puts a Full icon's original file back; it does not
+  and ad-hoc re-signs; it does not edit `Info.plist`. Also change
+  document icons replaces the document `.icns` files the same way.
+  There is no supported way to change another app's running Dock icon
+  without replacing the icon inside the app. Pause for updates puts a
+  full-renamed folder back, holds the Finder icon, and puts a Full
+  icon's original icon file and document icons back; it does not
   delete a second copy or rebuild the publisher signature.
 - Apps an older IconCraft renamed or re-signed are repaired on launch:
   a renamed folder is moved back when the original path is free, unless

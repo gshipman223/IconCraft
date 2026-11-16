@@ -214,6 +214,21 @@ func (m *Mac) BundleIconFile(ctx context.Context, path string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// PlistXML returns the bundle's Info.plist as XML. A binary plist is
+// converted with plutil. The file on disk is not modified.
+func (m *Mac) PlistXML(ctx context.Context, path string) ([]byte, error) {
+	if runtime.GOOS != "darwin" {
+		return nil, errors.New("plist conversion requires macOS")
+	}
+	cctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(cctx, "/usr/bin/plutil", "-convert", "xml1", "-o", "-", "--", filepath.Join(path, "Contents/Info.plist")).Output()
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BundleName returns the app's current internal display name
 // (CFBundleDisplayName, falling back to CFBundleName), "" when unset.
 // Used to save the original internal name in the vault before a full skin.
@@ -331,21 +346,54 @@ func (m *Mac) NotifyUser(ctx context.Context, title, body string) error {
 	return nil
 }
 
-// RefreshIconCache asks LaunchServices to re-register the given app
-// bundles and tells Finder their icons changed — the standard cure for
-// a stale Dock/Finder icon after files changed on disk.
+// RefreshIconCache asks every icon consumer to drop a stale app or
+// document icon. It touches each bundle, re-registers it with Launch
+// Services (`lsregister -f`), clears only the current user's IconServices
+// cache, and restarts iconservicesagent, Finder and the Dock.
+//
+// Mail, open and save panels, and any other app that is already running
+// keep the icon they already loaded. Those apps show the new icon after
+// they are quit and opened again. This does not quit them.
+//
+// The cache clear is the documented per-user store
+// (~/Library/Caches/com.apple.iconservices.store and the
+// iconservicesagent cache) plus com.apple.iconservices inside the
+// directory from getconf DARWIN_USER_CACHE_DIR. System caches under
+// /Library and /System are not touched, and nothing runs as root.
+// iconservicesagent rebuilds the store. Open Finder windows come back.
+// A process that is not running is ignored.
 func (m *Mac) RefreshIconCache(ctx context.Context, paths []string) error {
 	if runtime.GOOS != "darwin" {
 		return errors.New("icon cache refresh requires macOS")
 	}
 	lsregister := "/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister"
+	now := time.Now()
 	for _, p := range paths {
+		_ = os.Chtimes(p, now, now)
 		cctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 		_ = exec.CommandContext(cctx, lsregister, "-f", p).Run()
 		cancel()
 		_ = m.Notify(ctx, p)
 	}
+	// Stop the agent before deleting the store it has open, then stop it
+	// again after the delete so a relaunch rebuilds from the new registration.
+	killIconProcess(ctx, "iconservicesagent")
+	clearUserIconCaches(homeIconCacheDir(), darwinUserCacheDir(ctx))
+	for _, proc := range []string{"iconservicesagent", "Finder", "Dock"} {
+		killIconProcess(ctx, proc)
+	}
 	return nil
+}
+
+func killIconProcess(ctx context.Context, name string) {
+	switch name {
+	case "Finder", "Dock", "iconservicesagent":
+	default:
+		return
+	}
+	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	_ = exec.CommandContext(cctx, "/usr/bin/killall", name).Run()
 }
 
 // OpenFolder reveals a folder in Finder.

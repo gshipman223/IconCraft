@@ -129,6 +129,9 @@ func (e *Engine) RestoreRebrand(ctx context.Context, appID string) (RebrandRecor
 	} else {
 		_ = os.Remove(iconPath)
 	}
+	if err := restoreDocIconFiles(a, rec, dir, false); err != nil {
+		return rec, err
+	}
 	if err := t.Resign(ctx, a.Path); err != nil {
 		return rec, err
 	}
@@ -140,6 +143,11 @@ func (e *Engine) RestoreRebrand(ctx context.Context, appID string) (RebrandRecor
 	restoredIconOK := true
 	if rec.IconExisted {
 		if b, er := ReadLimited(iconPath, MaxIconBytes); er != nil || hash(b) != rec.BeforeIconHash {
+			restoredIconOK = false
+		}
+	}
+	for _, d := range rec.DocIcons {
+		if d.BeforeHash != "" && bundleIconHash(a, d.File) != d.BeforeHash {
 			restoredIconOK = false
 		}
 	}
@@ -161,6 +169,7 @@ func (e *Engine) RestoreRebrand(ctx context.Context, appID string) (RebrandRecor
 	}); ok {
 		_ = notifier.Notify(ctx, a.Path)
 	}
+	e.refreshBundleIcons(ctx, a.Path)
 	return e.State.Rebrands[idx], nil
 }
 

@@ -82,6 +82,9 @@ func TestFullIconReplacesBundleIconWithoutTouchingIdentity(t *testing.T) {
 	if n.resigns != 1 || len(n.bundleNames) != 0 {
 		t.Fatalf("resigns=%d names=%v", n.resigns, n.bundleNames)
 	}
+	if n.refreshes < 1 {
+		t.Fatal("full icon did not refresh Finder")
+	}
 	if !artCraftSees(filepath.Dir(a.Path), "PhotoCraft", []string{a.BundleID}) {
 		t.Fatal("launcher no longer sees the app")
 	}

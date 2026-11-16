@@ -71,6 +71,9 @@ func Open(dir, home string, n Native) (*Engine, error) {
 	if e.State.IconModes == nil {
 		e.State.IconModes = map[string]string{}
 	}
+	if e.State.DocIconModes == nil {
+		e.State.DocIconModes = map[string]string{}
+	}
 	if e.State.PausedBundles == nil {
 		e.State.PausedBundles = map[string]bool{}
 	}
@@ -263,6 +266,8 @@ func (e *Engine) Scan(ctx context.Context) ([]App, []string, error) {
 		a.NameChoice = e.State.NameModes[a.BundleID]
 		a.IconMode = e.iconModeLocked(a.BundleID)
 		a.IconChoice = e.State.IconModes[a.BundleID]
+		a.DocIcons = e.documentIconsLocked(a.BundleID)
+		a.DocChoice = e.State.DocIconModes[a.BundleID]
 		a.Paused = e.bundlePausedLocked(a.BundleID)
 		for _, nr := range e.State.Renames {
 			// Newest applied label or folder rename for this exact path.
