@@ -115,16 +115,18 @@ test('group headers lead every group under any sort order', () => {
   assert.match(js, /rank\.get\(groupOf\(x\)\)/);
 });
 
-test('restores and full-skin changes rescan the inventory instead of trusting the cached session', () => {
+test('restores and editor saves rescan the inventory instead of trusting the cached session', () => {
   const js = ui('app.js');
   // Names written inside a bundle (full skin / its restore) only change in
   // the inventory on a scan; a plain session() left the old name on screen.
   assert.match(js, /async function rescan\(\)\{try\{await api\('scan',\{\}\);\}catch\(_\)\{\}await session\(\);\}/);
   assert.match(js, /api\('restore-all',\{confirmed:true\}\);[^\n]*await rescan\(\)/);
   assert.match(js, /api\('restore-app',\{appId:a\.id,confirmed:true\}\);[^\n]*await rescan\(\)/);
-  // The editor's single Save (rename / rebrand / apply) rescans once after its steps.
+  // The editor's single Save (label, then Finder icon) rescans once after its steps.
   const save = js.slice(js.indexOf('async function saveEdit()'), js.indexOf('async function restoreFromEdit()'));
-  assert.match(save, /api\('rebrand'/);
+  assert.doesNotMatch(save, /api\('rebrand'/);
+  assert.match(save, /api\('rename'/);
+  assert.match(save, /api\('apply'/);
   assert.match(save, /await rescan\(\)/);
 });
 
@@ -149,30 +151,30 @@ test('dialog action footers stay in view while long dialogs scroll', () => {
   assert.match(css, /\.dialog-actions\{position:sticky;bottom:-24px/);
 });
 
-test('Edit app is one panel: preview, name, icon choice, full-skin switch, single Save, restore path', () => {
+test('Edit app is one panel: preview, name, icon choice, single Save, restore path', () => {
   const html = ui('index.html');
   const js = ui('app.js');
   // Sections and controls.
-  for (const id of ['edit-now-icon', 'edit-after-icon', 'edit-after-sub', 'name-input', 'name-original', 'edit-change-icon', 'edit-icon-keep', 'edit-icon-apply', 'edit-fullskin', 'fullskin-state', 'vault-state', 'name-restore', 'name-save', 'rename-cancel']) {
+  for (const id of ['edit-now-icon', 'edit-after-icon', 'edit-after-sub', 'name-input', 'name-original', 'edit-change-icon', 'edit-icon-keep', 'edit-icon-apply', 'fullskin-state', 'vault-state', 'name-restore', 'name-save', 'rename-cancel']) {
     assert.match(html, new RegExp(`id="${id}"`), id);
   }
-  // The two old separate actions are gone.
-  assert.doesNotMatch(html, /id="name-internal"|id="name-unskin"/);
-  // One Save performs rename → full skin, or rename → Finder icon, in order.
+  // The control that wrote inside the bundle is gone.
+  assert.doesNotMatch(html, /id="edit-fullskin"|id="name-internal"|id="name-unskin"/);
+  assert.match(html, /data-i18n="edit\.fullSkin"/);
+  // One Save records the label, then sets the Finder icon. It does not rebrand.
   const save = js.slice(js.indexOf('async function saveEdit()'), js.indexOf('async function restoreFromEdit()'));
-  const order = ['api(\'rename\'', 'api(\'rebrand\'', 'api(\'apply\''].map(k => save.indexOf(k));
-  assert.ok(order.every(i => i >= 0) && order[0] < order[1] && order[1] < order[2], 'rename before rebrand before apply');
-  // The full-skin safety confirm is folded into the Save button (arm, then confirm within 5 s).
-  assert.match(save, /if\(s\.fullAction&&!editArmed\)\{/);
-  assert.match(save, /editArmed=setTimeout\(\(\)=>\{editArmed=0;drawEdit\(\);\},5000\)/);
-  assert.match(js, /save\.textContent=editArmed\?t\('edit\.confirmSkin',\{name:s\.name\|\|a\.name\}\):t\('edit\.save'\)/);
+  const renameAt = save.indexOf('api(\'rename\'');
+  const applyAt = save.indexOf('api(\'apply\'');
+  assert.ok(renameAt >= 0 && applyAt > renameAt, 'rename before apply');
+  assert.doesNotMatch(save, /api\('rebrand'|editArmed|fullAction/);
+  assert.match(js, /save\.textContent=t\('edit\.save'\)/);
   // Partial failure is reported as such, and the inventory is rescanned either way.
   assert.match(save, /t\('edit\.partial',\{done:done\.join\(SEP\),error:failed\}\)/);
   assert.match(save, /await rescan\(\);busy=false;/);
   // Restore is one click from the editor and uses the vault restore.
   assert.match(js, /async function restoreFromEdit\(\)\{[^\n]*await restoreOne\(a\);/);
   // Choosing an icon from inside the editor selects it and refreshes the preview.
-  assert.match(js, /if\(editApp\)\{editIconMode='apply';disarmEdit\(\);drawEdit\(\);\}/);
+  assert.match(js, /if\(editApp\)\{editIconMode='apply';drawEdit\(\);\}/);
 });
 
 test('round 4: editor redraws after the picker, previews donor icons, resets scroll, localises asset labels', () => {

@@ -21,7 +21,16 @@ func TestMakeICNSIsValidContainer(t *testing.T) {
 
 func TestRebrandApplyAndRestoreRoundTrip(t *testing.T) {
 	e, n, a, asset := fixture(t)
-	iconPath := filepath.Join(a.Path, "Contents/Resources/AppIcon.icns")
+	plistPath := filepath.Join(a.Path, "Contents/Info.plist")
+	exePath := filepath.Join(a.Path, "Contents/MacOS", a.Executable)
+	beforePlist, err := os.ReadFile(plistPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeExe, err := os.ReadFile(exePath)
+	if err != nil {
+		t.Fatal(err)
+	}
 	before, err := Fingerprint(a)
 	if err != nil {
 		t.Fatal(err)
@@ -30,43 +39,68 @@ func TestRebrandApplyAndRestoreRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rec.Status != "applied" || n.bundleNames[a.Path] != "Adobe Photoshop" || n.resigns != 1 {
-		t.Fatalf("not applied: %+v names=%v resigns=%d", rec, n.bundleNames, n.resigns)
+	if rec.Status != "external" || n.resigns != 0 || len(n.bundleNames) != 0 {
+		t.Fatalf("rebrand wrote inside the bundle: %+v names=%v resigns=%d", rec, n.bundleNames, n.resigns)
 	}
-	b, err := os.ReadFile(iconPath)
-	if err != nil || !bytes.HasPrefix(b, []byte("icns")) {
-		t.Fatal("bundle icon not replaced", err)
+	if !n.states[a.Path].Custom() {
+		t.Fatal("Finder icon was not applied")
 	}
-	if got := e.RebrandedBundles()[a.BundleID]; got != "Adobe Photoshop" {
-		t.Fatal("rebrand not reported", got)
-	}
-	restored, err := e.RestoreRebrand(context.Background(), a.ID)
-	if err != nil || restored.Status != "restored" {
-		t.Fatal(restored, err)
+	gotPlist, _ := os.ReadFile(plistPath)
+	gotExe, _ := os.ReadFile(exePath)
+	if !bytes.Equal(gotPlist, beforePlist) || !bytes.Equal(gotExe, beforeExe) {
+		t.Fatal("Info.plist or executable changed")
 	}
 	after, err := Fingerprint(a)
 	if err != nil || after != before {
-		t.Fatal("fingerprint not restored", err)
+		t.Fatal("fingerprint changed", err)
 	}
-	if _, err := os.Lstat(iconPath); !os.IsNotExist(err) {
-		t.Fatal("created icon file should be removed on restore")
+	if got := e.RebrandedBundles()[a.BundleID]; got != "" {
+		t.Fatal("external customisation was recorded as an internal skin", got)
 	}
-	// Second restore is a clean error, not a forced write.
+	if rec.App.Path != a.Path || rec.App.Name != "Adobe Photoshop" {
+		t.Fatalf("label did not stick on the original path: %+v", rec.App)
+	}
+	// There is no internal skin to undo.
 	if _, err := e.RestoreRebrand(context.Background(), a.ID); err == nil {
-		t.Fatal("double restore should fail")
+		t.Fatal("restore of an untouched bundle should fail")
 	}
 }
 
 func TestRestoreRebrandRefusesChangedApp(t *testing.T) {
-	e, _, a, asset := fixture(t)
-	if _, err := e.Rebrand(context.Background(), a.ID, asset.ID, "Other Name"); err != nil {
+	e, n, a, _ := fixture(t)
+	original, err := os.ReadFile(filepath.Join(a.Path, "Contents/Info.plist"))
+	if err != nil {
 		t.Fatal(err)
 	}
-	// Simulate an app update changing sealed contents after the rebrand.
-	if err := os.WriteFile(filepath.Join(a.Path, "Contents/Info.plist"), []byte("updated-metadata"), 0600); err != nil {
+	fp, err := Fingerprint(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(e.Dir, "rebrands", "old-skin")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "Info.plist"), original, 0600); err != nil {
+		t.Fatal(err)
+	}
+	e.mu.Lock()
+	e.State.Rebrands = append(e.State.Rebrands, RebrandRecord{
+		ID: "old-skin", BundleID: a.BundleID, App: a, Status: "applied", AfterPrint: fp,
+		IconFile: "AppIcon.icns", Name: "Other Name", OriginalName: "PhotoCraft",
+	})
+	e.mu.Unlock()
+	updated := []byte("updated-metadata")
+	if err := os.WriteFile(filepath.Join(a.Path, "Contents/Info.plist"), updated, 0600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.RestoreRebrand(context.Background(), a.ID); err == nil {
 		t.Fatal("changed app must not be force-restored")
+	}
+	got, err := os.ReadFile(filepath.Join(a.Path, "Contents/Info.plist"))
+	if err != nil || !bytes.Equal(got, updated) {
+		t.Fatal("restore wrote into the updated bundle", err)
+	}
+	if n.resigns != 0 {
+		t.Fatal("restore re-signed an updated bundle")
 	}
 }

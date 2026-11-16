@@ -71,15 +71,18 @@ func TestRenameLeavesSignedContentsUnchangedAndRestores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b.Name != "Adobe Photoshop" || !b.Renamed || b.Path == a.Path {
+	if b.Name != "Adobe Photoshop" || !b.Renamed || b.Path != a.Path || b.ID != a.ID {
 		t.Fatal(b)
+	}
+	if _, err := os.Lstat(filepath.Join(filepath.Dir(a.Path), "Adobe Photoshop.app")); !os.IsNotExist(err) {
+		t.Fatal("rename created a second app folder", err)
 	}
 	fp2, _ := Fingerprint(b)
 	if fp != fp2 {
 		t.Fatal("bundle contents changed")
 	}
 	b2, err := e.RestoreName(context.Background(), b.ID)
-	if err != nil || b2.Path != a.Path || b2.Renamed {
+	if err != nil || b2.Path != a.Path || b2.Renamed || b2.Name != a.Name {
 		t.Fatal(b2, err)
 	}
 }
@@ -88,11 +91,15 @@ func TestRenameCannotOverwriteAnyDestination(t *testing.T) {
 	dest := filepath.Join(e.Home, "Photoshop.app")
 	_ = os.Mkdir(dest, 0700)
 	_ = os.WriteFile(filepath.Join(dest, "keep"), []byte("keep"), 0600)
-	if _, err := e.Rename(context.Background(), a.ID, "Photoshop"); err == nil {
-		t.Fatal("collision accepted")
+	b, err := e.Rename(context.Background(), a.ID, "Photoshop")
+	if err != nil || b.Path != a.Path || b.Name != "Photoshop" {
+		t.Fatal(b, err)
 	}
 	if _, err := os.Stat(filepath.Join(dest, "keep")); err != nil {
-		t.Fatal("collision modified")
+		t.Fatal("other app modified")
+	}
+	if _, err := os.Lstat(a.Path); err != nil {
+		t.Fatal(err)
 	}
 }
 func TestRenameRejectsUnsafeNames(t *testing.T) {
@@ -132,12 +139,20 @@ func TestRenameMovesIconBackupReferencesAndUnwindsNames(t *testing.T) {
 		t.Fatal("history not repaired")
 	}
 }
-func TestRenameRestoreRefusesUpdatedApplication(t *testing.T) {
+func TestRenameRestoreClearsLabelOnUpdatedApplication(t *testing.T) {
 	e, _, a, _ := fixture(t)
 	b, _ := e.Rename(context.Background(), a.ID, "Photoshop")
-	_ = os.WriteFile(filepath.Join(b.Path, "Contents/MacOS/test"), []byte("update"), 0700)
-	if _, err := e.RestoreName(context.Background(), b.ID); err == nil {
-		t.Fatal("updated app renamed from stale record")
+	exe := filepath.Join(b.Path, "Contents/MacOS/test")
+	if err := os.WriteFile(exe, []byte("update"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := e.RestoreName(context.Background(), b.ID)
+	if err != nil || restored.Path != a.Path || restored.Renamed || restored.Name != a.Name {
+		t.Fatal(restored, err)
+	}
+	got, err := os.ReadFile(exe)
+	if err != nil || string(got) != "update" {
+		t.Fatal("clearing a label rewrote the updated executable", string(got), err)
 	}
 }
 func TestRenameRecoversPreparedMoveAfterRestart(t *testing.T) {

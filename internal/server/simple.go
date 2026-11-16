@@ -24,6 +24,28 @@ type pendingIcon struct {
 	Expires   time.Time
 }
 
+// syncKeeper turns the background reapply agent off while updates are
+// paused, and puts it back when the user had asked for it.
+func (s *Server) syncKeeper() {
+	agent, ok := s.Engine.Native.(interface {
+		SetKeepAgent(bool) error
+		KeepAgentEnabled() bool
+	})
+	if !ok {
+		return
+	}
+	if s.Engine.UpdatesPaused() {
+		if agent.KeepAgentEnabled() {
+			_ = agent.SetKeepAgent(false)
+		}
+		return
+	}
+	desired, set := s.Engine.KeeperPreference()
+	if set && desired && !agent.KeepAgentEnabled() {
+		_ = agent.SetKeepAgent(true)
+	}
+}
+
 func (s *Server) ticket(a core.App, c originals.Candidate) string {
 	var b [24]byte
 	if _, err := rand.Read(b[:]); err != nil {
@@ -50,9 +72,9 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 	ctx := r.Context()
 	switch p {
 	case "api/rebrand", "api/restore-rebrand":
-		// Opt-in internal ("full") skin: sets the name + icon inside a
-		// third-party app and re-signs it, so the identity shows while the
-		// app runs. Journalled and reversible via RestoreRebrand.
+		// api/rebrand now records a display label and a Finder icon. It does
+		// not edit Info.plist, the bundle icon, or the signature.
+		// api/restore-rebrand still undoes a full skin an older build wrote.
 		s.operationMu.Lock()
 		defer s.operationMu.Unlock()
 		var b struct {
@@ -116,6 +138,84 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 		} else {
 			respond(w, 200, map[string]any{"completed": true, "setupRequired": false})
 		}
+		return true
+	case "api/name-mode":
+		var b struct {
+			AppID     string `json:"appId"`
+			Mode      string `json:"mode"`
+			Confirmed bool   `json:"confirmed"`
+		}
+		if err := readJSON(w, r, &b); err != nil {
+			fail(w, err)
+			return true
+		}
+		if b.Mode == core.NameModeFull && !b.Confirmed {
+			fail(w, errors.New("explicit full-rename confirmation required"))
+			return true
+		}
+		app, err := s.Engine.SetAppNameMode(b.AppID, b.Mode)
+		if err != nil {
+			fail(w, err)
+			return true
+		}
+		policy := s.Engine.SyncNameModes(ctx, app.BundleID)
+		respond(w, 200, map[string]any{"app": app, "notes": policy.Notes})
+		return true
+	case "api/icon-mode":
+		var b struct {
+			AppID     string `json:"appId"`
+			Mode      string `json:"mode"`
+			Confirmed bool   `json:"confirmed"`
+		}
+		if err := readJSON(w, r, &b); err != nil {
+			fail(w, err)
+			return true
+		}
+		if b.Mode == core.IconModeFull && !b.Confirmed {
+			fail(w, errors.New("explicit full-icon confirmation required"))
+			return true
+		}
+		app, err := s.Engine.SetAppIconMode(b.AppID, b.Mode)
+		if err != nil {
+			fail(w, err)
+			return true
+		}
+		policy := s.Engine.SyncIconModes(ctx, app.BundleID)
+		respond(w, 200, map[string]any{"app": app, "notes": policy.Notes})
+		return true
+	case "api/doc-icons":
+		var body struct {
+			AppID string `json:"appId"`
+			Mode  string `json:"mode"`
+		}
+		if err := readJSON(w, r, &body); err != nil {
+			fail(w, err)
+			return true
+		}
+		app, err := s.Engine.SetAppDocIcons(body.AppID, body.Mode)
+		if err != nil {
+			fail(w, err)
+			return true
+		}
+		policy := s.Engine.SyncIconModes(ctx, app.BundleID)
+		respond(w, 200, map[string]any{"app": app, "notes": policy.Notes})
+		return true
+	case "api/pause-app":
+		var b struct {
+			AppID  string `json:"appId"`
+			Paused bool   `json:"paused"`
+		}
+		if err := readJSON(w, r, &b); err != nil {
+			fail(w, err)
+			return true
+		}
+		policy, err := s.Engine.SetBundlePaused(ctx, b.AppID, b.Paused)
+		if err != nil {
+			fail(w, err)
+			return true
+		}
+		s.syncKeeper()
+		respond(w, 200, map[string]any{"paused": b.Paused, "notes": policy.Notes})
 		return true
 	case "api/keepalive":
 		// Toggles the background keep-applied LaunchAgent, which repairs

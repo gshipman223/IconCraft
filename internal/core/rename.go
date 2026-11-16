@@ -20,6 +20,9 @@ type RenameRecord struct {
 	NewName     string `json:"newName"`
 	Fingerprint string `json:"fingerprint"`
 	Status      string `json:"status"`
+	// Suspended means a full rename is waiting: the folder is at From
+	// (the name launchers look for) and To is the custom name to put back.
+	Suspended bool `json:"suspended,omitempty"`
 }
 
 func ValidateName(s string) (string, error) {
@@ -38,8 +41,17 @@ func ValidateName(s string) (string, error) {
 	return s, nil
 }
 
-// Rename changes only the outer .app folder, as a Finder rename does. No plist,
-// signed resource or executable is edited. App-owned menu titles are untouched.
+// Rename records the name the user wants. In the default Icon only mode it
+// does not rename the .app folder, edit Info.plist, or re-sign: Finder, the
+// Dock and Launchpad keep the publisher's name, which is what path-based
+// launchers look up. Full rename mode renames the outer .app folder, the
+// same way an older IconCraft did, so those surfaces show the custom name.
+// It still does not edit Info.plist or the signature. There is no supported
+// way to change the Finder name without one of those two.
+//
+// Windows and Linux (ports branch) rename a shortcut or desktop file via
+// launcherNamer and return before this macOS path. Do not move the bundle
+// here when that hook is added, except the explicit full-rename mode below.
 func (e *Engine) Rename(ctx context.Context, id, name string) (App, error) {
 	name, err := ValidateName(name)
 	if err != nil {
@@ -60,31 +72,23 @@ func (e *Engine) Rename(ctx context.Context, id, name string) (App, error) {
 		return a, err
 	}
 	e.captureOriginalLocked(ctx, a) // save the original to the vault before first change
-	dest := filepath.Join(filepath.Dir(a.Path), name+".app")
-	if dest == a.Path {
+	if e.nameModeLocked(a.BundleID) == NameModeFull && !e.bundlePausedLocked(a.BundleID) {
+		return e.renameFolderLocked(ctx, a, name)
+	}
+	if e.bundlePausedLocked(a.BundleID) && e.retargetSuspendedLocked(a, name) {
+		// The folder stays where the launcher looks. The new name is what
+		// unpause will apply. A second label would hide that record.
 		return a, nil
 	}
-	if _, err = os.Lstat(dest); err == nil {
-		return a, errors.New("an app with that name already exists; choose another name")
-	} else if !os.IsNotExist(err) {
-		return a, err
-	}
-	if runner, ok := e.Native.(interface {
-		Running(context.Context, string) (bool, error)
-	}); ok {
-		running, er := runner.Running(ctx, a.Path)
-		if er != nil {
-			return a, er
-		}
-		if running {
-			return a, errors.New("quit this application before renaming it")
-		}
+	if a.Name == name && labelForLocked(e, a) == name {
+		return a, nil
 	}
 	fp, err := Fingerprint(a)
 	if err != nil {
 		return a, err
 	}
-	nr := RenameRecord{App: a, ID: newID(), BundleID: a.BundleID, From: a.Path, To: dest, OldName: a.Name, NewName: name, Fingerprint: fp, Status: "prepared"}
+	// From == To: the bundle stays where launchers already look.
+	nr := RenameRecord{App: a, ID: newID(), BundleID: a.BundleID, From: a.Path, To: a.Path, OldName: a.Name, NewName: name, Fingerprint: fp, Status: "prepared"}
 	idx := len(e.State.Renames)
 	e.State.Renames = append(e.State.Renames, nr)
 	if err = e.save(); err != nil {
@@ -94,38 +98,39 @@ func (e *Engine) Rename(ctx context.Context, id, name string) (App, error) {
 	if err = ctx.Err(); err != nil {
 		return a, err
 	}
-	if err = moveExclusive(a.Path, dest); err != nil {
+	after, checkErr := Fingerprint(a)
+	if checkErr != nil || after != fp {
 		e.State.Renames[idx].Status = "failed"
 		_ = e.save()
-		return a, fmt.Errorf("could not rename app: %w", err)
-	}
-	out := a
-	out.Path = dest
-	out.Name = name
-	out.ID = appID(out)
-	out.Renamed = true
-	out.IconStamp = PreviewStamp(dest)
-	after, checkErr := Fingerprint(out)
-	if checkErr != nil || after != fp {
-		if back := moveExclusive(dest, a.Path); back == nil {
-			e.State.Renames[idx].Status = "failed"
-			_ = e.save()
-		}
 		return a, errors.New("app changed during rename; stopped and attempted rollback")
 	}
+	out := a
+	out.Name = name
+	out.Renamed = name != bundleFolderName(a.Path)
+	out.IconStamp = PreviewStamp(a.Path)
 	e.moveReferencesLocked(a, out)
 	e.State.Renames[idx].Status = "applied"
 	if err = e.save(); err != nil {
-		// Prepared record on disk lets startup reconcile which path actually exists.
-		return out, fmt.Errorf("app renamed, but saving history failed: %w", err)
+		return out, fmt.Errorf("name saved, but saving history failed: %w", err)
 	}
 	_ = e.saveInventoryLocked()
-	if notifier, ok := e.Native.(interface {
-		Notify(context.Context, string) error
-	}); ok {
-		_ = notifier.Notify(ctx, dest)
-	}
 	return out, nil
+}
+
+func bundleFolderName(path string) string {
+	return strings.TrimSuffix(filepath.Base(path), ".app")
+}
+
+// labelForLocked is the newest applied label for this exact bundle path.
+// Caller holds e.mu.
+func labelForLocked(e *Engine, a App) string {
+	label := ""
+	for _, nr := range e.State.Renames {
+		if nr.Status == "applied" && nr.BundleID == a.BundleID && nr.To == a.Path && nr.From == nr.To {
+			label = nr.NewName
+		}
+	}
+	return label
 }
 func (e *Engine) moveReferencesLocked(old, new App) {
 	delete(e.Apps, old.ID)
@@ -172,6 +177,26 @@ func (e *Engine) RestoreName(ctx context.Context, id string) (App, error) {
 		if err := ctx.Err(); err != nil {
 			return a, err
 		}
+		// A label never moved the bundle, so clearing it does not depend on
+		// the app still matching an old fingerprint or being quit. An update
+		// may replace the bundle; the label still has to come off.
+		if nr.From == nr.To {
+			e.State.Renames[idx].Status = "restoring"
+			if err := e.save(); err != nil {
+				e.State.Renames[idx].Status = "applied"
+				return a, err
+			}
+			old := a
+			a.Name = nr.OldName
+			a.Renamed = false
+			a.IconStamp = PreviewStamp(a.Path)
+			e.moveReferencesLocked(old, a)
+			e.State.Renames[idx].Status = "restored"
+			if err := e.save(); err != nil {
+				return a, err
+			}
+			continue
+		}
 		if runner, ok := e.Native.(interface {
 			Running(context.Context, string) (bool, error)
 		}); ok {
@@ -201,6 +226,7 @@ func (e *Engine) RestoreName(ctx context.Context, id string) (App, error) {
 		a.Path = nr.From
 		a.Name = nr.OldName
 		a.ID = appID(a)
+		a.Renamed = false
 		a.IconStamp = PreviewStamp(a.Path)
 		e.moveReferencesLocked(old, a)
 		e.State.Renames[idx].Status = "restored"
@@ -232,6 +258,33 @@ func (e *Engine) recoverRenames() {
 		to.Name = r.NewName
 		to.ID = appID(to)
 		to.Renamed = true
+		// A label (From == To) never moved a folder. Marking it applied
+		// only updates the name IconCraft shows.
+		if r.From == r.To && te == nil {
+			fp, err := Fingerprint(to)
+			if err != nil || fp != r.Fingerprint {
+				continue
+			}
+			if cur, ok := e.Apps[to.ID]; ok {
+				cur.Name = r.NewName
+				cur.Renamed = r.NewName != bundleFolderName(r.To)
+				e.Apps[to.ID] = cur
+			} else {
+				e.Apps[to.ID] = to
+			}
+			if r.Status == "restoring" {
+				if cur, ok := e.Apps[to.ID]; ok {
+					cur.Name = r.OldName
+					cur.Renamed = false
+					e.Apps[to.ID] = cur
+				}
+				r.Status = "restored"
+			} else {
+				r.Status = "applied"
+			}
+			dirty = true
+			continue
+		}
 		if os.IsNotExist(fe) && te == nil {
 			fp, err := Fingerprint(to)
 			if err != nil || fp != r.Fingerprint {

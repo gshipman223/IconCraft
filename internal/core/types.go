@@ -37,6 +37,13 @@ type App struct {
 	IconStamp    string `json:"iconStamp,omitempty"`
 	InfoStamp    string `json:"infoStamp,omitempty"`
 	Renamed      bool   `json:"renamed,omitempty"`
+	NameMode     string `json:"nameMode,omitempty"`   // effective: safe | full
+	NameChoice   string `json:"nameChoice,omitempty"` // per-app override: "" | safe | full
+	IconMode     string `json:"iconMode,omitempty"`   // effective: finder | full
+	IconChoice   string `json:"iconChoice,omitempty"` // per-app override: "" | finder | full
+	Paused       bool   `json:"paused,omitempty"`
+	DocIcons     bool   `json:"docIcons,omitempty"`  // effective: also replace document icons
+	DocChoice    string `json:"docChoice,omitempty"` // per-app override: "" | on | off
 	ID           string `json:"id"`
 	Name         string `json:"name"`
 	Path         string `json:"path"`
@@ -79,9 +86,20 @@ type Record struct {
 	Status      string    `json:"status"`
 	Error       string    `json:"error,omitempty"`
 	IconFit     int       `json:"iconFit,omitempty"` // macOS icon-grid version the applied artwork was fitted to
+	Held        bool      `json:"held,omitempty"`    // original Finder icon is showing; the custom one is waiting
 	Before      Snapshot  `json:"before"`
 	After       *Snapshot `json:"after,omitempty"`
 }
+
+// DocIconFile is one document icon replaced inside Contents/Resources.
+// File is the basename. The original bytes are doc-<index>.icns in the
+// rebrand backup directory, in this same order.
+type DocIconFile struct {
+	File       string `json:"file"`
+	BeforeHash string `json:"beforeHash,omitempty"`
+	AfterHash  string `json:"afterHash,omitempty"`
+}
+
 type Preference struct {
 	BundleID string `json:"bundleId"`
 	CraftID  string `json:"craftId,omitempty"`
@@ -117,6 +135,22 @@ type RebrandRecord struct {
 	// the keeper checks once and records the outcome).
 	RuntimeIcon string          `json:"runtimeIcon,omitempty"`
 	ExecPatches []ExecIconPatch `json:"execPatches,omitempty"`
+	// DocIcons are the document-type .icns files Full icon replaced.
+	// Each file is a basename inside Contents/Resources. The backups
+	// live beside the app-icon backup. Info.plist is not edited.
+	DocIcons []DocIconFile `json:"docIcons,omitempty"`
+	// DocNote explains why no document icon file was replaced. Empty
+	// when files were replaced, or when document icons were not requested.
+	DocNote string `json:"docNote,omitempty"`
+	// Kind is "icon" for a Full icon (bundle icon only, Info.plist
+	// unchanged). Empty is a legacy full skin that also renamed the
+	// bundle from inside.
+	Kind string `json:"kind,omitempty"`
+	// Held means Pause for updates put the original icon files back.
+	// HeldPrint is the fingerprint after that restore; empty means the
+	// bundle had already changed and the old files were not written.
+	Held      bool   `json:"held,omitempty"`
+	HeldPrint string `json:"heldPrint,omitempty"`
 	// ExecIconCheck is the version of the runtime-icon inspection that
 	// produced RuntimeIcon, so improved matching re-checks old verdicts.
 	ExecIconCheck int    `json:"execIconCheck,omitempty"`
@@ -200,6 +234,10 @@ type State struct {
 	AppAccess     PermissionCheck          `json:"appAccess,omitempty"`
 	Settings      Settings                 `json:"settings,omitempty"`
 	SettingsSet   bool                     `json:"settingsSet,omitempty"`
+	NameModes     map[string]string        `json:"nameModes,omitempty"`     // bundle id → safe | full
+	IconModes     map[string]string        `json:"iconModes,omitempty"`     // bundle id → finder | full
+	DocIconModes  map[string]string        `json:"docIconModes,omitempty"`  // bundle id → on | off
+	PausedBundles map[string]bool          `json:"pausedBundles,omitempty"` // per-app pause for updates
 	Preferences   map[string]Preference    `json:"preferences"`
 	ExtraRoots    []string                 `json:"extraRoots"`
 }

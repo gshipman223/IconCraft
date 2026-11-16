@@ -136,6 +136,13 @@ func run() (result error) {
 		if _, _, err := e.Scan(ctx); err != nil {
 			return err
 		}
+		if e.UpdatesPaused() {
+			// Pause for updates owns the folders. Do not put custom names
+			// or icons back; only finish restoring original paths.
+			held := e.ContinuePause(ctx, "")
+			log.Printf("reapply skipped: paused for updates (moved=%d notes=%v)", held.Moved, held.Notes)
+			return nil
+		}
 		res, err := e.Reconcile(ctx)
 		if err != nil {
 			return err
@@ -204,6 +211,14 @@ func run() (result error) {
 // silently losing skin persistence would be far worse than quietly
 // putting it back. The toggle in the UI/menu always wins.
 func ensureKeeper(e *core.Engine, m *native.Mac) {
+	if e.UpdatesPaused() {
+		if m.KeepAgentEnabled() {
+			if err := m.SetKeepAgent(false); err != nil {
+				log.Printf("keep-applied agent pause: %v", err)
+			}
+		}
+		return
+	}
 	desired, set := e.KeeperPreference()
 	if !set || !desired || m.KeepAgentEnabled() {
 		return

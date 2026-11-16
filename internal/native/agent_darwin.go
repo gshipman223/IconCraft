@@ -11,10 +11,11 @@ import (
 )
 
 // Keep-applied agent: a tiny LaunchAgent that runs `IconCraft --reapply`
-// at login, every 3 minutes, and whenever /Applications changes. It repairs
-// skins that third-party apps/updaters reverted (cleared Finder icon or
-// restored folder name) without the main window ever opening. It never
-// touches the inside of any application bundle.
+// at login, every 3 minutes, and whenever /Applications changes. It puts
+// a Finder custom icon back after an update replaces the bundle, and
+// repairs apps an older IconCraft renamed or re-signed. It does not
+// rename the .app folder to the custom name, and it does not edit a
+// bundle an updater has already replaced.
 const keepAgentLabel = "io.iconcraft.keepapplied"
 
 func (m *Mac) keepAgentPath() (string, error) {

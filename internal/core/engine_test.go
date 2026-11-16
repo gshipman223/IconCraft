@@ -23,14 +23,23 @@ type fakeNative struct {
 	bundleNames      map[string]string
 	failSet          bool
 	failRestore      bool
+	follow           bool
 	probeErr         error
 	badSignature     bool
 	changeExecutable bool
+	iconFile         string
+	refreshes        int
 }
 
 func (n *fakeNative) WriteProbe(string) error { return n.probeErr }
 
 func (n *fakeNative) BundleIconFile(_ context.Context, _ string) (string, error) {
+	if n.iconFile == "catalog" {
+		return "", nil
+	}
+	if n.iconFile != "" {
+		return n.iconFile, nil
+	}
 	return "AppIcon.icns", nil
 }
 func (n *fakeNative) SetBundleName(_ context.Context, p, name string) error {
@@ -41,6 +50,10 @@ func (n *fakeNative) SetBundleName(_ context.Context, p, name string) error {
 	return nil
 }
 func (n *fakeNative) Resign(_ context.Context, _ string) error { n.resigns++; return nil }
+func (n *fakeNative) RefreshIconCache(context.Context, []string) error {
+	n.refreshes++
+	return nil
+}
 func (n *fakeNative) BundleName(_ context.Context, p string) (string, error) {
 	if name, ok := n.bundleNames[p]; ok {
 		return name, nil
@@ -57,11 +70,21 @@ func cloneSnapshot(s Snapshot) Snapshot {
 func (n *fakeNative) Inspect(_ context.Context, ps []string) ([]App, error) {
 	a := []App{}
 	for _, p := range ps {
-		if p == n.app.Path {
-			a = append(a, n.app)
+		if p == n.app.Path || (n.follow && dirExists(p)) {
+			app := n.app
+			app.Path = p
+			if n.follow {
+				app.Name = strings.TrimSuffix(filepath.Base(p), ".app")
+			}
+			a = append(a, app)
 		}
 	}
 	return a, nil
+}
+
+func dirExists(p string) bool {
+	fi, err := os.Lstat(p)
+	return err == nil && fi.IsDir()
 }
 func (n *fakeNative) Snapshot(p string) (Snapshot, error) { return cloneSnapshot(n.states[p]), nil }
 func (n *fakeNative) Set(_ context.Context, p, icon string) error {

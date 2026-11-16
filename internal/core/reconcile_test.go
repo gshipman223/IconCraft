@@ -40,31 +40,24 @@ func TestReconcileRepairsClearedIconOnly(t *testing.T) {
 	}
 }
 
-// A rename reverted externally (folder back at its original name) is
-// re-applied; while the app is missing entirely nothing is forced.
-func TestReconcileRepairsRevertedRename(t *testing.T) {
+// A custom label must not be re-applied by renaming the folder. That is
+// what made a path-based launcher install a second copy.
+func TestReconcileDoesNotRenameFolderToCustomName(t *testing.T) {
 	e, _, a, _ := fixture(t)
-	renamed, err := e.Rename(context.Background(), a.ID, "PhotoCraft Custom")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// External revert: move the folder back to its original name.
-	if err := os.Rename(renamed.Path, a.Path); err != nil {
+	if _, err := e.Rename(context.Background(), a.ID, "PhotoCraft Custom"); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := e.Scan(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	res, err := e.Reconcile(context.Background())
-	if err != nil || res.NameFixed != 1 {
-		t.Fatalf("reverted rename not repaired: %+v %v", res, err)
-	}
-	if _, err := os.Lstat(filepath.Join(filepath.Dir(a.Path), "PhotoCraft Custom.app")); err != nil {
-		t.Fatal("custom name not restored:", err)
-	}
-	// Second pass: name already in place, nothing to do.
-	res, err = e.Reconcile(context.Background())
 	if err != nil || res.NameFixed != 0 {
-		t.Fatalf("stable name touched: %+v %v", res, err)
+		t.Fatalf("reconcile renamed a folder: %+v %v", res, err)
+	}
+	if _, err := os.Lstat(a.Path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(filepath.Join(filepath.Dir(a.Path), "PhotoCraft Custom.app")); !os.IsNotExist(err) {
+		t.Fatal("custom folder was created", err)
 	}
 }

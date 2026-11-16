@@ -90,6 +90,7 @@ function run(argv) {
         statusMenu.addItemWithTitleActionKeyEquivalent($(L('menu.quit', 'Quit IconCraft')), 'terminate:', $('q'));
         statusMenu.setDelegate(statusDelegate);
         var refreshKeeper = function() {
+            var updatesPaused = false;
             try {
                 const s = httpJSON('GET', 'api/session', null);
                 if (s && typeof s.keepAlive === 'boolean') keeperOn = s.keepAlive;
@@ -98,13 +99,14 @@ function run(argv) {
                 // item's visibility. The server guarantees at least one
                 // of the two is always on.
                 if (s && s.settings) {
+                    updatesPaused = !!s.settings.updatesPaused;
                     try { app.setActivationPolicy(s.settings.showDockIcon ? $.NSApplicationActivationPolicyRegular : $.NSApplicationActivationPolicyAccessory); } catch (e) {}
                     try { statusItem.setVisible(!!s.settings.showMenuBarIcon); } catch (e) {}
                 }
             } catch (e) {}
             keeperItem.setTitle($(keeperOn ? L('menu.keepOn', 'Keep Skins Applied: On') : L('menu.keepOff', 'Keep Skins Applied: Off')));
             keeperItem.setState(keeperOn ? 1 : 0);
-            keeperState.setTitle($(keeperOn ? L('menu.keeperOn', 'Background keeper: on — works with IconCraft closed') : L('menu.keeperOff', 'Background keeper: off')));
+            keeperState.setTitle($(updatesPaused ? L('menu.pauseOn', 'Paused for updates: original names and icons restored') : (keeperOn ? L('menu.keeperOn', 'Background keeper: on — works with IconCraft closed') : L('menu.keeperOff', 'Background keeper: off'))));
         };
         // Icon first: if the button can't be dressed, bail before installing.
         var statusItem = $.NSStatusBar.systemStatusBar.statusItemWithLength(-1);
