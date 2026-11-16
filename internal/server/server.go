@@ -198,10 +198,17 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		respond(w, 200, sess)
 	case "api/settings":
 		var b struct {
-			Settings core.Settings `json:"settings"`
+			Settings  core.Settings `json:"settings"`
+			Confirmed bool          `json:"confirmed"`
 		}
 		if err := readJSON(w, r, &b); err != nil {
 			fail(w, err)
+			return
+		}
+		prev := s.Engine.Settings()
+		turningFull := b.Settings.NameMode == core.NameModeFull && prev.NameMode != core.NameModeFull
+		if turningFull && !b.Confirmed {
+			fail(w, errors.New("explicit full-rename confirmation required"))
 			return
 		}
 		saved, err := s.Engine.SaveSettings(b.Settings)
@@ -210,6 +217,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		out := map[string]any{"settings": saved, "loginAgent": saved.LaunchAtLogin, "version": core.Version}
+		if saved.NameMode != prev.NameMode || saved.UpdatesPaused != prev.UpdatesPaused {
+			policy := s.Engine.ApplyNamePolicy(ctx)
+			if len(policy.Notes) > 0 {
+				out["notes"] = policy.Notes
+			}
+			s.syncKeeper()
+		}
 		if agent, ok := s.Engine.Native.(interface {
 			SetLoginAgent(bool, bool) error
 			LoginAgentEnabled() bool

@@ -24,6 +24,28 @@ type pendingIcon struct {
 	Expires   time.Time
 }
 
+// syncKeeper turns the background reapply agent off while updates are
+// paused, and puts it back when the user had asked for it.
+func (s *Server) syncKeeper() {
+	agent, ok := s.Engine.Native.(interface {
+		SetKeepAgent(bool) error
+		KeepAgentEnabled() bool
+	})
+	if !ok {
+		return
+	}
+	if s.Engine.UpdatesPaused() {
+		if agent.KeepAgentEnabled() {
+			_ = agent.SetKeepAgent(false)
+		}
+		return
+	}
+	desired, set := s.Engine.KeeperPreference()
+	if set && desired && !agent.KeepAgentEnabled() {
+		_ = agent.SetKeepAgent(true)
+	}
+}
+
 func (s *Server) ticket(a core.App, c originals.Candidate) string {
 	var b [24]byte
 	if _, err := rand.Read(b[:]); err != nil {
@@ -116,6 +138,45 @@ func (s *Server) simpleAPI(w http.ResponseWriter, r *http.Request, p string) boo
 		} else {
 			respond(w, 200, map[string]any{"completed": true, "setupRequired": false})
 		}
+		return true
+	case "api/name-mode":
+		var b struct {
+			AppID     string `json:"appId"`
+			Mode      string `json:"mode"`
+			Confirmed bool   `json:"confirmed"`
+		}
+		if err := readJSON(w, r, &b); err != nil {
+			fail(w, err)
+			return true
+		}
+		if b.Mode == core.NameModeFull && !b.Confirmed {
+			fail(w, errors.New("explicit full-rename confirmation required"))
+			return true
+		}
+		app, err := s.Engine.SetAppNameMode(b.AppID, b.Mode)
+		if err != nil {
+			fail(w, err)
+			return true
+		}
+		policy := s.Engine.SyncNameModes(ctx, app.BundleID)
+		respond(w, 200, map[string]any{"app": app, "notes": policy.Notes})
+		return true
+	case "api/pause-app":
+		var b struct {
+			AppID  string `json:"appId"`
+			Paused bool   `json:"paused"`
+		}
+		if err := readJSON(w, r, &b); err != nil {
+			fail(w, err)
+			return true
+		}
+		policy, err := s.Engine.SetBundlePaused(ctx, b.AppID, b.Paused)
+		if err != nil {
+			fail(w, err)
+			return true
+		}
+		s.syncKeeper()
+		respond(w, 200, map[string]any{"paused": b.Paused, "notes": policy.Notes})
 		return true
 	case "api/keepalive":
 		// Toggles the background keep-applied LaunchAgent, which repairs

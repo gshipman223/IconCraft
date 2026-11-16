@@ -37,6 +37,9 @@ type App struct {
 	IconStamp    string `json:"iconStamp,omitempty"`
 	InfoStamp    string `json:"infoStamp,omitempty"`
 	Renamed      bool   `json:"renamed,omitempty"`
+	NameMode     string `json:"nameMode,omitempty"`   // effective: safe | full
+	NameChoice   string `json:"nameChoice,omitempty"` // per-app override: "" | safe | full
+	Paused       bool   `json:"paused,omitempty"`
 	ID           string `json:"id"`
 	Name         string `json:"name"`
 	Path         string `json:"path"`
@@ -79,6 +82,7 @@ type Record struct {
 	Status      string    `json:"status"`
 	Error       string    `json:"error,omitempty"`
 	IconFit     int       `json:"iconFit,omitempty"` // macOS icon-grid version the applied artwork was fitted to
+	Held        bool      `json:"held,omitempty"`    // original Finder icon is showing; the custom one is waiting
 	Before      Snapshot  `json:"before"`
 	After       *Snapshot `json:"after,omitempty"`
 }
@@ -200,6 +204,8 @@ type State struct {
 	AppAccess     PermissionCheck          `json:"appAccess,omitempty"`
 	Settings      Settings                 `json:"settings,omitempty"`
 	SettingsSet   bool                     `json:"settingsSet,omitempty"`
+	NameModes     map[string]string        `json:"nameModes,omitempty"`     // bundle id → safe | full
+	PausedBundles map[string]bool          `json:"pausedBundles,omitempty"` // per-app pause for updates
 	Preferences   map[string]Preference    `json:"preferences"`
 	ExtraRoots    []string                 `json:"extraRoots"`
 }

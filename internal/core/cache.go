@@ -151,6 +151,16 @@ func (e *Engine) Session() map[string]any {
 	for k, v := range e.State.Vault {
 		vault[k] = v
 	}
+	nameModes := map[string]string{}
+	for k, v := range e.State.NameModes {
+		nameModes[k] = v
+	}
+	pausedBundles := map[string]bool{}
+	for k, v := range e.State.PausedBundles {
+		if v {
+			pausedBundles[k] = true
+		}
+	}
 	theme := e.State.Theme
 	if theme == "" {
 		theme = "system"
@@ -162,7 +172,7 @@ func (e *Engine) Session() map[string]any {
 	if org.Group == "" {
 		org.Group = "none"
 	}
-	return map[string]any{"version": Version, "supportUrl": SupportURL, "repositoryUrl": RepositoryURL, "apps": apps, "assets": assets, "originals": originals, "choices": choices, "records": records, "renames": renames, "rebrands": rebrands, "rebrandRuntime": rebrandRuntime, "vault": vault, "theme": theme, "organize": org, "setupRequired": e.State.SetupVersion < SetupVersion, "setupVersion": e.State.SetupVersion}
+	return map[string]any{"version": Version, "supportUrl": SupportURL, "repositoryUrl": RepositoryURL, "apps": apps, "assets": assets, "originals": originals, "choices": choices, "records": records, "renames": renames, "rebrands": rebrands, "rebrandRuntime": rebrandRuntime, "vault": vault, "nameModes": nameModes, "pausedBundles": pausedBundles, "theme": theme, "organize": org, "setupRequired": e.State.SetupVersion < SetupVersion, "setupVersion": e.State.SetupVersion}
 }
 
 // Extended-attribute writes may change ctime without changing mtime on macOS.

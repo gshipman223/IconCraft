@@ -14,26 +14,48 @@ type ReconcileResult struct {
 
 // Reconcile keeps a customisation without hiding the app from its updater.
 //
-//   - A display name is a label in the journal. It is not re-applied by
-//     renaming the .app folder. Doing that is what made ArtCraft-style
-//     launchers, Homebrew casks and other path checks install a second copy.
+//   - While Pause for updates is on, folders stay at the publisher's name
+//     and custom icons are not put back. The keeper takes that same path.
+//   - In the default Icon only mode a display name is a label. It is not
+//     re-applied by renaming the .app folder.
+//   - In Full rename mode a missing custom folder is renamed again, matched
+//     by bundle id, after an update puts the publisher's folder back. A
+//     second copy beside it is left in place.
 //   - Icons are re-applied with the Finder custom-icon mechanism when the
 //     custom icon is gone, or when the bundle's Info.plist was replaced
 //     (an update) and the icon no longer matches the one IconCraft set.
 //     A different custom icon on an unchanged bundle is left alone.
 //   - Bundles an older build renamed or re-signed are repaired first
-//     (RepairIdentities). Internal full skins are not written again.
+//     (RepairIdentities), except a full rename the user still wants.
+//     Internal full skins are not written again.
 //
 // Callers must populate the inventory with Scan first. A running app still
 // shows its own Dock icon and menu-bar name from inside the signed bundle.
 // macOS does not let another process change those without editing the bundle.
 func (e *Engine) Reconcile(ctx context.Context) (ReconcileResult, error) {
 	out := ReconcileResult{}
+	if e.UpdatesPaused() {
+		// Finish putting apps back where launchers look. Do not rename
+		// them again and do not put custom icons back while paused.
+		held := e.ContinuePause(ctx, "")
+		out.NameFixed += held.Moved
+		out.Skipped = append(out.Skipped, held.Notes...)
+		return out, nil
+	}
+	held := e.ContinuePause(ctx, "")
+	out.Skipped = append(out.Skipped, held.Notes...)
+	resumed := e.ResumeSuspended(ctx, "")
+	out.NameFixed += resumed.Moved
+	out.IconFixed += resumed.Icons
+	out.Skipped = append(out.Skipped, resumed.Notes...)
 	repair := e.RepairIdentities(ctx)
 	out.Checked += repair.Checked
 	out.NameFixed += repair.MovedBack
 	out.IconFixed += repair.IconsApplied
 	out.Skipped = append(out.Skipped, repair.Notes...)
+	synced := e.SyncNameModes(ctx, "")
+	out.NameFixed += synced.Moved
+	out.Skipped = append(out.Skipped, synced.Notes...)
 
 	state := e.SnapshotState()
 
@@ -49,6 +71,9 @@ func (e *Engine) Reconcile(ctx context.Context) (ReconcileResult, error) {
 		app, ok := e.appByBundle(r.App.BundleID, r.App.Path)
 		if !ok {
 			out.Skipped = append(out.Skipped, r.App.Name+": not in inventory; rescan needed")
+			continue
+		}
+		if e.bundlePaused(app.BundleID) {
 			continue
 		}
 		// One-time icon-scale migration: skins applied before the macOS

@@ -89,9 +89,11 @@ No accounts, no telemetry, no diagnostics maze. One screen:
 | **Setup & Permissions** | First launch shows live Ready / Granted — tested / Blocked / Not checked statuses. App Management is proven with the same harmless bundle-writability test used before a real change — never by pretending that opening Settings is a grant. Full Disk Access, Accessibility and Screen Recording are explicitly not requested. |
 | **Native icon scale** | Full-bleed publisher/App Store artwork is placed on the standard macOS icon grid (an 824px body centred in the 1024px canvas) when a Finder or full skin is applied, so skinned apps sit at the same visual size as native icons in Finder, the Dock and Launchpad. Artwork that already has proper macOS padding is never shrunk twice, and existing skins are refitted in place by the keeper. |
 | **Originals Vault** | Before anything changes, your app's original name and icon are saved under its stable bundle ID. Restore puts the IconCraft label and Finder icon back — even after the app updates. |
-| **Names launchers still recognise** | A custom name is a label inside IconCraft. The `.app` path, bundle ID, `Info.plist` and code signature stay as the publisher shipped them, so ArtCraft-style launchers, Sparkle, the Mac App Store and Homebrew casks still see the installed app and update it in place. Finder, Launchpad, the Dock and the menu bar keep the publisher's name: macOS has no separate display-name store that leaves both the path and the signed bundle untouched. |
-| **Skins that stick** | An update that replaces the bundle wipes the Finder custom icon. Turn on **Keep skins applied** and a tiny background agent puts that icon back and keeps your label. It does not rename the folder or edit the app. |
-| **Edit in one panel** | The pencil opens a single editor: the IconCraft label, the Finder icon, a live before/after preview, one **Save changes**, and **Restore original**. Saving does not rename the `.app` folder. |
+| **Names launchers still recognise** | The default, **Icon only (safe)**, keeps a custom name as a label inside IconCraft. The `.app` path, bundle ID, `Info.plist` and code signature stay as the publisher shipped them, so ArtCraft-style launchers, Sparkle, the Mac App Store and Homebrew casks still see the installed app and update it in place. Finder, Launchpad, the Dock and the menu bar keep the publisher's name: macOS has no separate display-name store that leaves both the path and the signed bundle untouched. |
+| **Full rename, when you ask for it** | Settings → **App names** → **Full rename** renames the `.app` folder, so Finder, the Dock and Launchpad show your name. The signed files are still not edited. Launchers that look up the publisher's folder name can stop seeing the app and install a second copy — IconCraft asks you to confirm before turning this on. Each app can override the choice. Switching back to Icon only puts the folder back when that path is free and keeps your name as a label. A second copy is never deleted. |
+| **Pause for updates** | Before updating through an app's own launcher, turn on **Pause for updates**. IconCraft puts every full-renamed app back at its original name and folder, restores the original Finder icon when that is safe, and stops the background keeper. The window and the menu bar say **Paused for updates: original names restored**. Turn it off afterwards and the custom names and icons come back, matched by bundle ID, including on a bundle the updater replaced. One app can be paused on its own. The choice is saved before any folder moves, so quitting halfway through stays paused. |
+| **Skins that stick** | An update that replaces the bundle wipes the Finder custom icon. Turn on **Keep skins applied** and a tiny background agent puts that icon back. In Icon only mode it also keeps your label and does not rename the folder. In Full rename mode it puts the custom folder name back as well, unless Pause for updates is on. |
+| **Edit in one panel** | The pencil opens a single editor: the name, the Finder icon, this app's name mode, a pause switch, a live before/after preview, one **Save changes**, and **Restore original**. In Icon only mode, saving does not rename the `.app` folder. |
 | **Fast** | Cached inventory paints instantly; scans, thumbnails and original-icon checks continue in the background. Content-addressed previews, single-flight native calls. |
 | **Native & private** | Go backend on an authenticated loopback port + a native AppKit/WebKit window. Nothing leaves your Mac except publisher icon lookups. No analytics. Ever. |
 | **Looks the part** | Modern dark-first UI with System / Light / Dark, following your Mac live. |
@@ -135,13 +137,21 @@ Then open IconCraft and complete **Finish setup**:
    app's icon, or *Choose image file…* for your own PNG/ICNS.
 4. Click the **pencil** to edit the app in one panel: type the name
    IconCraft should show, pick the Finder icon, preview the result and
-   **Save changes** — or **Restore original** from the same panel. The
-   `.app` folder, bundle ID and signature stay put, so the app's own
-   launcher or updater still finds it and updates that same copy. After
-   the update, IconCraft puts the Finder icon back. Finder, the Dock,
-   Launchpad and the menu bar keep the publisher's name.
-5. Changed your mind? **Restore** (per app) or **Restore all** puts back the
-   exact original icon and name.
+   **Save changes** — or **Restore original** from the same panel. In
+   the default Icon only mode the `.app` folder, bundle ID and signature
+   stay put, so the app's own launcher or updater still finds it and
+   updates that same copy. After the update, IconCraft puts the Finder
+   icon back. Finder, the Dock, Launchpad and the menu bar keep the
+   publisher's name.
+5. Want that name in Finder, the Dock and Launchpad too? Settings →
+   **App names** → **Full rename**, then confirm. Read the warning
+   first: some launchers install a second copy once the folder name
+   changes. Updating through the app's own launcher? Turn on **Pause
+   for updates** first. It puts the original folder name back and stops
+   the keeper. Turn it off when the update has finished.
+6. Changed your mind? **Restore** (per app) or **Restore all** puts back the
+   exact original icon and name. Switching Full rename back to Icon only
+   also puts the folder back where the launcher looks.
 
 ## 🔎 How the original-icon search works
 
@@ -172,11 +182,16 @@ property; IconCraft's code is MIT (see [License](#-license)).
 - Symlinked bundles, protected system paths, invalid/active-SVG artwork,
   oversized responses and non-publisher URL redirects are all rejected.
 - Only apps you select are modified. No global icon-cache purges, no binary
-  patching, no security-setting changes. A custom name does not rename the
-  `.app` folder or edit `Info.plist`. A custom icon is a Finder icon
-  (`NSWorkspace` `setIcon`), outside the signed `Contents` directory.
+  patching, no security-setting changes. In the default Icon only mode a
+  custom name does not rename the `.app` folder or edit `Info.plist`.
+  Full rename, which you turn on explicitly, renames only the outer
+  folder and still does not edit `Info.plist` or re-sign. A custom icon
+  is a Finder icon (`NSWorkspace` `setIcon`), outside the signed
+  `Contents` directory. Pause for updates puts a full-renamed folder
+  back and holds that Finder icon; it does not delete a second copy.
 - Apps an older IconCraft renamed or re-signed are repaired on launch:
-  a renamed folder is moved back when the original path is free, and a
+  a renamed folder is moved back when the original path is free, unless
+  you have chosen Full rename or Pause for updates is holding it, and a
   full skin still matching its backup is undone. A second copy that is
   already beside the original is left in place and reported, not deleted.
   The publisher's Developer ID signature cannot be rebuilt; the next

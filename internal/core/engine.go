@@ -65,6 +65,12 @@ func Open(dir, home string, n Native) (*Engine, error) {
 	if e.State.Vault == nil {
 		e.State.Vault = map[string]SavedOriginal{}
 	}
+	if e.State.NameModes == nil {
+		e.State.NameModes = map[string]string{}
+	}
+	if e.State.PausedBundles == nil {
+		e.State.PausedBundles = map[string]bool{}
+	}
 	if b, err = ReadLimited(filepath.Join(dir, "catalogue.json"), 3<<20); err == nil {
 		var c Catalog
 		if json.Unmarshal(b, &c) == nil && len(c.Apps) > 0 {
@@ -73,9 +79,17 @@ func Open(dir, home string, n Native) (*Engine, error) {
 	}
 	e.loadInventory()
 	e.recoverRenames()
-	// Put bundles that an older IconCraft renamed or re-signed back where
-	// launchers look, before the first scan. Failures are retried by Reconcile.
-	_ = e.RepairIdentities(context.Background())
+	e.recoverPauseMoves()
+	// Finish a pause that was saved before every folder had moved, including
+	// a per-app pause and a quit halfway through the restore. A global pause
+	// then stays paused. Otherwise put un-paused apps back and make the
+	// folders match the saved name mode.
+	_ = e.ContinuePause(context.Background(), "")
+	if !e.UpdatesPaused() {
+		_ = e.ResumeSuspended(context.Background(), "")
+		_ = e.RepairIdentities(context.Background())
+		_ = e.SyncNameModes(context.Background(), "")
+	}
 	return e, nil
 }
 func (e *Engine) save() error {
@@ -240,11 +254,21 @@ func (e *Engine) Scan(ctx context.Context) ([]App, []string, error) {
 		a.InfoStamp = MetadataStamp(a.Path)
 		a.IconStamp = PreviewStamp(a.Path)
 		a.Renamed = false
+		a.NameMode = e.nameModeLocked(a.BundleID)
+		a.NameChoice = e.State.NameModes[a.BundleID]
+		a.Paused = e.bundlePausedLocked(a.BundleID)
 		for _, nr := range e.State.Renames {
-			// Newest applied label for this exact bundle wins. A label does
-			// not rename the folder; Renamed means IconCraft is showing a
-			// name other than the .app folder.
-			if nr.Status == "applied" && nr.BundleID == a.BundleID && nr.To == a.Path {
+			// Newest applied label or folder rename for this exact path.
+			// A suspended rename is parked at From under the original
+			// folder name; the custom name is not shown as current.
+			if nr.BundleID != a.BundleID {
+				continue
+			}
+			if nr.Suspended && nr.From == a.Path && (nr.Status == "applied" || nr.Status == "pause-blocked") {
+				a.Paused = true
+				continue
+			}
+			if nr.Status == "applied" && !nr.Suspended && nr.To == a.Path {
 				a.Name = nr.NewName
 				a.Renamed = nr.NewName != bundleFolderName(a.Path)
 			}

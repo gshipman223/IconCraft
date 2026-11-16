@@ -24,6 +24,13 @@ type Settings struct {
 	NotifyRepaired   bool `json:"notifyRepaired"`
 	NotifyAttention  bool `json:"notifyAttention"`
 	AutoCheckUpdates bool `json:"autoCheckUpdates"`
+	// NameMode is "safe" (IconCraft label only) or "full" (rename the .app
+	// folder so Finder, the Dock and Launchpad show the custom name).
+	// Empty means safe.
+	NameMode string `json:"nameMode,omitempty"`
+	// UpdatesPaused restores full-renamed apps to the folder name their
+	// launcher expects and stops the keeper from renaming them back.
+	UpdatesPaused bool `json:"updatesPaused,omitempty"`
 
 	// Update-check cache, managed by RecordUpdateCheck (not user input).
 	LastUpdateCheck string `json:"lastUpdateCheck,omitempty"`
@@ -39,6 +46,7 @@ func DefaultSettings() Settings {
 		ShowMenuBarIcon:  true,
 		NotifyAttention:  true,
 		AutoCheckUpdates: true,
+		NameMode:         NameModeSafe,
 	}
 }
 
@@ -62,6 +70,13 @@ func (e *Engine) SaveSettings(s Settings) (Settings, error) {
 	}
 	if s.StartInMenuBar && !s.ShowMenuBarIcon {
 		return Settings{}, errors.New("starting in the menu bar needs the menu bar icon turned on — otherwise there would be nothing to click after login")
+	}
+	switch s.NameMode {
+	case "", NameModeSafe:
+		s.NameMode = NameModeSafe
+	case NameModeFull:
+	default:
+		return Settings{}, errors.New("name mode must be Icon only (safe) or Full rename")
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()

@@ -20,6 +20,9 @@ type RenameRecord struct {
 	NewName     string `json:"newName"`
 	Fingerprint string `json:"fingerprint"`
 	Status      string `json:"status"`
+	// Suspended means a full rename is waiting: the folder is at From
+	// (the name launchers look for) and To is the custom name to put back.
+	Suspended bool `json:"suspended,omitempty"`
 }
 
 func ValidateName(s string) (string, error) {
@@ -38,22 +41,17 @@ func ValidateName(s string) (string, error) {
 	return s, nil
 }
 
-// Rename remembers the name IconCraft shows for this app. It does not rename
-// the .app folder, edit Info.plist (CFBundleName, CFBundleDisplayName,
-// CFBundleIdentifier), replace icon resources, or re-sign.
-//
-// Finder, Launchpad, the Dock and the menu bar keep the name macOS reads
-// from the folder and the signed bundle. Those surfaces have no separate
-// display-name store: a different Finder name means renaming the folder or
-// editing the signed plist, and both make path-based launchers (ArtCraft
-// looks up /Applications/<Official>.app and then CFBundleIdentifier) and
-// signature-based updaters (Sparkle, the Mac App Store) treat the app as
-// missing. The label lives in IconCraft's journal, so an update that
-// replaces the bundle cannot wipe it and cannot hide the app.
+// Rename records the name the user wants. In the default Icon only mode it
+// does not rename the .app folder, edit Info.plist, or re-sign: Finder, the
+// Dock and Launchpad keep the publisher's name, which is what path-based
+// launchers look up. Full rename mode renames the outer .app folder, the
+// same way an older IconCraft did, so those surfaces show the custom name.
+// It still does not edit Info.plist or the signature. There is no supported
+// way to change the Finder name without one of those two.
 //
 // Windows and Linux (ports branch) rename a shortcut or desktop file via
 // launcherNamer and return before this macOS path. Do not move the bundle
-// here when that hook is added.
+// here when that hook is added, except the explicit full-rename mode below.
 func (e *Engine) Rename(ctx context.Context, id, name string) (App, error) {
 	name, err := ValidateName(name)
 	if err != nil {
@@ -74,6 +72,14 @@ func (e *Engine) Rename(ctx context.Context, id, name string) (App, error) {
 		return a, err
 	}
 	e.captureOriginalLocked(ctx, a) // save the original to the vault before first change
+	if e.nameModeLocked(a.BundleID) == NameModeFull && !e.bundlePausedLocked(a.BundleID) {
+		return e.renameFolderLocked(ctx, a, name)
+	}
+	if e.bundlePausedLocked(a.BundleID) && e.retargetSuspendedLocked(a, name) {
+		// The folder stays where the launcher looks. The new name is what
+		// unpause will apply. A second label would hide that record.
+		return a, nil
+	}
 	if a.Name == name && labelForLocked(e, a) == name {
 		return a, nil
 	}

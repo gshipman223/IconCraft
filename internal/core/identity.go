@@ -46,7 +46,12 @@ func (e *Engine) RepairIdentities(ctx context.Context) RepairResult {
 	e.mu.Unlock()
 
 	for _, nr := range renames {
-		if nr.Status != "applied" || nr.From == "" || nr.From == nr.To || nr.BundleID == "" {
+		if nr.Status != "applied" || nr.From == "" || nr.From == nr.To || nr.BundleID == "" || nr.Suspended {
+			continue
+		}
+		// Full rename is opt-in. Repair must not undo it, and must not
+		// move an app that Pause for updates is holding at its original path.
+		if e.currentMode(nr.BundleID) == NameModeFull || e.bundlePaused(nr.BundleID) {
 			continue
 		}
 		out.Checked++
@@ -126,6 +131,7 @@ func (e *Engine) finishMoveBack(nr RenameRecord) {
 		}
 		r.To = r.From
 		r.Status = "applied"
+		r.Suspended = false
 		e.relocateLocked(nr.To, nr.From, nr.BundleID, nr.NewName)
 		break
 	}
@@ -171,6 +177,7 @@ func (e *Engine) collapseLabel(nr RenameRecord) {
 		}
 		r.To = r.From
 		r.Status = "applied"
+		r.Suspended = false
 		if cur, ok := e.Apps[appID(App{Path: r.From, BundleID: r.BundleID})]; ok {
 			cur.Name = r.NewName
 			cur.Renamed = r.NewName != bundleFolderName(r.From)

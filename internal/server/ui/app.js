@@ -153,6 +153,8 @@ function render(){
  $('replace').disabled=busy||count===0;$('selection-count').textContent=t('footer.selected',{n:count});$('restore-all').disabled=busy||!model.records.some(live)&&!model.apps.some(a=>a.renamed);
  $('scan').disabled=scanning||busy;$('scan').classList.toggle('refreshing',scanning);$('folder').disabled=busy||scanning;
  $('keepalive').textContent=t('footer.keepalive',{state:model.keepAlive?t('common.on'):t('common.off')});$('keepalive').classList.toggle('on',model.keepAlive);
+ const globalPause=!!(model.settings&&model.settings.updatesPaused),somePaused=model.apps.some(a=>a.paused),banner=$('pause-banner');
+ if(banner){banner.hidden=!globalPause&&!somePaused;const label=banner.querySelector('span');if(label)label.textContent=globalPause?t('pause.banner'):t('pause.bannerSome');}
  const checks=all.filter(a=>rs(a).checking).length;$('activity').classList.toggle('updating',checks>0||scanning);
  $('status').textContent=scanning?(all.length?tn(all.length,'status.scanningCount'):t('status.scanning')):checks?tn(all.length,'status.refreshing',{checks}):tn(all.length,'status.ready',{ready:all.filter(ready).length});
  $('loading').hidden=!firstLoad||all.length>0;$('empty').hidden=firstLoad||filtered.length>0;
@@ -278,7 +280,9 @@ $('browse').addEventListener('click',()=>{if(!pickerApp)return;const a=pickerApp
    Save records the label, then sets the Finder icon. Neither step renames
    the .app folder or edits the signed bundle. A failure after a success
    is reported as exactly that. */
-let editIconMode='keep',editViews=null;
+let editIconMode='keep',editViews=null,pendingNameMode=false,settingsNameArmed=false;
+function desiredName(a){let name='';for(const r of model.renames){if(r.bundleId===a.bundleId&&(r.status==='applied'||r.status==='pause-blocked'||r.status==='suspending'||r.status==='resuming'))name=r.newName||name;}return name;}
+function shownName(a){return a.paused?(desiredName(a)||a.name):a.name;}
 function vaultText(sv){
  if(!sv)return t('edit.vaultNone');
  return t('edit.vaultSaved',{name:sv.appName});
@@ -288,7 +292,7 @@ function editState(){
  const live=model.records.some(r=>r.appId===a.id&&live_(r));
  const asset=chosen(a),skinned=model.rebrands[a.bundleId]||'';
  const name=$('name-input').value.trim();
- const nameChanged=!!name&&name!==a.name;
+ const nameChanged=!!name&&name!==shownName(a);
  const iconApply=editIconMode==='apply'&&!!asset;
  return {a,live,asset,skinned,name,nameChanged,iconApply,any:nameChanged||iconApply};
 }
@@ -312,7 +316,7 @@ function drawEdit(){
  const afterAsset=s.iconApply&&s.asset;
  setImage(editViews.after,afterAsset?assetIcon(s.asset):appIcon(a),t('row.iconAlt',{name:s.name||a.name}),afterAsset?assetFallback(s.asset):'');
  $('edit-after-name').textContent=s.name||a.name;
- const parts=[];if(s.nameChanged)parts.push(t('edit.sumName'));if(s.iconApply)parts.push(t('edit.sumIcon'));
+ const parts=[];if(s.nameChanged)parts.push(a.nameMode==='full'&&!a.paused?t('edit.sumNameFull'):t('edit.sumName'));if(s.iconApply)parts.push(t('edit.sumIcon'));
  $('edit-after-sub').textContent=parts.length?parts.join(SEP):t('edit.sumNone');
  /* name */
  $('name-original').hidden=!(model.originals[a.craftId]?.product||a.equivalent);
@@ -331,10 +335,19 @@ function drawEdit(){
  save.classList.remove('armed');
  save.textContent=t('edit.save');
  $('edit-change-icon').disabled=busy;
+ $('name-hint').textContent=a.nameMode==='full'&&!a.paused?t('edit.nameHintFull'):t('edit.nameHint');
+ if(!pendingNameMode)$('edit-name-mode').value=a.nameChoice||'';
+ $('edit-name-mode').disabled=busy;
+ $('edit-name-confirm').hidden=!pendingNameMode;
+ $('edit-name-confirm').disabled=busy;
+ const globalPause=!!currentSettings().updatesPaused;
+ $('edit-pause-app').checked=globalPause||!!a.paused;
+ $('edit-pause-app').disabled=busy||globalPause;
 }
 function openRename(a){if(busy)return;editApp=a;const live=model.records.some(r=>r.appId===a.id&&live_(r));
  editIconMode=chosen(a)&&(!live||!!model.choices[a.bundleId])?'apply':'keep';
- $('name-input').value=a.name;dialogError('rename-error','');drawEdit();
+ pendingNameMode=false;
+ $('name-input').value=shownName(a);dialogError('rename-error','');drawEdit();
  $('rename-dialog').showModal();$('rename-dialog').scrollTop=0;$('name-input').focus();$('name-input').select();}
 function closeRename(){if(!busy){$('rename-dialog').close();editApp=null;}}
 async function saveEdit(){
@@ -361,18 +374,23 @@ $('name-input').addEventListener('input',drawEdit);
 $('edit-change-icon').addEventListener('click',()=>{if(editApp)openPicker(editApp);});
 $('name-original').addEventListener('click',()=>{if(editApp){$('name-input').value=model.originals[editApp.craftId]?.product||editApp.equivalent.replace(' (suggested)','');drawEdit();}});
 $('name-save').addEventListener('click',saveEdit);$('name-restore').addEventListener('click',restoreFromEdit);$('name-input').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveEdit();}});
+async function applyAppNameMode(mode){if(busy||!editApp)return;const a=editApp;busy=true;dialogError('rename-error','');drawEdit();render();try{await api('name-mode',{appId:a.id,mode,confirmed:mode==='full'});await rescan();const fresh=model.apps.find(x=>x.bundleId===a.bundleId);if(fresh)editApp=fresh;}catch(e){dialogError('rename-error',e.message);}busy=false;drawEdit();render();}
+$('edit-name-mode').addEventListener('change',()=>{if(busy||!editApp)return;const mode=$('edit-name-mode').value;if(mode==='full'&&editApp.nameMode!=='full'){pendingNameMode=true;drawEdit();return;}pendingNameMode=false;applyAppNameMode(mode);});
+$('edit-name-confirm').addEventListener('click',()=>{if(busy||!editApp)return;pendingNameMode=false;applyAppNameMode('full');});
+$('edit-pause-app').addEventListener('change',async()=>{if(busy||!editApp||currentSettings().updatesPaused)return;const a=editApp,paused=$('edit-pause-app').checked;busy=true;dialogError('rename-error','');drawEdit();render();try{await api('pause-app',{appId:a.id,paused});await rescan();const fresh=model.apps.find(x=>x.bundleId===a.bundleId);if(fresh)editApp=fresh;}catch(e){dialogError('rename-error',e.message);}busy=false;drawEdit();render();});
 $('rename-close').addEventListener('click',closeRename);$('rename-cancel').addEventListener('click',closeRename);$('picker-close').addEventListener('click',closePicker);$('picker-search').addEventListener('input',drawPicker);
 $('rename-dialog').addEventListener('close',()=>{editApp=null;});
 for(const id of ['picker','rename-dialog']){$(id).addEventListener('cancel',e=>{if(busy)e.preventDefault();});$(id).addEventListener('click',e=>{if(e.target===$(id)&&!busy){const r=$(id).getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$(id).close();}});}
 async function openSupport(target){try{const r=await api('support',{target});if(!r.opened&&r.url)window.open(r.url,'_blank');else if(r.opened)tell(target==='paypal'?t('support.openingPaypal'):t('support.openingGithub'));}catch(e){tell((target==='paypal'?t('support.paypalFallback'):t('support.githubFallback')),true);}}
 $('keepalive').addEventListener('click',async()=>{if(busy)return;busy=true;render();try{const r=await api('keepalive',{enabled:!model.keepAlive});model.keepAlive=!!r.enabled;tell(model.keepAlive?t('keepalive.on'):t('keepalive.off'));}catch(e){tell(e.message,true);}finally{busy=false;render();}});
 function settingsMessage(text,error=false){const m=$('settings-message'),e=$('settings-error');if(error){e.textContent=text;e.hidden=false;m.hidden=true;}else{m.textContent=text;m.hidden=!text;e.hidden=true;}}
-function currentSettings(){return model.settings||{launchAtLogin:false,startInMenuBar:false,showDockIcon:true,showMenuBarIcon:true,notifyRepaired:false,notifyAttention:true,autoCheckUpdates:true};}
+function currentSettings(){return model.settings||{launchAtLogin:false,startInMenuBar:false,showDockIcon:true,showMenuBarIcon:true,notifyRepaired:false,notifyAttention:true,autoCheckUpdates:true,nameMode:'safe',updatesPaused:false};}
 function drawUpdateStatus() {const s=currentSettings(),el=$('update-status');if(s.latestVersion){const current=$('version').textContent||'';el.textContent=(newerVersion(s.latestVersion,current)?t('settings.available',{version:s.latestVersion}):t('settings.latest',{version:current}))+(s.lastUpdateCheck?' '+t('settings.lastChecked',{when:fmtDate(s.lastUpdateCheck)}):'');}else el.textContent=t('settings.updatesText');}
-function openSettings() {const s=currentSettings();$('set-login').checked=!!s.launchAtLogin;$('set-menustart').checked=!!s.startInMenuBar;$('set-dock').checked=!!s.showDockIcon;$('set-menubar').checked=!!s.showMenuBarIcon;$('set-notify-repaired').checked=!!s.notifyRepaired;$('set-notify-attention').checked=!!s.notifyAttention;$('set-autoupdate').checked=!!s.autoCheckUpdates;settingsMessage('');drawUpdateStatus();$('settings-dialog').showModal();}
+function openSettings() {const s=currentSettings();$('set-login').checked=!!s.launchAtLogin;$('set-menustart').checked=!!s.startInMenuBar;$('set-dock').checked=!!s.showDockIcon;$('set-menubar').checked=!!s.showMenuBarIcon;$('set-notify-repaired').checked=!!s.notifyRepaired;$('set-notify-attention').checked=!!s.notifyAttention;$('set-autoupdate').checked=!!s.autoCheckUpdates;$('set-name-mode').value=s.nameMode==='full'?'full':'safe';$('set-pause').checked=!!s.updatesPaused;settingsNameArmed=false;$('settings-save').textContent=t('settings.save');settingsMessage('');drawUpdateStatus();$('settings-dialog').showModal();}
 function closeSettings(){if($('settings-dialog').open)$('settings-dialog').close();}
-async function saveSettings(){const s={launchAtLogin:$('set-login').checked,startInMenuBar:$('set-menustart').checked,showDockIcon:$('set-dock').checked,showMenuBarIcon:$('set-menubar').checked,notifyRepaired:$('set-notify-repaired').checked,notifyAttention:$('set-notify-attention').checked,autoCheckUpdates:$('set-autoupdate').checked};try{const r=await api('settings',{settings:s});model.settings=r.settings;model.loginAgent=!!r.loginAgent;closeSettings();tell(r.warning||t('settings.saved')+(s.showDockIcon?'':' '+t('settings.leavingDock')),!!r.warning);}catch(e){settingsMessage(e.message,true);}}
+async function saveSettings(){const nameMode=$('set-name-mode').value==='full'?'full':'safe',prev=currentSettings(),turningFull=nameMode==='full'&&(prev.nameMode||'safe')!=='full';if(turningFull&&!settingsNameArmed){settingsNameArmed=true;$('settings-save').textContent=t('settings.confirmFull');settingsMessage(t('settings.nameFullWarn'));return;}const confirmed=settingsNameArmed;settingsNameArmed=false;const s={launchAtLogin:$('set-login').checked,startInMenuBar:$('set-menustart').checked,showDockIcon:$('set-dock').checked,showMenuBarIcon:$('set-menubar').checked,notifyRepaired:$('set-notify-repaired').checked,notifyAttention:$('set-notify-attention').checked,autoCheckUpdates:$('set-autoupdate').checked,nameMode,updatesPaused:$('set-pause').checked};try{const r=await api('settings',{settings:s,confirmed});model.settings=r.settings;model.loginAgent=!!r.loginAgent;$('settings-save').textContent=t('settings.save');closeSettings();const notes=r.notes&&r.notes.length?' '+r.notes.join(' '):'';tell((r.warning||t('settings.saved')+(s.showDockIcon?'':' '+t('settings.leavingDock')))+notes,!!r.warning);await rescan();}catch(e){settingsMessage(e.message,true);}}
 $('settings-open').addEventListener('click',openSettings);$('settings-close').addEventListener('click',closeSettings);$('settings-cancel').addEventListener('click',closeSettings);$('settings-save').addEventListener('click',saveSettings);
+$('set-name-mode').addEventListener('change',()=>{settingsNameArmed=false;$('settings-save').textContent=t('settings.save');});
 $('set-notify-test').addEventListener('click',async()=>{try{await api('test-notification',{});settingsMessage(t('settings.testSent'));}catch(e){settingsMessage(e.message,true);}});
 $('set-update-check').addEventListener('click',async()=>{settingsMessage(t('settings.checkingGithub'));try{const r=await api('update-check',{});if(model.settings){model.settings.latestVersion=r.latest;model.settings.lastUpdateCheck=r.checkedAt;}drawUpdateStatus();settingsMessage(r.updateAvailable?t('settings.updateAvailable',{version:r.latest}):t('settings.latestDone',{version:r.current}));if(r.updateAvailable&&r.releaseUrl)window.open(r.releaseUrl,'_blank');}catch(e){settingsMessage(e.message,true);}});
 $('set-refresh-cache').addEventListener('click',async()=>{try{const r=await api('refresh-icon-cache',{});settingsMessage(t('settings.cacheRefreshed',{n:r.refreshed}));}catch(e){settingsMessage(e.message,true);}});

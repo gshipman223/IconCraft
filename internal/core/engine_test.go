@@ -23,6 +23,7 @@ type fakeNative struct {
 	bundleNames      map[string]string
 	failSet          bool
 	failRestore      bool
+	follow           bool
 	probeErr         error
 	badSignature     bool
 	changeExecutable bool
@@ -57,11 +58,21 @@ func cloneSnapshot(s Snapshot) Snapshot {
 func (n *fakeNative) Inspect(_ context.Context, ps []string) ([]App, error) {
 	a := []App{}
 	for _, p := range ps {
-		if p == n.app.Path {
-			a = append(a, n.app)
+		if p == n.app.Path || (n.follow && dirExists(p)) {
+			app := n.app
+			app.Path = p
+			if n.follow {
+				app.Name = strings.TrimSuffix(filepath.Base(p), ".app")
+			}
+			a = append(a, app)
 		}
 	}
 	return a, nil
+}
+
+func dirExists(p string) bool {
+	fi, err := os.Lstat(p)
+	return err == nil && fi.IsDir()
 }
 func (n *fakeNative) Snapshot(p string) (Snapshot, error) { return cloneSnapshot(n.states[p]), nil }
 func (n *fakeNative) Set(_ context.Context, p, icon string) error {
